@@ -29,20 +29,14 @@ cd influencer-backend
 .env 파일 생성
 
 bash
-복사
-편집
 cp .env.example .env
 도커 실행 확인
 
 bash
-복사
-편집
 docker --version
 실행
 
 bash
-복사
-편집
 docker-compose up --build
 🚪 접속 정보
 서비스	주소
@@ -52,13 +46,9 @@ Django Admin	http://localhost:8000/admin
 
 🧑‍💻 관리자 계정 만들기 (선택)
 bash
-복사
-편집
 docker-compose exec backend python manage.py createsuperuser
 🧪 테스트
 bash
-복사
-편집
 # 백엔드 유닛 테스트
 docker-compose exec backend python manage.py test
 🔐 환경 변수 (.env 설정)
