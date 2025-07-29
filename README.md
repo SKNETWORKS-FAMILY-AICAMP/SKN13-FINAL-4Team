@@ -15,7 +15,6 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  # 1. Redis 서비스 추가
   redis:
     image: "redis:7-alpine"
     restart: always
