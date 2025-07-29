@@ -1,0 +1,16 @@
+# requirements.txt
+
+# Django & DRF
+Django>=4.2
+djangorestframework
+
+# Channels
+channels
+channels_redis
+daphne
+
+# PostgreSQL
+psycopg2-binary
+
+# cors
+django-cors-headers
