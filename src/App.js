@@ -1,35 +1,16 @@
-// import logo from './logo.svg';
-// import './App.css';
+// frontend/src/App.js
 
-// function App() {
-//   return (
-//     <div className="App">
-//       <header className="App-header">
-//         <img src={logo} className="App-logo" alt="logo" />
-//         <p>
-//           Edit <code>src/App.js</code> and save to reload.
-//         </p>
-//         <a
-//           className="App-link"
-//           href="https://reactjs.org"
-//           target="_blank"
-//           rel="noopener noreferrer"
-//         >
-//           Learn React
-//         </a>
-//       </header>
-//     </div>
-//   );
-// }
+import React from 'react';
+import ChatComponent from './components/ChatComponent'; // ChatComponent 불러오기
+import './App.css';
 
-// export default App;
-  
-fetch("http://localhost:8000/api/recommend", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({ keyword: "헤어드라이어" })
-})
-  .then(res => res.json())
-  .then(data => console.log(data));
+function App() {
+  return (
+    // 전체 화면을 어두운 배경으로 설정
+    <div className="bg-dark vh-100">
+      <ChatComponent />
+    </div>
+  );
+}
+
+export default App;
