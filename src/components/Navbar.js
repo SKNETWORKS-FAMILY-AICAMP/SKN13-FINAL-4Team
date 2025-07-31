@@ -1,31 +1,28 @@
-// frontend/src/components/Navbar.js
-
 import React from 'react';
+import { Link } from 'react-router-dom';
 
-function Navbar() {
+// App.js로부터 isLoggedIn prop만 받습니다.
+function Navbar({ isLoggedIn }) {
   return (
-    // Bootstrap Navbar
-    <nav className="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav className="navbar navbar-expand navbar-dark bg-dark">
       <div className="container-fluid">
-        {/* 사이트 로고 또는 이름 */}
-        <a className="navbar-brand" href="/">Influencer App</a>
-        
-        {/* 모바일 화면용 토글 버튼 */}
-        <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-          <span className="navbar-toggler-icon"></span>
-        </button>
-        
-        {/* 메뉴 링크 */}
-        <div className="collapse navbar-collapse" id="navbarNav">
-          <ul className="navbar-nav">
+        {/* 1. 배너(브랜드)를 누르면 홈 화면으로 이동합니다. */}
+        <Link className="navbar-brand" to="/">Influencer App</Link>
+
+        {/* 2. 오른쪽 버튼: ms-auto 클래스로 오른쪽 정렬합니다. */}
+        <ul className="navbar-nav ms-auto">
+          {isLoggedIn ? (
+            // 로그인 상태일 때: "프로필" 버튼
             <li className="nav-item">
-              <a className="nav-link active" aria-current="page" href="/">홈</a>
+              <Link className="nav-link" to="/management">프로필</Link>
             </li>
+          ) : (
+            // 로그아웃 상태일 때: "로그인" 버튼
             <li className="nav-item">
-              <a className="nav-link" href="/chat/lobby">채팅</a>
+              <Link className="nav-link" to="/login">로그인</Link>
             </li>
-          </ul>
-        </div>
+          )}
+        </ul>
       </div>
     </nav>
   );
