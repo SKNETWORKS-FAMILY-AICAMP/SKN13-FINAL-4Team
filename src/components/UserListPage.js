@@ -20,7 +20,7 @@ function UserListPage() {
             
             try {
                 // 1. 현재 로그인한 유저 정보를 가져와서 관리자인지 확인
-                const meResponse = await axios.get('http://localhost:8000/users/me/', {
+                const meResponse = await axios.get('http://localhost:8000/api/users/me/', {
                     headers: { Authorization: `Bearer ${accessToken}` }
                 });
                 
@@ -29,8 +29,8 @@ function UserListPage() {
                 if (meResponse.data.is_staff) {
                     // 2. 관리자라면 전체 유저 목록을 불러옴
                     try {
-                        const response = await axios.get('http://localhost:8000/admin/users/', {
-                            headers: { Authorization: `Bearer ${accessToken}` }
+                        const response = await axios.get('http://localhost:8000/api/users/management/', {
+                        headers: { Authorization: `Bearer ${accessToken}` }
                         });
 
                         const userList = Array.isArray(response.data) ? response.data : response.data.results;
@@ -66,7 +66,7 @@ function UserListPage() {
 
         if (window.confirm(`${userToUpdate.username} 님의 관리자 권한을 ${newStatus ? '부여' : '해제'}하시겠습니까?`)) {
             try {
-                await axios.patch(`http://localhost:8000/admin/users/${userToUpdate.id}/`, 
+                await axios.patch(`http://localhost:8000/api/users/management/${userToUpdate.id}/`, 
                     { is_staff: newStatus },
                     { headers: { Authorization: `Bearer ${accessToken}` } }
                 );

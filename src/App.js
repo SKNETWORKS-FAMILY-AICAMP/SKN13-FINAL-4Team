@@ -72,7 +72,7 @@ function App() {
           <Route path="/find-password" element={<div>비밀번호 찾기 페이지</div>} />
           
           {/* 관리자용 유저 목록 페이지 */}
-          <Route path="/management/userlist" element={<UserListPage />} />
+          <Route path="/management" element={<UserListPage />} />
           
           {/* 개인 프로필 페이지 */}
           <Route path="/profile" element={<ProfilePage />} />
