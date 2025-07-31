@@ -62,7 +62,6 @@ function LoginForm({ onLogin }) {
                                         required 
                                     />
                                 </Form.Group>
-
                                 <Form.Group className="mb-3" controlId="formBasicPassword">
                                     <Form.Label>비밀번호</Form.Label>
                                     <Form.Control 
@@ -74,23 +73,22 @@ function LoginForm({ onLogin }) {
                                         required
                                     />
                                 </Form.Group>
-                                
+                                <br/>
                                 <div className="d-grid">
                                     <Button variant="primary" type="submit">
                                         로그인
                                     </Button>
                                 </div>
                             </Form>
-
                         </Card.Body>
                     </Card>
-                 <div className="text-center mt-3">
-                    <Link to="/find-id" className="text-decoration-none small">아이디 찾기</Link>
-                    <span className="mx-2 small">|</span>
-                    <Link to="/find-password" className="text-decoration-none small">비밀번호 찾기</Link>
-                    <span className="mx-2 small">|</span>
-                    <Link to="/signup/terms" className="text-decoration-none small">회원가입</Link>
-                </div>
+                    <div className="text-center mt-3">
+                        <Link to="/find-id" className="text-decoration-none small">아이디 찾기</Link>
+                        <span className="mx-2 small">|</span>
+                        <Link to="/find-password" className="text-decoration-none small">비밀번호 찾기</Link>
+                        <span className="mx-2 small">|</span>
+                        <Link to="/signup/terms" className="text-decoration-none small">회원가입</Link>
+                    </div>
                 </Col>
             </Row>
         </Container>

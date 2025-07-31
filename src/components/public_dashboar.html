@@ -1,0 +1,9 @@
+<h1>대시보드</h1>
+<p>총 사용자 수: {{ user_count }}</p>
+<hr>
+<h2>사용자 목록</h2>
+<ul>
+    {% for user in all_users %}
+        <li>{{ user.username }} ({{ user.email }})</li>
+    {% endfor %}
+</ul>

@@ -5,7 +5,8 @@ import Navbar from './components/Navbar';
 import SignupForm from './components/SignupForm';
 import LoginForm from './components/LoginForm';
 import TermsPage from './components/TermsPage';
-import ManagementPage from './components/ManagementPage';
+import UserListPage from './components/UserListPage';
+import ProfilePage from './components/ProfilePage';
 import HomeTemporary from './components/HomeTemporary';
 
 function App() {
@@ -51,19 +52,30 @@ function App() {
     setUsername('');
     window.location.href = '/';
   };
-
   return (
     <Router>
       <div className="App">
         <Navbar isLoggedIn={isLoggedIn} username={username} onLogout={handleLogout} />
         <Routes>
+          {/* 기본 경로는 임시 홈 페이지로 설정 */}
           <Route path="/" element={<HomeTemporary />} />
+          
+          {/* 회원가입 2단계 경로 */}
           <Route path="/signup/terms" element={<TermsPage />} />
           <Route path="/signup" element={<SignupForm />} />
+          
+          {/* 로그인 페이지 (onLogin props 전달) */}
           <Route path="/login" element={<LoginForm onLogin={handleLogin} />} />
+          
+          {/* 아이디/비밀번호 찾기 페이지 */}
           <Route path="/find-id" element={<div>아이디 찾기 페이지</div>} />
           <Route path="/find-password" element={<div>비밀번호 찾기 페이지</div>} />
-          <Route path="/management" element={<ManagementPage />} />
+          
+          {/* 관리자용 유저 목록 페이지 */}
+          <Route path="/management/userlist" element={<UserListPage />} />
+          
+          {/* 개인 프로필 페이지 */}
+          <Route path="/profile" element={<ProfilePage />} />
         </Routes>
       </div>
     </Router>
