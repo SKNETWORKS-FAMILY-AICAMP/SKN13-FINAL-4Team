@@ -23,7 +23,7 @@ from rest_framework_simplejwt.views import (
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('users/', include('users.urls')), 
+    path('api/users/', include('users.urls')), 
 
     # 로그인(토큰 발급)과 토큰 재발급 API 경로
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

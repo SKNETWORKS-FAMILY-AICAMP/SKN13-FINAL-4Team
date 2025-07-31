@@ -9,7 +9,7 @@ from .views import (
 )
 
 router = DefaultRouter()
-router.register('admin/users', UserAdminViewSet, basename='user-admin')
+router.register('management', UserAdminViewSet, basename='user-admin')
 
 urlpatterns = [
     path('signup/', UserRegistrationAPIView.as_view(), name='user-signup-api'),
