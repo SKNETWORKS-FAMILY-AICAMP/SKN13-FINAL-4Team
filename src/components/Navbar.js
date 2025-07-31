@@ -12,7 +12,7 @@ function Navbar({ isLoggedIn, onLogout }) {
       const accessToken = localStorage.getItem('accessToken');
       if (isLoggedIn && accessToken) {
         try {
-          const response = await axios.get('http://localhost:8000/users/me/', {
+          const response = await axios.get('http://localhost:8000/api/users/me/', {
             headers: { Authorization: `Bearer ${accessToken}` }
           });
           setUser(response.data);

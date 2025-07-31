@@ -1,48 +1,57 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode'; // jwt-decode: 토큰 디코딩 라이브러리
+import { jwtDecode } from 'jwt-decode';
+import axios from 'axios'; // axios 임포트
 import Navbar from './components/Navbar';
 import SignupForm from './components/SignupForm';
 import LoginForm from './components/LoginForm';
 import TermsPage from './components/TermsPage';
 import UserListPage from './components/UserListPage';
 import ProfilePage from './components/ProfilePage';
+import StreamingPage from './components/StreamingPage';
 import HomeTemporary from './components/HomeTemporary';
 
 function App() {
-  /* [07/31 Lee]
-  메인 함수입니다.
-  앱의 전체 구성을 담당하며, 로그인 상태도 App 컴포넌트에서 관리하도록 수정했습니다. */
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
+
+  // 사용자 정보를 가져와 상태를 설정하는 함수
+  const fetchAndSetUser = async (token) => {
+    try {
+      // 1. 토큰 유효성 검사 (만료 시간)
+      const decoded = jwtDecode(token);
+      if (decoded.exp * 1000 < Date.now()) {
+        throw new Error('Token expired');
+      }
+      
+      // 2. 서버에서 사용자 정보 가져오기
+      const response = await axios.get('http://localhost:8000/api/users/me/', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      // 3. 상태 업데이트
+      setIsLoggedIn(true);
+      // 닉네임이 있으면 닉네임을, 없으면 username을 사용
+      setUsername(response.data.nickname); 
+    } catch (error) {
+      console.error('Failed to fetch user data or token is invalid:', error);
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      setIsLoggedIn(false);
+      setUsername('');
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (token) {
-      try {
-        const decoded = jwtDecode(token);
-        if (decoded.exp * 1000 > Date.now()) {
-          setIsLoggedIn(true);
-          setUsername(decoded.username); // 토큰에서 username을 가져올 수 있다고 가정하고 작성한 코드입니다.
-        } else {
-          localStorage.removeItem('accessToken');
-        }
-      } catch (e) {
-        console.error('Invalid token:', e);
-        localStorage.removeItem('accessToken');
-      }
+      fetchAndSetUser(token);
     }
   }, []);
 
   const handleLogin = (token) => {
-    try {
-      const decoded = jwtDecode(token);
-      localStorage.setItem('accessToken', token);
-      setIsLoggedIn(true);
-      setUsername(decoded.username);  // 토큰에서 username을 가져올 수 있다고 가정하고 작성한 코드입니다.
-    } catch (e) {
-      console.error('Failed to decode token on login:', e);
-    }
+    localStorage.setItem('accessToken', token);
+    fetchAndSetUser(token);
   };
 
   const handleLogout = () => {
@@ -52,30 +61,21 @@ function App() {
     setUsername('');
     window.location.href = '/';
   };
+
   return (
     <Router>
       <div className="App">
         <Navbar isLoggedIn={isLoggedIn} onLogout={handleLogout} />
         <Routes>
-          {/* 기본 경로는 임시 홈 페이지로 설정 */}
           <Route path="/" element={<HomeTemporary />} />
-          
-          {/* 회원가입 2단계 경로 */}
           <Route path="/signup/terms" element={<TermsPage />} />
           <Route path="/signup" element={<SignupForm />} />
-          
-          {/* 로그인 페이지 (onLogin props 전달) */}
           <Route path="/login" element={<LoginForm onLogin={handleLogin} />} />
-          
-          {/* 아이디/비밀번호 찾기 페이지 */}
           <Route path="/find-id" element={<div>아이디 찾기 페이지</div>} />
           <Route path="/find-password" element={<div>비밀번호 찾기 페이지</div>} />
-          
-          {/* 관리자용 유저 목록 페이지 */}
-          <Route path="/management" element={<UserListPage />} />
-          
-          {/* 개인 프로필 페이지 */}
+          <Route path="/management/userlist" element={<UserListPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/stream/:streamerId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} />
         </Routes>
       </div>
     </Router>

@@ -1,0 +1,64 @@
+.streaming-container {
+    height: calc(100vh - 80px); /* Navbar 높이를 고려하여 조정 */
+}
+
+.video-player-wrapper {
+    position: relative;
+    background-color: #000;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.video-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 10px;
+    box-sizing: border-box; /* 패딩이 너비에 포함되도록 설정 */
+}
+
+.volume-slider {
+    width: 100px;
+}
+
+.stream-info h3 {
+    font-weight: bold;
+}
+
+.chat-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.chat-box {
+    flex-grow: 1;
+    padding: 15px;
+    overflow-y: auto;
+    background-color: #f9f9f9;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chat-message {
+    font-size: 0.95rem;
+}
+
+.chat-message strong {
+    margin-right: 8px;
+}
+
+.chat-input-section {
+    padding: 15px;
+    border-top: 1px solid #ddd;
+    background-color: #fff;
+}

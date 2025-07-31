@@ -9,6 +9,7 @@ Features:
 
 
 import React from 'react';
+import { Link } from 'react-router-dom'; // Link 임포트
 import './HomeTemporary.css';
 
 // 가상의 방송 데이터 (나중에는 API로부터 받아와야 합니다)
@@ -21,6 +22,7 @@ const broadcasts = [
     streamTitle: '리액트 초보 탈출기 1일차',
     viewerCount: 1234,
     duration: '01:23:45',
+    streamerId: 'jammin-i' // 스트리밍 페이지로 이동할 ID
   },
   {
     id: 2,
@@ -56,30 +58,43 @@ const HomeTemporary = () => {
     <div className="home-temporary-container">
       <h2>스트리밍 목록</h2>
       <div className="broadcast-list">
-        {broadcasts.map((broadcast) => (
-          <div key={broadcast.id} className="broadcast-card">
-            <div className="thumbnail-container">
-              <img src={broadcast.thumbnailUrl} alt={`${broadcast.streamerName}의 방송 썸네일`} />
-              <div className={`status-badge ${broadcast.isLive ? 'live' : 'off'}`}>
-                {broadcast.isLive ? 'LIVE' : 'OFF'}
+        {broadcasts.map((broadcast) => {
+          const cardContent = (
+            <div className="broadcast-card">
+              <div className="thumbnail-container">
+                <img src={broadcast.thumbnailUrl} alt={`${broadcast.streamerName}의 방송 썸네일`} />
+                <div className={`status-badge ${broadcast.isLive ? 'live' : 'off'}`}>
+                  {broadcast.isLive ? 'LIVE' : 'OFF'}
+                </div>
               </div>
-            </div>
-            <div className="info-container">
-              <p className="streamer-name">{broadcast.streamerName}</p>
-              {broadcast.isLive && (
-                <p className="stream-title">{broadcast.streamTitle}</p>
-              )}
-              <div className="bottom-info">
+              <div className="info-container">
+                <p className="streamer-name">{broadcast.streamerName}</p>
                 {broadcast.isLive && (
-                    <p className="viewer-count">시청자 {broadcast.viewerCount.toLocaleString()}명</p>
+                  <p className="stream-title">{broadcast.streamTitle}</p>
                 )}
-                <p className="time-info">
-                  {broadcast.isLive ? broadcast.duration : broadcast.nextBroadcastTime}
-                </p>
+                <div className="bottom-info">
+                  {broadcast.isLive && (
+                      <p className="viewer-count">시청자 {broadcast.viewerCount.toLocaleString()}명</p>
+                  )}
+                  <p className="time-info">
+                    {broadcast.isLive ? broadcast.duration : broadcast.nextBroadcastTime}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+
+          // "잼민이" 방송에만 링크를 적용합니다.
+          if (broadcast.streamerName === '잼민이') {
+            return (
+              <Link to={`/stream/${broadcast.streamerId}`} key={broadcast.id} className="broadcast-card-link">
+                {cardContent}
+              </Link>
+            );
+          }
+          
+          return <div key={broadcast.id}>{cardContent}</div>;
+        })}
       </div>
     </div>
   );
