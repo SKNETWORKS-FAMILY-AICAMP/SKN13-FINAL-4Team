@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Form, Button, Container } from 'react-bootstrap';
+import { Form, Button, Container, Alert } from 'react-bootstrap';
 import './SignupForm.css';
 
 function SignupForm() {
     const [formData, setFormData] = useState({
         username: '',
         password: '',
-        passwordConfirm: '',
+        password_confirm: '', 
         nickname: '',
         email: ''
     });
@@ -16,7 +16,7 @@ function SignupForm() {
     const [validState, setValidState] = useState({
         username: null,
         password: null,
-        passwordConfirm: null,
+        password_confirm: null, 
         email: null
     });
 
@@ -31,11 +31,11 @@ function SignupForm() {
                 break;
             case 'password':
                 isValid = value.length >= 8;
-                if (formData.passwordConfirm) {
-                    setValidState(prev => ({ ...prev, passwordConfirm: formData.passwordConfirm === value }));
+                if (formData.password_confirm) { 
+                    setValidState(prev => ({ ...prev, password_confirm: formData.password_confirm === value }));
                 }
                 break;
-            case 'passwordConfirm':
+            case 'password_confirm': 
                 isValid = formData.password === value && value.length > 0;
                 break;
             case 'email':
@@ -53,7 +53,7 @@ function SignupForm() {
         setFormData(prev => ({ ...prev, [name]: value }));
         validateField(name, value);
         if (name === 'password') {
-            validateField('passwordConfirm', formData.passwordConfirm);
+            validateField('password_confirm', formData.password_confirm);
         }
     };
 
@@ -74,22 +74,29 @@ function SignupForm() {
 
         const isUsernameValid = formData.username.length >= 6;
         const isPasswordValid = formData.password.length >= 8;
-        const isPasswordConfirmValid = formData.password === formData.passwordConfirm;
+        const isPasswordConfirmValid = formData.password === formData.password_confirm;
         const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
         
         setValidState({
             username: isUsernameValid,
             password: isPasswordValid,
-            passwordConfirm: isPasswordConfirmValid,
+            password_confirm: isPasswordConfirmValid,
             email: isEmailValid,
         });
 
         if (isUsernameValid && isPasswordValid && isPasswordConfirmValid && isEmailValid) {
             try {
-                await axios.post('http://localhost:8000/users/signup/', formData);
+                // ✅ 5. API로 보낼 데이터에서 passwordConfirm을 password_confirm으로 수정
+                const dataToSend = {
+                    username: formData.username,
+                    password: formData.password,
+                    password_confirm: formData.password_confirm,
+                    nickname: formData.nickname,
+                    email: formData.email
+                };
+                await axios.post('http://localhost:8000/users/signup/', dataToSend);
                 alert('회원가입에 성공했습니다!');
                 navigate('/login');
-
             } catch (error) {
                 if (error.response && error.response.status === 400) {
                     setErrors(error.response.data);
@@ -121,8 +128,15 @@ function SignupForm() {
                 </Form.Group>
                 <Form.Group className="mb-3 form-group-centered">
                     <Form.Label>비밀번호 확인</Form.Label>
-                    <Form.Control type="password" name="passwordConfirm" value={formData.passwordConfirm} onChange={handleChange} onFocus={() => handleFocus('passwordConfirm')} className={getValidationClass('passwordConfirm')} />
-                    <Form.Control.Feedback type="invalid" style={{ display: validState.passwordConfirm === false ? 'block' : 'none' }}>비밀번호가 일치하지 않습니다.</Form.Control.Feedback>
+                    <Form.Control 
+                        type="password" 
+                        name="password_confirm"
+                        value={formData.password_confirm}
+                        onChange={handleChange} 
+                        onFocus={() => handleFocus('password_confirm')}
+                        className={getValidationClass('password_confirm')}
+                    />
+                    <Form.Control.Feedback type="invalid" style={{ display: validState.password_confirm === false ? 'block' : 'none' }}>비밀번호가 일치하지 않습니다.</Form.Control.Feedback>
                 </Form.Group>
                 <Form.Group className="mb-3 form-group-centered">
                     <Form.Label>닉네임</Form.Label>
@@ -133,7 +147,6 @@ function SignupForm() {
                     <Form.Control type="email" name="email" value={formData.email} onChange={handleChange} onFocus={() => handleFocus('email')} className={getValidationClass('email')} />
                     <Form.Control.Feedback type="invalid" style={{ display: errors.email ? 'block' : 'none' }}>{errors.email}</Form.Control.Feedback>
                 </Form.Group>
-                
                 <br />
                 <div className="d-grid form-group-centered">
                     <Button variant="primary" type="submit">

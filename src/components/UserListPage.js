@@ -32,7 +32,11 @@ function UserListPage() {
                         const response = await axios.get('http://localhost:8000/admin/users/', {
                             headers: { Authorization: `Bearer ${accessToken}` }
                         });
-                        setUsers(response.data);
+
+                        const userList = Array.isArray(response.data) ? response.data : response.data.results;
+                        
+                        setUsers(userList || []);
+                        
                     } catch (err) {
                         setError('사용자 목록을 불러오는 데 실패했습니다.');
                         console.error(err);

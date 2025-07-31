@@ -14,7 +14,7 @@ function Navbar({ isLoggedIn }) {
           {isLoggedIn ? (
             // 로그인 상태일 때: "프로필" 버튼
             <li className="nav-item">
-              <Link className="nav-link" to="/management">프로필</Link>
+              <Link className="nav-link" to="/profile">프로필</Link>
             </li>
           ) : (
             // 로그아웃 상태일 때: "로그인" 버튼
