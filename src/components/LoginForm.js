@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-// Link 컴포넌트를 react-router-dom에서 가져옵니다.
-import { Link } from 'react-router-dom'; 
+// ✅ 1. useNavigate를 import에 추가합니다.
+import { Link, useNavigate } from 'react-router-dom'; 
 import { Container, Form, Button, Alert, Row, Col, Card } from 'react-bootstrap';
 
 function LoginForm() {
@@ -10,6 +10,8 @@ function LoginForm() {
         password: ''
     });
     const [error, setError] = useState('');
+    // ✅ 2. navigate 함수를 선언합니다.
+    const navigate = useNavigate();
 
     const handleChange = (e) => {
         setFormData({
@@ -27,7 +29,9 @@ function LoginForm() {
             localStorage.setItem('accessToken', response.data.access);
             localStorage.setItem('refreshToken', response.data.refresh);
             axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
-            window.location.href = '/'; 
+            
+            navigate('/management'); 
+
         } catch (err) {
             setError('아이디 또는 비밀번호가 올바르지 않습니다.');
             console.error(err);
@@ -54,7 +58,6 @@ function LoginForm() {
                                         required 
                                     />
                                 </Form.Group>
-
                                 <Form.Group className="mb-3" controlId="formBasicPassword">
                                     <Form.Label>비밀번호</Form.Label>
                                     <Form.Control 
@@ -66,23 +69,22 @@ function LoginForm() {
                                         required
                                     />
                                 </Form.Group>
-                                
+                                <br/>
                                 <div className="d-grid">
                                     <Button variant="primary" type="submit">
                                         로그인
                                     </Button>
                                 </div>
                             </Form>
-
                         </Card.Body>
                     </Card>
-                 <div className="text-center mt-3">
-                    <Link to="/find-id" className="text-decoration-none small">아이디 찾기</Link>
-                    <span className="mx-2 small">|</span>
-                    <Link to="/find-password" className="text-decoration-none small">비밀번호 찾기</Link>
-                    <span className="mx-2 small">|</span>
-                    <Link to="/signup/terms" className="text-decoration-none small">회원가입</Link>
-                </div>
+                    <div className="text-center mt-3">
+                        <Link to="/find-id" className="text-decoration-none small">아이디 찾기</Link>
+                        <span className="mx-2 small">|</span>
+                        <Link to="/find-password" className="text-decoration-none small">비밀번호 찾기</Link>
+                        <span className="mx-2 small">|</span>
+                        <Link to="/signup/terms" className="text-decoration-none small">회원가입</Link>
+                    </div>
                 </Col>
             </Row>
         </Container>
