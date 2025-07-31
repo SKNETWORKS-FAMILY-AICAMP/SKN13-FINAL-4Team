@@ -1,0 +1,20 @@
+/* 유효할 때 적용될 파란색 테두리 스타일 */
+.form-control.is-valid-custom {
+    border-color: #0d6efd; /* Bootstrap의 primary blue 색상 */
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* 유효하지 않을 때 적용될 빨간색 테두리 스타일 */
+.form-control.is-invalid-custom {
+    border-color: #dc3545; /* Bootstrap의 danger red 색상 */
+    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+}
+
+.form-group-centered {
+  /* 최대 너비를 400px로 제한 */
+  max-width: 400px;
+  
+  /* 좌우 마진을 auto로 설정하여 블록을 중앙에 배치 */
+  margin-left: auto;
+  margin-right: auto;
+}

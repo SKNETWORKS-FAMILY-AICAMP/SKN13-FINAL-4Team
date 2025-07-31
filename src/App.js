@@ -1,36 +1,21 @@
-// // frontend/src/App.js
-
-// import React from 'react';
-// import ChatComponent from './components/ChatComponent'; // ChatComponent 불러오기
-// import './App.css';
-
-// function App() {
-//   return (
-//     // 전체 화면을 어두운 배경으로 설정
-//     <div className="bg-dark vh-100">
-//       <ChatComponent />
-//     </div>
-//   );
-// }
-
-// export default App;
-
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import SignupForm from './components/SignupForm';
 import LoginForm from './components/LoginForm'; 
+import TermsPage from './components/TermsPage';
+import ManagementPage from './components/ManagementPage';
 
 function App() {
   return (
     <Router>
       <div className="App">
         <Routes>
-          <Route path="/signup" element={<SignupForm />} />
-          {/* '/login' 경로에 LoginForm 컴포넌트를 연결합니다. */}
-          <Route path="/login" element={<LoginForm />} />
-          {/* 아이디/비밀번호 찾기 라우트 추가 */}
-          <Route path="/find-id" element={<div>아이디 찾기 페이지</div>} />
-          <Route path="/find-password" element={<div>비밀번호 찾기 페이지</div>} />
+          <Route path="/signup/terms" element={<TermsPage />} />  # 이용약관 페이지
+          <Route path="/signup" element={<SignupForm />} /> # 회원가입 페이지
+          <Route path="/login" element={<LoginForm />} /> # 로그인 페이지
+          <Route path="/find-id" element={<div>아이디 찾기 페이지</div>} /> # 아이디 찾기 페이지
+          <Route path="/find-password" element={<div>비밀번호 찾기 페이지</div>} /> # 비밀번호 찾기 페이지
+          <Route path="/management" element={<ManagementPage  />} /> # 유저 관리페이지
         </Routes>
       </div>
     </Router>

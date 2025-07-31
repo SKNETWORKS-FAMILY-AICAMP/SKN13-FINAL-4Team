@@ -73,16 +73,16 @@ function LoginForm() {
                                     </Button>
                                 </div>
                             </Form>
-                            <div className="text-center mt-3">
-                                <Link to="/find-id" className="text-decoration-none small">아이디 찾기</Link>
-                                <span className="mx-2 small">|</span>
-                                <Link to="/find-password" className="text-decoration-none small">비밀번호 찾기</Link>
-                                <span className="mx-2 small">|</span>
-                                <Link to="/signup" className="text-decoration-none small">회원가입</Link>
-                            </div>
 
                         </Card.Body>
                     </Card>
+                 <div className="text-center mt-3">
+                    <Link to="/find-id" className="text-decoration-none small">아이디 찾기</Link>
+                    <span className="mx-2 small">|</span>
+                    <Link to="/find-password" className="text-decoration-none small">비밀번호 찾기</Link>
+                    <span className="mx-2 small">|</span>
+                    <Link to="/signup/terms" className="text-decoration-none small">회원가입</Link>
+                </div>
                 </Col>
             </Row>
         </Container>
