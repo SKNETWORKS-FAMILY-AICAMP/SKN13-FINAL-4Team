@@ -30,5 +30,10 @@ class MyProfileAPIView(APIView):
 
 class UserAdminViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
-    queryset = User.objects.all().order_by('id')
     serializer_class = UserSerializer
+    def get_queryset(self):
+        """
+        이 ViewSet이 사용할 객체 목록을 반환합니다.
+        관리자는 모든 사용자를 볼 수 있도록 합니다.
+        """
+        return User.objects.all().order_by('id')
