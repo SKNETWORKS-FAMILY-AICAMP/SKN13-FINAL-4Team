@@ -3,6 +3,7 @@
 # Django & DRF
 Django>=4.2
 djangorestframework
+djangorestframework-simplejwt
 
 # Channels
 channels

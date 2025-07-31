@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'users',
+    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -145,7 +146,7 @@ CORS_ALLOWED_ORIGINS = [
 # 2. ASGI 설정
 # settings.py
 
-#ROOT_URLCONF = 'config.urls'
+ROOT_URLCONF = 'config.urls'
 #WSGI_APPLICATION = 'config.wsgi:application'
 ASGI_APPLICATION = 'config.asgi.application'
 
@@ -160,3 +161,9 @@ CHANNEL_LAYERS = {
 }
 
 AUTH_USER_MODEL = 'users.User'  # '앱이름.모델클래스이름' 형식
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}

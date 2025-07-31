@@ -39,7 +39,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(**validated_data)
         return user
     
-class UserManagementSerializer(serializers.ModelSerializer):
+
+class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('username', 'nickname', 'email', 'date_joined')
+        fields = ('id', 'username', 'nickname', 'email', 'date_joined', 'is_staff')
