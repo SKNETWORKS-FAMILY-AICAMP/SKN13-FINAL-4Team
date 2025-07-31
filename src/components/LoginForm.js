@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-// Link 컴포넌트를 react-router-dom에서 가져옵니다.
-import { Link } from 'react-router-dom'; 
+import { Link, useNavigate } from 'react-router-dom'; // useNavigate import
 import { Container, Form, Button, Alert, Row, Col, Card } from 'react-bootstrap';
 
-function LoginForm() {
+// App.js로부터 onLogin 함수를 props로 받음
+function LoginForm({ onLogin }) {
     const [formData, setFormData] = useState({
         username: '',
         password: ''
     });
     const [error, setError] = useState('');
+    const navigate = useNavigate(); // useNavigate 훅 사용
 
     const handleChange = (e) => {
         setFormData({
@@ -24,10 +25,17 @@ function LoginForm() {
 
         try {
             const response = await axios.post('http://localhost:8000/api/token/', formData);
-            localStorage.setItem('accessToken', response.data.access);
+            // App.js의 onLogin 함수를 호출하여 상태 업데이트 및 토큰 저장
+            onLogin(response.data.access);
+            
+            // refreshToken은 여전히 localStorage에 저장해 둘 수 있음 (선택 사항)
             localStorage.setItem('refreshToken', response.data.refresh);
+            
+            // axios 기본 헤더 설정
             axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
-            window.location.href = '/'; 
+            
+            // 페이지 이동을 navigate로 처리
+            navigate('/'); 
         } catch (err) {
             setError('아이디 또는 비밀번호가 올바르지 않습니다.');
             console.error(err);
