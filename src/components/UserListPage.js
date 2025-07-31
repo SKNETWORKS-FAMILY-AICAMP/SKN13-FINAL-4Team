@@ -1,61 +1,72 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Container, Table, Spinner, Alert, Form } from 'react-bootstrap';
+import { Container, Table, Spinner, Alert, Form, Pagination } from 'react-bootstrap';
 
 function UserListPage() {
     const [users, setUsers] = useState([]);
-    const [currentUser, setCurrentUser] = useState(null); // 현재 로그인한 사용자 정보
+    const [currentUser, setCurrentUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const navigate = useNavigate();
 
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(0);
+
+    const fetchUsers = useCallback(async (page) => {
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) return;
+
+        setLoading(true);
+        try {
+            const response = await axios.get(`http://localhost:8000/api/users/management/?page=${page}`, {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            
+            const userList = response.data.results || [];
+            setUsers(userList);
+            
+            const itemsPerPage = 30;
+            setTotalPages(Math.ceil(response.data.count / itemsPerPage));
+        } catch (err) {
+            setError('사용자 목록을 불러오는 데 실패했습니다.');
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
-        const checkAdminAndFetchUsers = async () => {
+        const checkAdmin = async () => {
             const accessToken = localStorage.getItem('accessToken');
             if (!accessToken) {
                 navigate('/login');
                 return;
             }
-            
             try {
-                // 1. 현재 로그인한 유저 정보를 가져와서 관리자인지 확인
                 const meResponse = await axios.get('http://localhost:8000/api/users/me/', {
                     headers: { Authorization: `Bearer ${accessToken}` }
                 });
-                
-                setCurrentUser(meResponse.data); // 현재 유저 정보 저장
-
-                if (meResponse.data.is_staff) {
-                    // 2. 관리자라면 전체 유저 목록을 불러옴
-                    try {
-                        const response = await axios.get('http://localhost:8000/api/users/management/', {
-                        headers: { Authorization: `Bearer ${accessToken}` }
-                        });
-
-                        const userList = Array.isArray(response.data) ? response.data : response.data.results;
-                        
-                        setUsers(userList || []);
-                        
-                    } catch (err) {
-                        setError('사용자 목록을 불러오는 데 실패했습니다.');
-                        console.error(err);
-                    }
-                } else {
+                setCurrentUser(meResponse.data);
+                if (!meResponse.data.is_staff) {
                     setError('접근 권한이 없습니다.');
+                    setLoading(false);
                 }
             } catch (err) {
                 setError('인증에 실패했습니다. 다시 로그인해주세요.');
-            } finally {
                 setLoading(false);
             }
         };
-
-        checkAdminAndFetchUsers();
+        checkAdmin();
     }, [navigate]);
 
+    useEffect(() => {
+        if (currentUser && currentUser.is_staff) {
+            fetchUsers(currentPage);
+        }
+    }, [currentUser, currentPage, fetchUsers]);
+
     const handleAdminToggle = async (userToUpdate) => {
-        // 자기 자신의 권한은 변경할 수 없도록 방지
         if (currentUser && currentUser.username === userToUpdate.username) {
             alert('자기 자신의 권한은 변경할 수 없습니다.');
             return;
@@ -70,7 +81,6 @@ function UserListPage() {
                     { is_staff: newStatus },
                     { headers: { Authorization: `Bearer ${accessToken}` } }
                 );
-                // 성공 시 화면의 사용자 목록을 즉시 업데이트
                 setUsers(users.map(u => 
                     u.id === userToUpdate.id ? { ...u, is_staff: newStatus } : u
                 ));
@@ -79,6 +89,10 @@ function UserListPage() {
                 console.error(err);
             }
         }
+    };
+
+    const handlePageChange = (pageNumber) => {
+        setCurrentPage(pageNumber);
     };
 
     if (loading) {
@@ -115,7 +129,6 @@ function UserListPage() {
                                     id={`admin-switch-${user.id}`}
                                     checked={user.is_staff}
                                     onChange={() => handleAdminToggle(user)}
-                                    // 자기 자신일 경우 스위치 비활성화
                                     disabled={currentUser && currentUser.username === user.username}
                                     label={user.is_staff ? 'Admin' : 'User'}
                                 />
@@ -124,6 +137,20 @@ function UserListPage() {
                     ))}
                 </tbody>
             </Table>
+
+            {totalPages > 1 && (
+                <Pagination className="justify-content-center">
+                    {Array.from({ length: totalPages }, (_, index) => (
+                        <Pagination.Item
+                            key={index + 1}
+                            active={index + 1 === currentPage}
+                            onClick={() => handlePageChange(index + 1)}
+                        >
+                            {index + 1}
+                        </Pagination.Item>
+                    ))}
+                </Pagination>
+            )}
         </Container>
     );
 }
