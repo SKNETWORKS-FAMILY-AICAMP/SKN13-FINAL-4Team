@@ -55,7 +55,7 @@ function App() {
   return (
     <Router>
       <div className="App">
-        <Navbar isLoggedIn={isLoggedIn} username={username} onLogout={handleLogout} />
+        <Navbar isLoggedIn={isLoggedIn} onLogout={handleLogout} />
         <Routes>
           {/* 기본 경로는 임시 홈 페이지로 설정 */}
           <Route path="/" element={<HomeTemporary />} />
