@@ -39,7 +39,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(**validated_data)
         return user
     
-class UserManagementSerializer(serializers.ModelSerializer): # 이름 변경
+class UserManagementSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('username', 'nickname', 'email', 'date_joined')

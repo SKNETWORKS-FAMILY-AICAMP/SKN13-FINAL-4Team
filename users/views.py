@@ -20,7 +20,7 @@ class UserRegistrationAPIView(APIView):
 
 
 class UserManagementAPIView(APIView): # 클래스 이름 변경
-    permission_classes = [IsAuthenticated]
+    #permission_classes = [IsAuthenticated]
 
     def get(self, request):
         serializer = UserManagementSerializer(request.user) # Serializer 이름 변경
