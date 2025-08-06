@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
-import axios from 'axios'; // axios 임포트
+import axios from 'axios';
 import Navbar from './components/Navbar';
 import SignupForm from './components/SignupForm';
 import LoginForm from './components/LoginForm';
@@ -10,6 +10,97 @@ import UserListPage from './components/UserListPage';
 import ProfilePage from './components/ProfilePage';
 import StreamingPage from './components/StreamingPage';
 import HomeTemporary from './components/HomeTemporary';
+import ChatComponent from './components/ChatComponent'; // 레거시 웹소켓 채팅
+import ChatBot from './components/ChatBot'; // 메인 TTS 지원 AI 챗봇
+import './App.css';
+
+/**
+ * TTS 챗봇 페이지 컴포넌트
+ */
+const ChatBotPage = () => {
+  const getInitialMode = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('mode') || localStorage.getItem('appMode') || 'chatbot';
+  };
+
+  const [currentMode, setCurrentMode] = useState(getInitialMode);
+
+  useEffect(() => {
+    console.log(`🚀 챗봇 모드 시작: ${currentMode}`);
+  }, []);
+
+  const switchMode = (mode) => {
+    console.log(`🔄 모드 변경: ${currentMode} → ${mode}`);
+    setCurrentMode(mode);
+    localStorage.setItem('appMode', mode);
+    
+    const newUrl = `${window.location.pathname}?mode=${mode}`;
+    window.history.pushState({ mode }, '', newUrl);
+  };
+
+  const NavigationBar = () => (
+    <nav className="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm" 
+         style={{ minHeight: '60px', zIndex: 1000 }}>
+      <div className="container-fluid px-3">
+        <div className="navbar-brand fw-bold d-flex align-items-center">
+          <span className="me-2">🤖</span>
+          <span>AI 인플루언서 - TTS 챗봇</span>
+        </div>
+        
+        <div className="d-flex gap-2">
+          <button
+            className={`btn btn-sm ${
+              currentMode === 'chatbot' 
+                ? 'btn-light text-primary fw-bold shadow-sm' 
+                : 'btn-outline-light'
+            }`}
+            onClick={() => switchMode('chatbot')}
+            style={{ minWidth: '120px' }}
+          >
+            <span className="me-1">🎤</span>
+            AI 챗봇
+          </button>
+          <button
+            className={`btn btn-sm ${
+              currentMode === 'websocket' 
+                ? 'btn-light text-primary fw-bold shadow-sm' 
+                : 'btn-outline-light'
+            }`}
+            onClick={() => switchMode('websocket')}
+            style={{ minWidth: '120px' }}
+          >
+            <span className="me-1">💬</span>
+            웹소켓 채팅
+          </button>
+        </div>
+      </div>
+    </nav>
+  );
+
+  const renderContent = () => {
+    switch (currentMode) {
+      case 'chatbot':
+        return <ChatBot />;
+      case 'websocket':
+        return (
+          <div className="bg-dark h-100 position-relative">
+            <ChatComponent />
+          </div>
+        );
+      default:
+        return <ChatBot />;
+    }
+  };
+
+  return (
+    <div className="vh-100 d-flex flex-column">
+      <NavigationBar />
+      <div className="flex-grow-1 overflow-hidden">
+        {renderContent()}
+      </div>
+    </div>
+  );
+};
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -18,20 +109,16 @@ function App() {
   // 사용자 정보를 가져와 상태를 설정하는 함수
   const fetchAndSetUser = async (token) => {
     try {
-      // 1. 토큰 유효성 검사 (만료 시간)
       const decoded = jwtDecode(token);
       if (decoded.exp * 1000 < Date.now()) {
         throw new Error('Token expired');
       }
       
-      // 2. 서버에서 사용자 정보 가져오기
       const response = await axios.get('http://localhost:8000/api/users/me/', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      // 3. 상태 업데이트
       setIsLoggedIn(true);
-      // 닉네임이 있으면 닉네임을, 없으면 username을 사용
       setUsername(response.data.nickname); 
     } catch (error) {
       console.error('Failed to fetch user data or token is invalid:', error);
@@ -68,6 +155,7 @@ function App() {
         <Navbar isLoggedIn={isLoggedIn} onLogout={handleLogout} />
         <Routes>
           <Route path="/" element={<HomeTemporary />} />
+          <Route path="/chatbot" element={<ChatBotPage />} />
           <Route path="/signup/terms" element={<TermsPage />} />
           <Route path="/signup" element={<SignupForm />} />
           <Route path="/login" element={<LoginForm onLogin={handleLogin} />} />
@@ -81,5 +169,4 @@ function App() {
     </Router>
   );
 }
-
 export default App;
