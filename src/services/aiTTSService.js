@@ -1,10 +1,11 @@
 /**
- * AI TTS Service (OpenAI)
- * AI 챗봇 전용 OpenAI Text-to-Speech API를 사용한 음성 생성 서비스
+ * AI TTS Service (Backend API)
+ * Backend API를 통한 안전한 음성 생성 서비스 (API 키 노출 방지)
  */
 export class AITTSService {
   constructor(openai, settings) {
-    this.openai = openai;     // OpenAI 클라이언트 인스턴스
+    // openai 매개변수는 하위 호환성을 위해 유지하지만 사용하지 않음
+    this.baseUrl = window.location.protocol + '//' + window.location.hostname + ':8000';
     this.settings = settings; // TTS 설정 (voice, speed 등)
     this.requestCount = 0;    // 요청 횟수 카운터
     this.lastRequestTime = 0; // 마지막 요청 시간
@@ -20,11 +21,6 @@ export class AITTSService {
       throw new Error('텍스트가 비어있습니다');
     }
 
-    // API 키 확인
-    if (!this.openai || !process.env.REACT_APP_OPENAI_API_KEY) {
-      throw new Error('OpenAI API 키가 설정되지 않았습니다');
-    }
-
     // 텍스트 길이 제한 확인 (OpenAI TTS API 제한: 4096자)
     if (text.length > 4096) {
       console.warn(`⚠️ 텍스트가 OpenAI 제한(4096자)을 초과합니다: ${text.length}자`);
@@ -36,17 +32,27 @@ export class AITTSService {
     this.lastRequestTime = Date.now();
 
     try {
-      console.log(`🎵 OpenAI TTS 요청 시작 (${this.requestCount}번째)`);
+      console.log(`🎵 Backend TTS API 요청 시작 (${this.requestCount}번째)`);
       const startTime = Date.now();
 
-      // OpenAI TTS API 호출
-      const response = await this.openai.audio.speech.create({
-        model: this.getOptimalModel(),              // 모델 선택 (품질 vs 속도)
-        voice: this.settings.ttsVoice || 'nova',    // 음성 종류
-        input: text,                                // 변환할 텍스트
-        speed: this.validateSpeed(this.settings.ttsSpeed), // 재생 속도
-        response_format: 'mp3'                      // 출력 형식
+      // Backend TTS API 호출
+      const response = await fetch(`${this.baseUrl}/api/ai/tts/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: text,
+          voice: this.settings.ttsVoice || 'nova',
+          speed: this.validateSpeed(this.settings.ttsSpeed),
+          format: 'mp3'
+        })
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: Backend TTS API 요청 실패`);
+      }
 
       // 응답을 Blob으로 변환
       const audioArrayBuffer = await response.arrayBuffer();
@@ -58,22 +64,18 @@ export class AITTSService {
       const audioUrl = URL.createObjectURL(audioBlob);
       
       const duration = Date.now() - startTime;
-      console.log(`✅ OpenAI TTS 완료: ${duration}ms, ${audioBlob.size} bytes`);
+      console.log(`✅ Backend TTS 완료: ${duration}ms, ${audioBlob.size} bytes`);
       
       return audioUrl;
 
     } catch (error) {
-      console.error('❌ OpenAI TTS 생성 실패:', error);
+      console.error('❌ Backend TTS 생성 실패:', error);
       
-      // 에러 타입별 처리
-      if (error.status === 401) {
-        throw new Error('OpenAI API 키가 유효하지 않습니다');
-      } else if (error.status === 429) {
-        throw new Error('OpenAI API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요');
-      } else if (error.status === 400) {
-        throw new Error('텍스트 형식이 올바르지 않습니다');
+      // 네트워크 오류 또는 Backend API 오류 처리
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('Backend 서버에 연결할 수 없습니다. 서버 상태를 확인해주세요');
       } else {
-        throw new Error(`OpenAI TTS 서비스 오류: ${error.message}`);
+        throw new Error(`Backend TTS 서비스 오류: ${error.message}`);
       }
     }
   }
@@ -121,11 +123,12 @@ export class AITTSService {
    */
   getStats() {
     return {
-      serviceName: 'OpenAI TTS',
+      serviceName: 'Backend TTS API',
       requestCount: this.requestCount,
       lastRequestTime: this.lastRequestTime,
       currentSettings: this.settings,
-      apiKeyConfigured: !!process.env.REACT_APP_OPENAI_API_KEY
+      backendUrl: this.baseUrl,
+      secureApiAccess: true // Backend를 통한 안전한 API 접근
     };
   }
 
@@ -148,7 +151,7 @@ export class AITTSService {
    * 리소스 정리
    */
   cleanup() {
-    // OpenAI TTS는 특별한 정리 작업이 필요하지 않음
-    console.log('🧹 OpenAI TTS 서비스 정리 완료');
+    // Backend API를 통한 TTS는 특별한 정리 작업이 필요하지 않음
+    console.log('🧹 Backend TTS API 서비스 정리 완료');
   }
 }

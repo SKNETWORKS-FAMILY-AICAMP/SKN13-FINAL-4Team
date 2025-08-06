@@ -6,7 +6,7 @@ import { AIAudioService } from '../services/aiAudioService';
 import { AITextSyncService } from '../services/aiTextSyncService';
 import { AITTSManager } from '../services/aiTTSManager';
 
-export const useAIChatBot = (openai) => {
+export const useAIChatBot = () => {
   // State management
   const [messages, setMessages] = useState([
     { id: 1, text: '안녕하세요! AI 인플루언서입니다. 무엇을 도와드릴까요?', sender: 'bot', timestamp: new Date() }
@@ -40,14 +40,14 @@ export const useAIChatBot = (openai) => {
 
   // Initialize services
   const initializeServices = () => {
-    // AI TTS 매니저 초기화 (여러 AI TTS 엔진 관리)
+    // AI TTS 매니저 초기화 (Backend API 사용)
     if (!ttsManagerRef.current) {
-      ttsManagerRef.current = new AITTSManager(openai, settings);
+      ttsManagerRef.current = new AITTSManager(null, settings); // OpenAI 클라이언트 제거
     }
     
-    // AI TTS 서비스 (호환성 유지)
+    // AI TTS 서비스 (호환성 유지, Backend API 사용)
     if (!ttsServiceRef.current) {
-      ttsServiceRef.current = new AITTSService(openai, settings);
+      ttsServiceRef.current = new AITTSService(null, settings); // OpenAI 클라이언트 제거
     }
     
     if (!audioServiceRef.current && audioRef.current) {
@@ -127,10 +127,7 @@ export const useAIChatBot = (openai) => {
     }
   };
 
-  // Get current system prompt
-  const getCurrentSystemPrompt = () => {
-    return getSystemPrompt(currentPromptType);
-  };
+  // getCurrentSystemPrompt 제거됨 - Backend API에서 시스템 프롬프트 처리
 
   return {
     // State
@@ -177,7 +174,6 @@ export const useAIChatBot = (openai) => {
     initializeServices,
     handleAudioEnded,
     updateSetting,
-    applyPreset,
-    getCurrentSystemPrompt
+    applyPreset
   };
 };

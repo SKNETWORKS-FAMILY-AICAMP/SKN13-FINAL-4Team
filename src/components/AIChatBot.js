@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import OpenAI from 'openai';
 import { useAIChatBot } from '../hooks/useAIChatBot';
 import AIChatHeader from './AIChatHeader';
 import AISettingsPanel from './AISettingsPanel';
@@ -8,15 +7,11 @@ import AIMessageInput from './AIMessageInput';
 
 /**
  * 메인 AIChatBot 컴포넌트
- * TTS 기능이 통합된 AI 챗봇 인터페이스
+ * TTS 기능이 통합된 AI 챗봇 인터페이스 (Backend API 사용)
  * WebSocket 채팅과 구분되는 AI 전용 챗봇
  */
 const AIChatBot = () => {
-  // OpenAI 클라이언트 초기화
-  const openai = new OpenAI({
-    apiKey: process.env.REACT_APP_OPENAI_API_KEY,
-    dangerouslyAllowBrowser: true
-  });
+  // OpenAI 클라이언트는 더 이상 필요하지 않음 (Backend API 사용)
 
   const {
     // 상태 관리
@@ -54,16 +49,14 @@ const AIChatBot = () => {
 
     // 서비스들
     ttsManagerRef,
-    ttsServiceRef,
     audioServiceRef,
     textSyncServiceRef,
 
     // 함수들
     initializeServices,
     updateSetting,
-    applyPreset,
-    getCurrentSystemPrompt
-  } = useAIChatBot(openai);
+    applyPreset
+  } = useAIChatBot(); // OpenAI 클라이언트 매개변수 제거
 
   // 컴포넌트 마운트 시 서비스 초기화
   useEffect(() => {
@@ -182,59 +175,48 @@ const AIChatBot = () => {
       // Step 2: 요청 중단을 위한 AbortController 설정
       abortControllerRef.current = new AbortController();
       
-      // Step 3: OpenAI Chat Completion API 스트리밍 요청
-      const stream = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: getCurrentSystemPrompt() // 선택된 개성에 따른 시스템 프롬프트
-          },
-          // 기존 대화 내역을 OpenAI 형식으로 변환
-          ...messages.map(msg => ({
-            role: msg.sender === 'user' ? 'user' : 'assistant',
-            content: msg.text
-          })),
-          {
-            role: 'user',
-            content: currentInput // 현재 사용자 입력
-          }
-        ],
-        max_tokens: 1000,
-        temperature: 0.7,
-        stream: true // 스트리밍 모드 활성화 - 청크 단위로 응답 수신
-      }, {
-        signal: abortControllerRef.current.signal // 요청 중단을 위한 시그널
+      // Step 3: Backend AI Chat API 요청
+      const baseUrl = window.location.protocol + '//' + window.location.hostname + ':8000';
+      const conversationHistory = messages.map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'assistant',
+        content: msg.text
+      }));
+
+      const response = await fetch(`${baseUrl}/api/ai/chat/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: currentInput,
+          conversation_history: conversationHistory
+        }),
+        signal: abortControllerRef.current.signal
       });
 
-      let accumulatedMessage = '';
-      
-      // Step 4: 스트림에서 청크 단위로 텍스트 수신 및 누적
-      // 주의: 여기서는 텍스트만 누적하고 표시하지 않음 (TTS 준비를 위해)
-      for await (const chunk of stream) {
-        // 중단 요청 확인
-        if (abortControllerRef.current.signal.aborted) {
-          break;
-        }
-
-        // 청크에서 텍스트 내용 추출
-        const content = chunk.choices[0]?.delta?.content || '';
-        if (content) {
-          accumulatedMessage += content; // 누적 저장
-          currentMessageRef.current = accumulatedMessage;
-          // 주의: 여기서는 실시간으로 UI에 표시하지 않음
-          // 전체 텍스트 완성 후 TTS와 함께 동기화하여 표시
-        }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: Backend AI API 요청 실패`);
       }
 
-      // Step 5: 스트리밍 완료 후 TTS 생성 및 텍스트 동기화 시작
-      if (!abortControllerRef.current.signal.aborted && accumulatedMessage) {
-        generateTTSAndSyncText(accumulatedMessage);
+      const data = await response.json();
+      const aiResponse = data.response;
+
+      if (aiResponse) {
+        // Step 4: AI 응답을 누적 변수에 저장 (TTS 준비)
+        const accumulatedMessage = aiResponse;
+        currentMessageRef.current = accumulatedMessage;
+        // Step 5: Backend API 응답 완료 후 TTS 생성 및 텍스트 동기화 시작
+        if (!abortControllerRef.current.signal.aborted) {
+          generateTTSAndSyncText(accumulatedMessage);
+        }
+      } else {
+        throw new Error('AI 응답을 받지 못했습니다');
       }
 
     } catch (error) {
       if (error.name !== 'AbortError') {
-        console.error('OpenAI API Error:', error);
+        console.error('Backend AI API Error:', error);
         const errorMessage = {
           id: Date.now(),
           text: '죄송합니다. 일시적인 오류가 발생했습니다. 다시 시도해 주세요.',
