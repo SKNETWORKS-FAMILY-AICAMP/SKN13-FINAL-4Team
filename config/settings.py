@@ -12,6 +12,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+
+# .env 파일 로드
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -34,6 +38,7 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     'daphne',
     'channels',
+    'users',  # 커스텀 User 모델을 사용하므로 django.contrib.admin보다 먼저 와야 함
     'chat',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -43,7 +48,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
-    'users',
     'rest_framework_simplejwt',
 ]
 
@@ -168,4 +172,15 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 30,
+}
+
+# OpenAI API 설정
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# AI 챗봇 설정
+AI_CHATBOT_SETTINGS = {
+    'MODEL': 'gpt-3.5-turbo',
+    'MAX_TOKENS': 1000,
+    'TEMPERATURE': 0.7,
+    'SYSTEM_PROMPT': '당신은 도움이 되는 AI 어시스턴트입니다. 모든 사용자의 메시지에 친근하고 유용한 답변을 제공하세요.',
 }

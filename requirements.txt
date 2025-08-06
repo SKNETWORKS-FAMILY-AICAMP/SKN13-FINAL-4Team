@@ -16,3 +16,7 @@ psycopg2-binary
 # cors
 django-cors-headers
 Pillow
+
+# AI Integration
+openai
+python-dotenv
