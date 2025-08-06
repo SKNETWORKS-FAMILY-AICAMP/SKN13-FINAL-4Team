@@ -1,5 +1,5 @@
-// System prompts configuration
-export const SYSTEM_PROMPTS = {
+// AI System prompts configuration
+export const AI_SYSTEM_PROMPTS = {
   classic: `당신은 공감 능력이 뛰어난 정석적인 AI 연애상담사입니다. 진지하고 조심스러운 어조로 상대의 감정을 존중하며 조언하세요. 논리적인 분석과 함께 현실적인 솔루션을 제공합니다. 불필요한 감정 표현은 자제하고, 깔끔한 문장으로 핵심을 전달하세요.`,
 
   spicy: `당신은 직설적이고 화끈한 성격의 AI입니다. 감정에 휘둘리지 않고, 핵심만 콕 찌르는 스타일로 조언합니다. 필요하다면 상처를 줄 수도 있지만, 오히려 그게 더 현실적입니다. 말투는 다소 거칠고 간결하게. '팩폭하자면~', '솔직히 말할게' 같은 표현을 자주 사용하세요.`,
@@ -12,10 +12,15 @@ export const SYSTEM_PROMPTS = {
 };
 
 
-export const getSystemPrompt = (type = 'classic') => {
-  return SYSTEM_PROMPTS[type] || SYSTEM_PROMPTS.classic;
+export const getAISystemPrompt = (type = 'classic') => {
+  return AI_SYSTEM_PROMPTS[type] || AI_SYSTEM_PROMPTS.classic;
 };
 
-export const getAvailablePromptTypes = () => {
-  return Object.keys(SYSTEM_PROMPTS);
+export const getAvailableAIPromptTypes = () => {
+  return Object.keys(AI_SYSTEM_PROMPTS);
 };
+
+// 호환성 지원용
+export const SYSTEM_PROMPTS = AI_SYSTEM_PROMPTS;
+export const getSystemPrompt = getAISystemPrompt;
+export const getAvailablePromptTypes = getAvailableAIPromptTypes;

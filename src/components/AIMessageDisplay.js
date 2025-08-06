@@ -1,10 +1,10 @@
 import React from 'react';
 
 /**
- * 메시지 표시 컴포넌트
- * 일반 메시지, 스트리밍 메시지, TTS 상태 등을 표시
+ * AI 메시지 표시 컴포넌트
+ * AI 챗봇 전용 - 일반 메시지, 스트리밍 메시지, TTS 상태 등을 표시
  */
-const MessageDisplay = ({
+const AIMessageDisplay = ({
   messages,
   isStreamingMessage,
   isGeneratingTTS,
@@ -146,4 +146,4 @@ const MessageDisplay = ({
   );
 };
 
-export default MessageDisplay;
+export default AIMessageDisplay;

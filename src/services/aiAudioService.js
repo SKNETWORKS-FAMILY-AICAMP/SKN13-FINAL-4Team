@@ -1,5 +1,5 @@
-// 오디오 재생 서비스 - TTS로 생성된 오디오 파일 재생 관리
-export class AudioService {
+// AI 오디오 재생 서비스 - AI 챗봇 전용 TTS 오디오 파일 재생 관리
+export class AIAudioService {
   constructor(audioRef) {
     this.audioRef = audioRef;    // React useRef로 생성된 audio 엘리먼트 참조
     this.onPlayingChange = null; // 재생 상태 변경 콜백 (UI 업데이트용)

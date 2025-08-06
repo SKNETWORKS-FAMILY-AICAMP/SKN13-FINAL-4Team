@@ -11,7 +11,7 @@ import ProfilePage from './components/ProfilePage';
 import StreamingPage from './components/StreamingPage';
 import HomeTemporary from './components/HomeTemporary';
 import ChatComponent from './components/ChatComponent'; // 레거시 웹소켓 채팅
-import ChatBot from './components/ChatBot'; // 메인 TTS 지원 AI 챗봇
+import AIChatBot from './components/AIChatBot'; // 메인 TTS 지원 AI 챗봇
 import './App.css';
 
 /**
@@ -80,7 +80,7 @@ const ChatBotPage = () => {
   const renderContent = () => {
     switch (currentMode) {
       case 'chatbot':
-        return <ChatBot />;
+        return <AIChatBot />;
       case 'websocket':
         return (
           <div className="bg-dark h-100 position-relative">
@@ -88,7 +88,7 @@ const ChatBotPage = () => {
           </div>
         );
       default:
-        return <ChatBot />;
+        return <AIChatBot />;
     }
   };
 

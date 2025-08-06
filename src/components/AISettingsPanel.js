@@ -1,13 +1,13 @@
 import React from 'react';
-import { PRESETS, SYNC_MODES } from '../config/chatSettings';
-import { getAvailablePromptTypes } from '../config/systemPrompts';
-import TTSEngineSelector from './TTSEngineSelector';
+import { PRESETS, SYNC_MODES } from '../config/aiChatSettings';
+import { getAvailablePromptTypes } from '../config/aiSystemPrompts';
+import AITTSEngineSelector from './AITTSEngineSelector';
 
 /**
- * 설정 패널 컴포넌트
- * TTS 엔진 선택, AI 개성, 성능 설정 등을 포함
+ * AI 설정 패널 컴포넌트
+ * AI 챗봇 전용 - TTS 엔진 선택, AI 개성, 성능 설정 등을 포함
  */
-const SettingsPanel = ({ 
+const AISettingsPanel = ({ 
   showSettings, 
   settings, 
   currentPromptType,
@@ -85,9 +85,9 @@ const SettingsPanel = ({
               </small>
             </div>
 
-            {/* TTS 엔진 선택 */}
+            {/* AI TTS 엔진 선택 */}
             <div className="mb-4">
-              <TTSEngineSelector
+              <AITTSEngineSelector
                 currentEngine={settings.ttsEngine}
                 settings={settings}
                 onEngineChange={(engine) => updateSetting('ttsEngine', engine)}
@@ -245,4 +245,4 @@ const SettingsPanel = ({
   );
 };
 
-export default SettingsPanel;
+export default AISettingsPanel;

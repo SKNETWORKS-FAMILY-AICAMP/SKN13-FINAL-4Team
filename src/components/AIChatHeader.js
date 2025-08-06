@@ -1,10 +1,10 @@
 import React from 'react';
 
 /**
- * 채팅 헤더 컴포넌트
- * 제목, 오디오 컨트롤, 설정 버튼을 포함
+ * AI 채팅 헤더 컴포넌트
+ * AI 챗봇 전용 헤더 - 제목, 오디오 컨트롤, 설정 버튼을 포함
  */
-const ChatHeader = ({ 
+const AIChatHeader = ({ 
   isPlayingAudio, 
   audioEnabled, 
   showSettings, 
@@ -75,4 +75,4 @@ const ChatHeader = ({
   );
 };
 
-export default ChatHeader;
+export default AIChatHeader;

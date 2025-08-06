@@ -1,12 +1,12 @@
 import { useState, useRef } from 'react';
-import { DEFAULT_SETTINGS } from '../config/chatSettings';
-import { getSystemPrompt } from '../config/systemPrompts';
-import { TTSService } from '../services/ttsService';
-import { AudioService } from '../services/audioService';
-import { TextSyncService } from '../services/textSyncService';
-import { TTSManager } from '../services/ttsManager';
+import { DEFAULT_SETTINGS } from '../config/aiChatSettings';
+import { getSystemPrompt } from '../config/aiSystemPrompts';
+import { AITTSService } from '../services/aiTTSService';
+import { AIAudioService } from '../services/aiAudioService';
+import { AITextSyncService } from '../services/aiTextSyncService';
+import { AITTSManager } from '../services/aiTTSManager';
 
-export const useChatBot = (openai) => {
+export const useAIChatBot = (openai) => {
   // State management
   const [messages, setMessages] = useState([
     { id: 1, text: '안녕하세요! AI 인플루언서입니다. 무엇을 도와드릴까요?', sender: 'bot', timestamp: new Date() }
@@ -40,22 +40,22 @@ export const useChatBot = (openai) => {
 
   // Initialize services
   const initializeServices = () => {
-    // TTS 매니저 초기화 (여러 TTS 엔진 관리)
+    // AI TTS 매니저 초기화 (여러 AI TTS 엔진 관리)
     if (!ttsManagerRef.current) {
-      ttsManagerRef.current = new TTSManager(openai, settings);
+      ttsManagerRef.current = new AITTSManager(openai, settings);
     }
     
-    // 레거시 TTS 서비스 (호환성 유지)
+    // AI TTS 서비스 (호환성 유지)
     if (!ttsServiceRef.current) {
-      ttsServiceRef.current = new TTSService(openai, settings);
+      ttsServiceRef.current = new AITTSService(openai, settings);
     }
     
     if (!audioServiceRef.current && audioRef.current) {
-      audioServiceRef.current = new AudioService(audioRef);
+      audioServiceRef.current = new AIAudioService(audioRef);
       audioServiceRef.current.setCallbacks(setIsPlayingAudio, handleAudioEnded);
     }
     if (!textSyncServiceRef.current) {
-      textSyncServiceRef.current = new TextSyncService(settings);
+      textSyncServiceRef.current = new AITextSyncService(settings);
       textSyncServiceRef.current.setCallbacks(setCurrentRevealedText, null);
     }
   };

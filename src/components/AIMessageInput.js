@@ -1,10 +1,10 @@
 import React from 'react';
 
 /**
- * 메시지 입력 컴포넌트
- * 텍스트 입력, 전송/중단 버튼을 포함
+ * AI 메시지 입력 컴포넌트
+ * AI 챗봇 전용 - 텍스트 입력, 전송/중단 버튼을 포함
  */
-const MessageInput = ({
+const AIMessageInput = ({
   inputValue,
   setInputValue,
   handleSendMessage,
@@ -107,4 +107,4 @@ const MessageInput = ({
   );
 };
 
-export default MessageInput;
+export default AIMessageInput;

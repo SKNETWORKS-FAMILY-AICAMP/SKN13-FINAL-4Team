@@ -1,12 +1,12 @@
-// TTS 매니저 - 여러 TTS 엔진을 통합 관리
-import { TTSService } from './ttsService';
+// AI TTS 매니저 - AI 챗봇 전용 여러 TTS 엔진을 통합 관리
+import { AITTSService } from './aiTTSService';
 import { MeloTTSService } from './meloTTSService';
 import { CoquiTTSService } from './coquiTTSService';
 
 /**
- * 지원되는 TTS 엔진 타입
+ * AI 챗봇에서 지원되는 TTS 엔진 타입
  */
-export const TTS_ENGINES = {
+export const AI_TTS_ENGINES = {
   OPENAI: 'openai',
   MELOTTS: 'melotts',
   COQUI: 'coqui'
@@ -15,22 +15,22 @@ export const TTS_ENGINES = {
 /**
  * TTS 엔진별 설정 정보
  */
-export const TTS_ENGINE_CONFIGS = {
-  [TTS_ENGINES.OPENAI]: {
+export const AI_TTS_ENGINE_CONFIGS = {
+  [AI_TTS_ENGINES.OPENAI]: {
     name: 'OpenAI TTS',
     description: '고품질 음성, 안정적',
     supportsStreaming: false,
     voices: ['nova', 'alloy', 'echo', 'fable', 'onyx', 'shimmer'],
     maxLength: 4096 // OpenAI TTS 텍스트 길이 제한
   },
-  [TTS_ENGINES.MELOTTS]: {
+  [AI_TTS_ENGINES.MELOTTS]: {
     name: 'MeloTTS',
     description: '실시간 스트리밍, 빠른 응답',
     supportsStreaming: true,
     voices: ['default', 'female', 'male'],
     maxLength: 1000 // 권장 최대 길이
   },
-  [TTS_ENGINES.COQUI]: {
+  [AI_TTS_ENGINES.COQUI]: {
     name: 'Coqui TTS',
     description: '오픈소스, 커스터마이징 가능',
     supportsStreaming: true,
@@ -40,14 +40,14 @@ export const TTS_ENGINE_CONFIGS = {
 };
 
 /**
- * TTS 매니저 클래스
- * 여러 TTS 엔진을 통합하여 관리하고 동적으로 전환 가능
+ * AI TTS 매니저 클래스
+ * AI 챗봇 전용 여러 TTS 엔진을 통합하여 관리하고 동적으로 전환 가능
  */
-export class TTSManager {
+export class AITTSManager {
   constructor(openai, settings) {
     this.openai = openai;
     this.settings = settings;
-    this.currentEngine = settings.ttsEngine || TTS_ENGINES.OPENAI;
+    this.currentEngine = settings.ttsEngine || AI_TTS_ENGINES.OPENAI;
     this.services = {};
     this.initializeServices();
   }
@@ -58,13 +58,13 @@ export class TTSManager {
   initializeServices() {
     try {
       // OpenAI TTS 서비스
-      this.services[TTS_ENGINES.OPENAI] = new TTSService(this.openai, this.settings);
+      this.services[AI_TTS_ENGINES.OPENAI] = new AITTSService(this.openai, this.settings);
       
       // MeloTTS 서비스
-      this.services[TTS_ENGINES.MELOTTS] = new MeloTTSService(this.settings);
+      this.services[AI_TTS_ENGINES.MELOTTS] = new MeloTTSService(this.settings);
       
       // Coqui TTS 서비스
-      this.services[TTS_ENGINES.COQUI] = new CoquiTTSService(this.settings);
+      this.services[AI_TTS_ENGINES.COQUI] = new CoquiTTSService(this.settings);
 
       console.log('✅ TTS 서비스들 초기화 완료');
     } catch (error) {
@@ -79,7 +79,7 @@ export class TTSManager {
     const service = this.services[this.currentEngine];
     if (!service) {
       console.warn(`⚠️ ${this.currentEngine} 서비스를 찾을 수 없습니다. OpenAI로 폴백합니다.`);
-      return this.services[TTS_ENGINES.OPENAI];
+      return this.services[AI_TTS_ENGINES.OPENAI];
     }
     return service;
   }
@@ -89,7 +89,7 @@ export class TTSManager {
    * @param {string} engineType - 변경할 엔진 타입
    */
   async switchEngine(engineType) {
-    if (!Object.values(TTS_ENGINES).includes(engineType)) {
+    if (!Object.values(AI_TTS_ENGINES).includes(engineType)) {
       throw new Error(`지원하지 않는 TTS 엔진: ${engineType}`);
     }
 
@@ -103,7 +103,7 @@ export class TTSManager {
       }
 
       // MeloTTS인 경우 WebSocket 연결 확인
-      if (engineType === TTS_ENGINES.MELOTTS) {
+      if (engineType === AI_TTS_ENGINES.MELOTTS) {
         if (service.connect) {
           await service.connect();
           if (!service.isConnected) {
@@ -113,7 +113,7 @@ export class TTSManager {
       }
 
       // Coqui TTS인 경우 서버 상태 확인
-      if (engineType === TTS_ENGINES.COQUI) {
+      if (engineType === AI_TTS_ENGINES.COQUI) {
         if (service.checkServerStatus) {
           const isAvailable = await service.checkServerStatus();
           if (!isAvailable) {
@@ -142,7 +142,7 @@ export class TTSManager {
     }
 
     const service = this.getCurrentService();
-    const config = TTS_ENGINE_CONFIGS[this.currentEngine];
+    const config = AI_TTS_ENGINE_CONFIGS[this.currentEngine];
 
     // 텍스트 길이 검증
     if (text.length > config.maxLength) {
@@ -158,10 +158,10 @@ export class TTSManager {
       console.error(`❌ ${config.name} 음성 생성 실패:`, error);
       
       // OpenAI가 아닌 경우 폴백 시도
-      if (this.currentEngine !== TTS_ENGINES.OPENAI) {
-        console.log(`🔄 ${TTS_ENGINES.OPENAI}로 폴백 시도...`);
+      if (this.currentEngine !== AI_TTS_ENGINES.OPENAI) {
+        console.log(`🔄 ${AI_TTS_ENGINES.OPENAI}로 폴백 시도...`);
         try {
-          const fallbackService = this.services[TTS_ENGINES.OPENAI];
+          const fallbackService = this.services[AI_TTS_ENGINES.OPENAI];
           return await fallbackService.generateAudio(text);
         } catch (fallbackError) {
           console.error('❌ 폴백도 실패:', fallbackError);
@@ -179,17 +179,17 @@ export class TTSManager {
    */
   async generateStreamingAudio(textChunk, onAudioChunk) {
     const service = this.getCurrentService();
-    const config = TTS_ENGINE_CONFIGS[this.currentEngine];
+    const config = AI_TTS_ENGINE_CONFIGS[this.currentEngine];
 
     if (!config.supportsStreaming) {
       throw new Error(`${config.name}은 스트리밍을 지원하지 않습니다`);
     }
 
     try {
-      if (this.currentEngine === TTS_ENGINES.MELOTTS) {
+      if (this.currentEngine === AI_TTS_ENGINES.MELOTTS) {
         service.setCallbacks(onAudioChunk);
         return await service.generateStreamingAudio(textChunk);
-      } else if (this.currentEngine === TTS_ENGINES.COQUI) {
+      } else if (this.currentEngine === AI_TTS_ENGINES.COQUI) {
         return await service.generateStreamingAudio(textChunk, onAudioChunk);
       }
     } catch (error) {
@@ -204,8 +204,8 @@ export class TTSManager {
   getCurrentEngineInfo() {
     return {
       engine: this.currentEngine,
-      config: TTS_ENGINE_CONFIGS[this.currentEngine],
-      supportsStreaming: TTS_ENGINE_CONFIGS[this.currentEngine].supportsStreaming,
+      config: AI_TTS_ENGINE_CONFIGS[this.currentEngine],
+      supportsStreaming: AI_TTS_ENGINE_CONFIGS[this.currentEngine].supportsStreaming,
       service: this.getCurrentService()
     };
   }
@@ -214,7 +214,7 @@ export class TTSManager {
    * 사용 가능한 엔진 목록 반환
    */
   getAvailableEngines() {
-    return Object.entries(TTS_ENGINE_CONFIGS).map(([key, config]) => ({
+    return Object.entries(AI_TTS_ENGINE_CONFIGS).map(([key, config]) => ({
       id: key,
       ...config
     }));
@@ -252,7 +252,7 @@ export class TTSManager {
   getPerformanceStats() {
     return {
       currentEngine: this.currentEngine,
-      engineConfigs: TTS_ENGINE_CONFIGS,
+      engineConfigs: AI_TTS_ENGINE_CONFIGS,
       servicesInitialized: Object.keys(this.services).length
     };
   }
@@ -263,7 +263,7 @@ export class TTSManager {
   cleanup() {
     try {
       // MeloTTS 연결 해제
-      const meloService = this.services[TTS_ENGINES.MELOTTS];
+      const meloService = this.services[AI_TTS_ENGINES.MELOTTS];
       if (meloService && meloService.disconnect) {
         meloService.disconnect();
       }

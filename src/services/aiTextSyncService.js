@@ -1,5 +1,5 @@
-// 텍스트 동기화 서비스 - 오디오 재생과 텍스트 표시를 동기화
-export class TextSyncService {
+// AI 텍스트 동기화 서비스 - AI 챗봇 전용 오디오 재생과 텍스트 표시 동기화
+export class AITextSyncService {
   constructor(settings) {
     this.settings = settings; // chunkSize, streamingDelay 등 설정값
     this.intervalRef = null;  // setInterval 참조 (정리용)

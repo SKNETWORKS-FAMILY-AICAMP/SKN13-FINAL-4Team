@@ -4,13 +4,13 @@ import {
   OPENAI_VOICE_OPTIONS, 
   MELO_VOICE_OPTIONS, 
   COQUI_MODEL_OPTIONS 
-} from '../config/chatSettings';
+} from '../config/aiChatSettings';
 
 /**
- * TTS 엔진 선택 컴포넌트
- * 다양한 TTS 엔진 선택 및 상태 확인 기능
+ * AI TTS 엔진 선택 컴포넌트
+ * AI 챗봇 전용 - 다양한 TTS 엔진 선택 및 상태 확인 기능
  */
-const TTSEngineSelector = ({ 
+const AITTSEngineSelector = ({ 
   currentEngine, 
   settings, 
   onEngineChange, 
@@ -322,4 +322,4 @@ const TTSEngineSelector = ({
   );
 };
 
-export default TTSEngineSelector;
+export default AITTSEngineSelector;

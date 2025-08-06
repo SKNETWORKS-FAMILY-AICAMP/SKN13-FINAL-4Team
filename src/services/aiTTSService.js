@@ -1,8 +1,8 @@
 /**
- * OpenAI TTS Service
- * OpenAI의 Text-to-Speech API를 사용한 음성 생성 서비스
+ * AI TTS Service (OpenAI)
+ * AI 챗봇 전용 OpenAI Text-to-Speech API를 사용한 음성 생성 서비스
  */
-export class TTSService {
+export class AITTSService {
   constructor(openai, settings) {
     this.openai = openai;     // OpenAI 클라이언트 인스턴스
     this.settings = settings; // TTS 설정 (voice, speed 등)

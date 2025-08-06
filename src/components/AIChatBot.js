@@ -1,16 +1,17 @@
 import React, { useEffect } from 'react';
 import OpenAI from 'openai';
-import { useChatBot } from '../hooks/useChatBot';
-import ChatHeader from './ChatHeader';
-import SettingsPanel from './SettingsPanel';
-import MessageDisplay from './MessageDisplay';
-import MessageInput from './MessageInput';
+import { useAIChatBot } from '../hooks/useAIChatBot';
+import AIChatHeader from './AIChatHeader';
+import AISettingsPanel from './AISettingsPanel';
+import AIMessageDisplay from './AIMessageDisplay';
+import AIMessageInput from './AIMessageInput';
 
 /**
- * 메인 ChatBot 컴포넌트
+ * 메인 AIChatBot 컴포넌트
  * TTS 기능이 통합된 AI 챗봇 인터페이스
+ * WebSocket 채팅과 구분되는 AI 전용 챗봇
  */
-const ChatBot = () => {
+const AIChatBot = () => {
   // OpenAI 클라이언트 초기화
   const openai = new OpenAI({
     apiKey: process.env.REACT_APP_OPENAI_API_KEY,
@@ -62,7 +63,7 @@ const ChatBot = () => {
     updateSetting,
     applyPreset,
     getCurrentSystemPrompt
-  } = useChatBot(openai);
+  } = useAIChatBot(openai);
 
   // 컴포넌트 마운트 시 서비스 초기화
   useEffect(() => {
@@ -329,8 +330,8 @@ const ChatBot = () => {
 
   return (
     <div className="container-fluid h-100 d-flex flex-column p-0">
-      {/* 채팅 헤더 */}
-      <ChatHeader
+      {/* AI 채팅 헤더 */}
+      <AIChatHeader
         isPlayingAudio={isPlayingAudio}
         audioEnabled={audioEnabled}
         showSettings={showSettings}
@@ -339,8 +340,8 @@ const ChatBot = () => {
         setShowSettings={setShowSettings}
       />
 
-      {/* 설정 패널 */}
-      <SettingsPanel
+      {/* AI 설정 패널 */}
+      <AISettingsPanel
         showSettings={showSettings}
         settings={settings}
         currentPromptType={currentPromptType}
@@ -356,8 +357,8 @@ const ChatBot = () => {
           <div className="card h-100">
             <div className="card-body p-0 d-flex flex-column">
               
-              {/* 메시지 표시 영역 */}
-              <MessageDisplay
+              {/* AI 메시지 표시 영역 */}
+              <AIMessageDisplay
                 messages={messages}
                 isStreamingMessage={isStreamingMessage}
                 isGeneratingTTS={isGeneratingTTS}
@@ -368,8 +369,8 @@ const ChatBot = () => {
                 formatTime={formatTime}
               />
 
-              {/* 메시지 입력 영역 */}
-              <MessageInput
+              {/* AI 메시지 입력 영역 */}
+              <AIMessageInput
                 inputValue={inputValue}
                 setInputValue={setInputValue}
                 handleSendMessage={handleSendMessage}
@@ -429,4 +430,4 @@ const ChatBot = () => {
   );
 };
 
-export default ChatBot;
+export default AIChatBot;
