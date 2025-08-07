@@ -7,6 +7,8 @@
     background-color: #000;
     border-radius: 8px;
     overflow: hidden;
+    min-height: 400px;
+    aspect-ratio: 16/9;
 }
 
 .video-controls {
@@ -33,10 +35,11 @@
 .chat-wrapper {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: calc(100vh - 120px); /* Navbar + 여백을 고려한 전체 높이 */
     border: 1px solid #ddd;
     border-radius: 8px;
     overflow: hidden;
+    position: relative;
 }
 
 .chat-box {
@@ -65,10 +68,11 @@
 
 /* StreamingChat 컴포넌트 스타일 */
 .streaming-chat-container {
-    height: 500px;
+    height: calc(100% - 130px); /* 후원 버튼(50px) + 채팅입력창(70px) + 여유공간(10px) */
     border: 1px solid #495057;
-    border-radius: 8px;
+    border-radius: 8px 8px 0 0; /* 하단 모서리 제거 */
     background-color: #212529;
+    margin-bottom: 80px; /* 채팅 입력창과 후원 버튼 영역 확보 */
 }
 
 .streaming-chat-container .chat-header {
@@ -128,9 +132,160 @@
 }
 
 .chat-actions {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
     padding: 8px;
     background-color: #f8f9fa;
     border: 1px solid #dee2e6;
-    border-top: none;
+    border-top: 1px solid #495057; /* StreamingChat 컨테이너와 구분 */
     border-radius: 0 0 8px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 10;
+}
+
+/* 채팅 입력창이 후원 버튼과 겹치지 않도록 조정 */
+.streaming-chat-container .chat-input-section {
+    position: relative;
+    z-index: 5;
+    margin-bottom: 0;
+}
+
+/* 음량 슬라이더 스타일 */
+.chat-header input[type="range"] {
+    height: 4px;
+    background: #495057;
+    outline: none;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    cursor: pointer;
+}
+
+.chat-header input[type="range"]:hover {
+    opacity: 1;
+}
+
+.chat-header input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    background: #0d6efd;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+.chat-header input[type="range"]::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    background: #0d6efd;
+    cursor: pointer;
+    border-radius: 50%;
+    border: none;
+}
+
+/* AI 자막 스타일 */
+.ai-subtitle {
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 600px;
+    text-align: center;
+    pointer-events: none;
+    z-index: 100;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.subtitle-background {
+    display: inline-block;
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 10px 20px;
+    border-radius: 8px;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.subtitle-text {
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+/* 전체화면 모드에서도 자막 표시 */
+.video-player-wrapper:-webkit-full-screen .ai-subtitle,
+.video-player-wrapper:-moz-full-screen .ai-subtitle,
+.video-player-wrapper:fullscreen .ai-subtitle {
+    bottom: 100px;
+    font-size: 24px;
+}
+
+/* 플로팅 디버그 패널 스타일 */
+.debug-panel-overlay {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    z-index: 9999;
+    pointer-events: auto;
+}
+
+.debug-panel-floating {
+    background-color: rgba(13, 27, 42, 0.96);
+    border: 1px solid #495057;
+    border-radius: 8px;
+    padding: 12px;
+    color: #ffffff;
+    font-size: 0.8rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    min-width: 300px;
+    max-width: 400px;
+    backdrop-filter: blur(10px);
+}
+
+.debug-content {
+    font-family: 'Monaco', 'Consolas', monospace;
+}
+
+.debug-content strong {
+    color: #17a2b8;
+    font-size: 0.75rem;
+}
+
+.debug-content .badge {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+}
+
+.debug-panel-floating .progress {
+    background-color: #343a40;
+}
+
+.debug-panel-floating small {
+    color: #6c757d;
+    font-style: italic;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.debug-panel-floating h6 {
+    font-size: 0.9rem;
 }

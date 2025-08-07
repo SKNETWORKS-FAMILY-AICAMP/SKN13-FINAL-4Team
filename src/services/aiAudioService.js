@@ -14,29 +14,70 @@ export class AIAudioService {
     }
 
     return new Promise((resolve, reject) => {
-      // Step 1: 오디오 소스 설정 (Blob URL)
-      this.audioRef.current.src = audioUrl;
+      const audio = this.audioRef.current;
       
-      // Step 2: 오디오 메타데이터 로딩 완료 시 재생 시작
-      this.audioRef.current.onloadeddata = () => {
-        // 오디오 총 지속시간 획득 (텍스트 동기화에 필요)
-        const duration = this.audioRef.current.duration;
+      // 이미 소스가 설정되어 있다면 바로 재생
+      if (audio.src === audioUrl && audio.readyState >= 4) {
+        const duration = audio.duration;
+        
+        audio.play()
+          .then(() => {
+            if (this.onPlayingChange) this.onPlayingChange(true);
+            resolve(duration);
+          })
+          .catch(reject);
+        return;
+      }
+      
+      // Step 1: 오디오 소스 설정 (이미 StreamingChatWithTTS에서 설정됨)
+      if (audio.src !== audioUrl) {
+        audio.src = audioUrl;
+      }
+      
+      // Step 2: 충분한 데이터 로딩 완료 시 재생 시작
+      const handleCanPlay = () => {
+        // 이벤트 리스너 정리
+        audio.removeEventListener('canplaythrough', handleCanPlay);
+        audio.removeEventListener('error', handleError);
+        
+        // 오디오 총 지속시간 획득
+        const duration = audio.duration;
         
         // 오디오 재생 시작
-        this.audioRef.current.play()
+        audio.play()
           .then(() => {
-            // 재생 상태를 true로 업데이트 (UI에서 재생 중 표시)
+            // 재생 상태를 true로 업데이트
             if (this.onPlayingChange) this.onPlayingChange(true);
-            // 지속시간을 Promise로 반환 (텍스트 동기화에서 사용)
+            
+            // 재생 완료 이벤트 리스너 설정
+            const handleEnded = () => {
+              if (this.onPlayingChange) this.onPlayingChange(false);
+              if (this.onEnded) this.onEnded();
+              audio.removeEventListener('ended', handleEnded);
+            };
+            audio.addEventListener('ended', handleEnded);
+            
+            // 지속시간을 Promise로 반환
             resolve(duration);
           })
           .catch(reject);
       };
 
       // Step 3: 오디오 로딩/재생 실패 시 에러 핸들링
-      this.audioRef.current.onerror = () => {
+      const handleError = () => {
+        audio.removeEventListener('canplaythrough', handleCanPlay);
+        audio.removeEventListener('error', handleError);
         reject(new Error('Audio playback failed'));
       };
+
+      // 이벤트 리스너 등록
+      audio.addEventListener('canplaythrough', handleCanPlay);
+      audio.addEventListener('error', handleError);
+      
+      // 이미 로딩이 완료된 경우 즉시 실행
+      if (audio.readyState >= 4) {
+        handleCanPlay();
+      }
     });
   }
 

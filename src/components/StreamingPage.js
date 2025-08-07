@@ -1,14 +1,34 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Container, Row, Col, Image, Button, Badge } from 'react-bootstrap';
-import StreamingChat from './StreamingChat';
+import StreamingChatWithTTS from './StreamingChatWithTTS';
+import { AITextSyncService } from '../services/aiTextSyncService';
+import { DEFAULT_SETTINGS } from '../config/aiChatSettings';
 import './StreamingPage.css';
 
 function StreamingPage({ isLoggedIn, username }) {
     const { streamerId } = useParams();
     const audioRef = useRef(null);
     const videoContainerRef = useRef(null);
-
+    
+    // 자막 상태 추가
+    const [currentSubtitle, setCurrentSubtitle] = useState('');
+    const [revealedSubtitle, setRevealedSubtitle] = useState('');
+    const [showSubtitle, setShowSubtitle] = useState(false);
+    const subtitleTimeoutRef = useRef(null);
+    const textSyncServiceRef = useRef(null);
+    
+    // 디버그 정보 상태
+    const [debugInfo, setDebugInfo] = useState({
+        isPlaying: false,
+        audioDuration: 0,
+        currentTime: 0,
+        textProgress: 0,
+        totalChars: 0,
+        revealedChars: 0,
+        syncMode: 'none'
+    });
+    const [showDebug, setShowDebug] = useState(false); // 기본값을 false로 변경
 
     const [isMuted, setIsMuted] = useState(false);
     const [volume, setVolume] = useState(0.8);
@@ -48,6 +68,91 @@ function StreamingPage({ isLoggedIn, username }) {
         }
     };
 
+    // 텍스트 동기화 서비스 초기화
+    useEffect(() => {
+        if (!textSyncServiceRef.current) {
+            textSyncServiceRef.current = new AITextSyncService({
+                chunkSize: DEFAULT_SETTINGS.chunkSize || 3,
+                streamingDelay: DEFAULT_SETTINGS.streamingDelay || 50
+            });
+            textSyncServiceRef.current.setCallbacks(
+                (revealed) => {
+                    setRevealedSubtitle(revealed);
+                    // 디버그 정보 업데이트
+                    setDebugInfo(prev => ({
+                        ...prev,
+                        revealedChars: revealed.length,
+                        textProgress: prev.totalChars > 0 ? (revealed.length / prev.totalChars * 100) : 0
+                    }));
+                },
+                () => {
+                    // 완료 후 3초 뒤에 자막 숨기기
+                    setDebugInfo(prev => ({ ...prev, isPlaying: false, syncMode: 'completed' }));
+                    subtitleTimeoutRef.current = setTimeout(() => {
+                        setShowSubtitle(false);
+                        setRevealedSubtitle('');
+                        setDebugInfo(prev => ({ ...prev, syncMode: 'none' }));
+                    }, 3000);
+                }
+            );
+        }
+    }, []);
+
+    // AI 메시지와 음성 재생 시간을 받아 동기화된 자막 표시
+    const handleAIMessage = (message, audioDuration, audioElement) => {
+        setCurrentSubtitle(message);
+        setRevealedSubtitle('');
+        setShowSubtitle(true);
+        
+        // 디버그 정보 초기화
+        setDebugInfo({
+            isPlaying: true,
+            audioDuration: audioDuration || 0,
+            currentTime: 0,
+            textProgress: 0,
+            totalChars: message.length,
+            revealedChars: 0,
+            syncMode: audioDuration > 0 ? 'audio-sync' : 'delay-sync'
+        });
+        
+        // 기존 타이머와 동기화 정리
+        if (subtitleTimeoutRef.current) {
+            clearTimeout(subtitleTimeoutRef.current);
+        }
+        if (textSyncServiceRef.current) {
+            textSyncServiceRef.current.stopReveal();
+        }
+        
+        // 음성 재생 시간과 동기화된 텍스트 표시
+        if (audioDuration && audioDuration > 0) {
+            // 음성이 있을 때: 음성 시간에 맞춰 텍스트 스트리밍
+            textSyncServiceRef.current.startSynchronizedReveal(message, audioDuration);
+            
+            // 오디오 시간 추적 (디버그용)
+            if (audioElement) {
+                const updateAudioTime = () => {
+                    if (audioElement.currentTime <= audioDuration) {
+                        setDebugInfo(prev => ({
+                            ...prev,
+                            currentTime: audioElement.currentTime
+                        }));
+                        requestAnimationFrame(updateAudioTime);
+                    }
+                };
+                updateAudioTime();
+            }
+        } else {
+            // 음성이 없을 때: 기본 지연 시간으로 텍스트 스트리밍
+            textSyncServiceRef.current.startDelayedReveal(message, () => {
+                setTimeout(() => {
+                    setShowSubtitle(false);
+                    setRevealedSubtitle('');
+                    setDebugInfo(prev => ({ ...prev, syncMode: 'none' }));
+                }, 3000);
+            });
+        }
+    };
+
     const streamInfo = {
         title: 'AI 스트리머 잼민이의 첫 방송!',
         viewers: 1234,
@@ -61,11 +166,80 @@ function StreamingPage({ isLoggedIn, username }) {
 
     return (
         <Container fluid className="streaming-container mt-4">
+            {/* 디버그 정보 패널 - 완전히 독립적인 플로팅 패널 */}
+            {showDebug && (
+                <div className="debug-panel-overlay">
+                    <div className="debug-panel-floating">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                            <h6 className="mb-0 text-info">🔧 TTS 동기화 디버그</h6>
+                            <Button 
+                                variant="outline-secondary" 
+                                size="sm" 
+                                onClick={() => setShowDebug(false)}
+                            >
+                                ✕
+                            </Button>
+                        </div>
+                        <div className="debug-content">
+                            <div className="row g-2">
+                                <div className="col-6">
+                                    <strong>모드:</strong>
+                                    <span className={`badge ms-2 ${
+                                        debugInfo.syncMode === 'audio-sync' ? 'bg-success' : 
+                                        debugInfo.syncMode === 'delay-sync' ? 'bg-warning' :
+                                        debugInfo.syncMode === 'completed' ? 'bg-info' : 'bg-secondary'
+                                    }`}>
+                                        {debugInfo.syncMode}
+                                    </span>
+                                </div>
+                                <div className="col-6">
+                                    <strong>시간:</strong>
+                                    <span className="ms-2 small">{debugInfo.currentTime.toFixed(1)}s / {debugInfo.audioDuration.toFixed(1)}s</span>
+                                </div>
+                                <div className="col-6">
+                                    <strong>진행:</strong>
+                                    <span className="ms-2 small">{debugInfo.revealedChars} / {debugInfo.totalChars}</span>
+                                </div>
+                                <div className="col-6">
+                                    <strong>상태:</strong>
+                                    <span className={`badge ms-2 ${debugInfo.isPlaying ? 'bg-success' : 'bg-secondary'}`}>
+                                        {debugInfo.isPlaying ? '재생' : '정지'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="progress mt-2" style={{ height: '3px' }}>
+                                <div 
+                                    className="progress-bar bg-success" 
+                                    style={{ width: `${debugInfo.textProgress}%` }}
+                                ></div>
+                            </div>
+                            <small className="text-muted d-block mt-1" style={{ fontSize: '0.7rem' }}>
+                                "{revealedSubtitle.length > 50 ? revealedSubtitle.substring(0, 50) + '...' : revealedSubtitle}"
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <Row>
                 <Col md={8}>
                     <div className="video-player-wrapper" ref={videoContainerRef}>
-                        <Image src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQ1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMDAwIi8+PHRleHQgeD0iNTAlIiB5PSI0NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIzMiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiNmZmYiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkFJIFN0cmVhbWVyPC90ZXh0Pjx0ZXh0IHg9IjUwJSIgeT0iNTglIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiNjY2MiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkxpdmUgU3RyZWFtaW5nPC90ZXh0Pjwvc3ZnPg==" fluid />
-                        <audio ref={audioRef} autoPlay style={{ display: 'none' }} />
+                        {/* 비디오 플레이스홀더 */}
+                        <div className="video-placeholder d-flex align-items-center justify-content-center h-100">
+                            <div className="text-center text-white">
+                                <h3>🎥 AI 스트리머 방송</h3>
+                                <p className="mb-0">실시간 스트리밍 중...</p>
+                            </div>
+                        </div>
+                        
+                        {/* AI 자막 표시 - 스트리밍 텍스트 */}
+                        {showSubtitle && revealedSubtitle && (
+                            <div className="ai-subtitle">
+                                <div className="subtitle-background">
+                                    <span className="subtitle-text">{revealedSubtitle}</span>
+                                </div>
+                            </div>
+                        )}
                         <div className="video-controls">
                             <Button variant="secondary" size="sm" onClick={handleMuteToggle}>
                                 {isMuted ? 'Unmute' : 'Mute'}
@@ -80,6 +254,14 @@ function StreamingPage({ isLoggedIn, username }) {
                                 className="volume-slider" 
                             />
                             <Button variant="secondary" size="sm" onClick={handleFullscreen}>Fullscreen</Button>
+                            <Button 
+                                variant="outline-info" 
+                                size="sm" 
+                                onClick={() => setShowDebug(!showDebug)}
+                                title="디버그 패널 토글"
+                            >
+                                🔧
+                            </Button>
                         </div>
                     </div>
                     <div className="stream-info mt-3">
@@ -104,10 +286,11 @@ function StreamingPage({ isLoggedIn, username }) {
                 <Col md={4}>
                     <div className="chat-wrapper">
                         {streamerId ? (
-                            <StreamingChat 
+                            <StreamingChatWithTTS 
                                 streamerId={streamerId}
                                 isLoggedIn={isLoggedIn}
                                 username={username}
+                                onAIMessage={handleAIMessage}
                             />
                         ) : (
                             <div className="text-center text-muted p-4">
@@ -117,15 +300,13 @@ function StreamingPage({ isLoggedIn, username }) {
                                 <small>username: {username || 'loading...'}</small>
                             </div>
                         )}
-                        <div className="chat-actions mt-2">
-                            <div className="d-flex justify-content-between">
-                                <Button variant="warning" size="sm" onClick={handleDonation}>
-                                    💰 후원
-                                </Button>
-                                <Button variant="light" size="sm" onClick={handleEmoji}>
-                                    😊 이모티콘
-                                </Button>
-                            </div>
+                        <div className="chat-actions">
+                            <Button variant="warning" size="sm" onClick={handleDonation}>
+                                💰 후원
+                            </Button>
+                            <Button variant="light" size="sm" onClick={handleEmoji}>
+                                😊 이모티콘
+                            </Button>
                         </div>
                     </div>
                 </Col>
