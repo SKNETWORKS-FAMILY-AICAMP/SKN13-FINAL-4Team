@@ -30,7 +30,8 @@ SECRET_KEY = 'django-insecure-67i&fjm5^wi4g@s)ka&z4a0(l&-sgm+9jf%w^y_2*4d6%&q^z4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# 개발 환경에서는 모든 호스트 허용
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -146,6 +147,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
+
+# CORS_ALLOW_ALL_ORIGINS = True
+
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",
+#     "http://127.0.0.1:3000", 
+#     "http://192.168.0.51:3000",  # 외부 PC 접근용
+# ]
 
 # WebSocket에서 쿠키 기반 세션 인증을 위해 필요
 CORS_ALLOW_CREDENTIALS = True

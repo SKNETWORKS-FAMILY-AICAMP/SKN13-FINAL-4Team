@@ -186,50 +186,14 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             logger.error(f"메시지 처리 오류: {e}")
 
     def check_ai_trigger(self, message):
-        """특수문자 기반 AI 트리거 확인"""
-        # @ 멘션 (최고 우선순위)
+        """@ 멘션 기반 AI 트리거 확인"""
+        # @ 멘션만 AI 호출 트리거로 사용
         if message.startswith('@'):
             return {
                 'trigger': True, 
                 'priority': 'high', 
                 'type': 'mention',
                 'clean_message': message[1:].strip()  # @ 제거
-            }
-        
-        # # 명령어 (높은 우선순위)
-        elif message.startswith('#'):
-            return {
-                'trigger': True, 
-                'priority': 'high', 
-                'type': 'command',
-                'clean_message': message[1:].strip()  # # 제거
-            }
-        
-        # !! 긴급 (중간 우선순위)
-        elif message.startswith('!!'):
-            return {
-                'trigger': True, 
-                'priority': 'medium', 
-                'type': 'urgent',
-                'clean_message': message[2:].strip()  # !! 제거
-            }
-        
-        # ? 질문 (중간 우선순위)
-        elif message.startswith('?'):
-            return {
-                'trigger': True, 
-                'priority': 'medium', 
-                'type': 'question',
-                'clean_message': message[1:].strip()  # ? 제거
-            }
-        
-        # ! 일반 요청 (낮은 우선순위)
-        elif message.startswith('!'):
-            return {
-                'trigger': True, 
-                'priority': 'low', 
-                'type': 'general',
-                'clean_message': message[1:].strip()  # ! 제거
             }
         
         return None

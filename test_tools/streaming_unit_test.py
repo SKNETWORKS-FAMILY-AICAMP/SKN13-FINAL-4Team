@@ -22,11 +22,11 @@ def test_ai_trigger_detection():
     test_cases = [
         # 메시지, 예상 트리거 여부, 예상 우선순위, 예상 타입
         ("안녕하세요", None, None, None),                          # 일반 메시지
-        ("!음악 추천 부탁합니다", True, "low", "general"),           # 일반 요청
-        ("!!긴급 질문입니다", True, "medium", "urgent"),            # 긴급
-        ("@jammin-i 안녕하세요", True, "high", "mention"),         # 멘션
-        ("?이 노래 제목이 뭔가요?", True, "medium", "question"),    # 질문
-        ("#추천 팝송", True, "high", "command"),                   # 명령어
+        ("음악 추천 부탁합니다", None, None, None),                 # 일반 메시지 (특수문자 없음)
+        ("긴급 질문입니다", None, None, None),                     # 일반 메시지 (특수문자 없음)
+        ("@jammin-i 안녕하세요", True, "high", "mention"),         # 멘션 (유일한 AI 트리거)
+        ("이 노래 제목이 뭔가요?", None, None, None),              # 일반 메시지 (? 제거)
+        ("추천 팝송", None, None, None),                          # 일반 메시지 (# 제거)
     ]
     
     passed = 0
