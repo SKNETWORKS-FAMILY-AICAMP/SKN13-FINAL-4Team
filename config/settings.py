@@ -147,6 +147,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
 ]
 
+# WebSocket에서 쿠키 기반 세션 인증을 위해 필요
+CORS_ALLOW_CREDENTIALS = True
+
+# 세션 쿠키 설정
+SESSION_COOKIE_HTTPONLY = False  # JavaScript에서 접근 가능하도록 (WebSocket용)
+SESSION_COOKIE_SAMESITE = 'Lax'  # CORS 환경에서 쿠키 전송 허용
+
 # 2. ASGI 설정
 # settings.py
 
