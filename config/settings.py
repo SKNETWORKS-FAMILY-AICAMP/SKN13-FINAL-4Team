@@ -169,3 +169,9 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 30,
 }
+
+# 미디어 파일을 관리할 루트 디렉토리
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# 각 미디어 파일에 접근할 때 사용할 URL
+MEDIA_URL = '/media/'
