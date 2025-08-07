@@ -62,3 +62,75 @@
     border-top: 1px solid #ddd;
     background-color: #fff;
 }
+
+/* StreamingChat 컴포넌트 스타일 */
+.streaming-chat-container {
+    height: 500px;
+    border: 1px solid #495057;
+    border-radius: 8px;
+    background-color: #212529;
+}
+
+.streaming-chat-container .chat-header {
+    font-size: 0.9rem;
+}
+
+.streaming-chat-container .chat-help {
+    font-size: 0.75rem;
+    line-height: 1.3;
+}
+
+.streaming-chat-container .chat-help code {
+    font-size: 0.7rem;
+    padding: 1px 3px;
+    background-color: rgba(13, 202, 240, 0.15);
+    border-radius: 3px;
+}
+
+.streaming-chat-container .chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.streaming-chat-container .chat-messages::-webkit-scrollbar-track {
+    background: #495057;
+}
+
+.streaming-chat-container .chat-messages::-webkit-scrollbar-thumb {
+    background: #6c757d;
+    border-radius: 3px;
+}
+
+.streaming-chat-container .chat-messages::-webkit-scrollbar-thumb:hover {
+    background: #adb5bd;
+}
+
+.streaming-chat-container .chat-message.system-message {
+    text-align: center;
+    font-style: italic;
+}
+
+.streaming-chat-container .chat-message.ai-message {
+    background-color: rgba(13, 202, 240, 0.1);
+    padding: 8px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.streaming-chat-container .chat-message.my-message {
+    background-color: rgba(25, 135, 84, 0.1);
+    padding: 8px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.streaming-chat-container .connection-status {
+    font-size: 0.75rem;
+}
+
+.chat-actions {
+    padding: 8px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+}

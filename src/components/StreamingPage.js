@@ -1,29 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Container, Row, Col, Image, Button, Form, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Image, Button, Badge } from 'react-bootstrap';
+import StreamingChat from './StreamingChat';
 import './StreamingPage.css';
 
 function StreamingPage({ isLoggedIn, username }) {
     const { streamerId } = useParams();
-    const [message, setMessage] = useState('');
-    const [chatHistory, setChatHistory] = useState([
-        { nickname: '팬1', text: '안녕하세요! 기대하고 있었어요.' },
-        { nickname: '열혈팬', text: '오늘 방송도 화이팅!' },
-        { nickname: '잼민이', text: '여러분 안녕하세요! 오늘 방송을 시작하겠습니다.' },
-    ]);
-    
-    const chatContainerRef = useRef(null);
     const audioRef = useRef(null);
     const videoContainerRef = useRef(null);
 
+
     const [isMuted, setIsMuted] = useState(false);
     const [volume, setVolume] = useState(0.8);
-
-    useEffect(() => {
-        if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-        }
-    }, [chatHistory]);
 
     const handleAction = (action) => {
         if (!isLoggedIn) {
@@ -31,22 +19,6 @@ function StreamingPage({ isLoggedIn, username }) {
             return;
         }
         action();
-    };
-
-    const handleSendMessage = () => {
-        handleAction(() => {
-            if (message.trim() === '') return;
-            const newMessage = { nickname: username, text: message };
-            setChatHistory(prev => [...prev.slice(-99), newMessage]);
-            setMessage('');
-        });
-    };
-
-    const handleKeyPress = (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSendMessage();
-        }
     };
 
     const handleDonation = () => handleAction(() => alert('준비중입니다.'));
@@ -79,8 +51,12 @@ function StreamingPage({ isLoggedIn, username }) {
     const streamInfo = {
         title: 'AI 스트리머 잼민이의 첫 방송!',
         viewers: 1234,
-        streamer: { name: '잼민이', profilePic: 'https://via.placeholder.com/50', bio: 'sLLM 기반 AI 스트리머입니다. 여러분과 소통하고 싶어요!' },
-        keywords: ['AI', 'sLLM', '소통', 'Q&A', '첫방송'],
+        keywords: ['AI', '코딩', '라이브', '스트리밍'],
+        streamer: { 
+            name: '잼민이', 
+            profilePic: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyNSIgY3k9IjI1IiByPSIyNSIgZmlsbD0iIzAwNzNlNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+QUk8L3RleHQ+PC9zdmc+', 
+            bio: 'sLLM 기반 AI 스트리머입니다. 여러분과 소통하고 싶어요!' 
+        }
     };
 
     return (
@@ -88,7 +64,7 @@ function StreamingPage({ isLoggedIn, username }) {
             <Row>
                 <Col md={8}>
                     <div className="video-player-wrapper" ref={videoContainerRef}>
-                        <Image src="https://via.placeholder.com/800x450/000000?text=AI+Streamer+Image" fluid />
+                        <Image src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQ1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMDAwIi8+PHRleHQgeD0iNTAlIiB5PSI0NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIzMiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiNmZmYiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkFJIFN0cmVhbWVyPC90ZXh0Pjx0ZXh0IHg9IjUwJSIgeT0iNTglIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjAiIGZpbGw9IiNjY2MiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkxpdmUgU3RyZWFtaW5nPC90ZXh0Pjwvc3ZnPg==" fluid />
                         <audio ref={audioRef} autoPlay style={{ display: 'none' }} />
                         <div className="video-controls">
                             <Button variant="secondary" size="sm" onClick={handleMuteToggle}>
@@ -127,30 +103,29 @@ function StreamingPage({ isLoggedIn, username }) {
                 </Col>
                 <Col md={4}>
                     <div className="chat-wrapper">
-                        <div className="chat-box" ref={chatContainerRef}>
-                            {chatHistory.map((chat, index) => (
-                                <div key={index} className="chat-message">
-                                    <strong>{chat.nickname}:</strong> <span>{chat.text}</span>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="chat-input-section">
-                            <div className="d-flex justify-content-between mb-2">
-                                <Button variant="warning" onClick={handleDonation}>후원</Button>
-                                <div>
-                                    <Button variant="light" className="me-2" onClick={handleEmoji}>😊</Button>
-                                    <Button variant="primary" onClick={handleSendMessage} disabled={!isLoggedIn || !message.trim()}>전송</Button>
-                                </div>
-                            </div>
-                            <Form.Control
-                                as="textarea"
-                                rows={2}
-                                placeholder={isLoggedIn ? "메시지를 입력하세요..." : "로그인 후 채팅에 참여할 수 있습니다."}
-                                value={message}
-                                onChange={(e) => setMessage(e.target.value)}
-                                onKeyPress={handleKeyPress}
-                                disabled={!isLoggedIn}
+                        {streamerId ? (
+                            <StreamingChat 
+                                streamerId={streamerId}
+                                isLoggedIn={isLoggedIn}
+                                username={username}
                             />
+                        ) : (
+                            <div className="text-center text-muted p-4">
+                                <p>채팅을 불러오는 중...</p>
+                                <small>streamerId: {streamerId || 'loading...'}</small><br/>
+                                <small>isLoggedIn: {String(isLoggedIn)}</small><br/>
+                                <small>username: {username || 'loading...'}</small>
+                            </div>
+                        )}
+                        <div className="chat-actions mt-2">
+                            <div className="d-flex justify-content-between">
+                                <Button variant="warning" size="sm" onClick={handleDonation}>
+                                    💰 후원
+                                </Button>
+                                <Button variant="light" size="sm" onClick={handleEmoji}>
+                                    😊 이모티콘
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </Col>

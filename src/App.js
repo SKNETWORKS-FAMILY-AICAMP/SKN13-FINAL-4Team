@@ -10,7 +10,6 @@ import UserListPage from './components/UserListPage';
 import ProfilePage from './components/ProfilePage';
 import StreamingPage from './components/StreamingPage';
 import HomeTemporary from './components/HomeTemporary';
-import ChatComponent from './components/ChatComponent'; // 레거시 웹소켓 채팅
 import AIChatBot from './components/AIChatBot'; // 메인 TTS 지원 AI 챗봇
 import './App.css';
 
@@ -18,25 +17,6 @@ import './App.css';
  * TTS 챗봇 페이지 컴포넌트
  */
 const ChatBotPage = () => {
-  const getInitialMode = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('mode') || localStorage.getItem('appMode') || 'chatbot';
-  };
-
-  const [currentMode, setCurrentMode] = useState(getInitialMode);
-
-  useEffect(() => {
-    console.log(`🚀 챗봇 모드 시작: ${currentMode}`);
-  }, []);
-
-  const switchMode = (mode) => {
-    console.log(`🔄 모드 변경: ${currentMode} → ${mode}`);
-    setCurrentMode(mode);
-    localStorage.setItem('appMode', mode);
-    
-    const newUrl = `${window.location.pathname}?mode=${mode}`;
-    window.history.pushState({ mode }, '', newUrl);
-  };
 
   const NavigationBar = () => (
     <nav className="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm" 
@@ -46,50 +26,12 @@ const ChatBotPage = () => {
           <span className="me-2">🤖</span>
           <span>AI 인플루언서 - TTS 챗봇</span>
         </div>
-        
-        <div className="d-flex gap-2">
-          <button
-            className={`btn btn-sm ${
-              currentMode === 'chatbot' 
-                ? 'btn-light text-primary fw-bold shadow-sm' 
-                : 'btn-outline-light'
-            }`}
-            onClick={() => switchMode('chatbot')}
-            style={{ minWidth: '120px' }}
-          >
-            <span className="me-1">🎤</span>
-            AI 챗봇
-          </button>
-          <button
-            className={`btn btn-sm ${
-              currentMode === 'websocket' 
-                ? 'btn-light text-primary fw-bold shadow-sm' 
-                : 'btn-outline-light'
-            }`}
-            onClick={() => switchMode('websocket')}
-            style={{ minWidth: '120px' }}
-          >
-            <span className="me-1">💬</span>
-            웹소켓 채팅
-          </button>
-        </div>
       </div>
     </nav>
   );
 
   const renderContent = () => {
-    switch (currentMode) {
-      case 'chatbot':
-        return <AIChatBot />;
-      case 'websocket':
-        return (
-          <div className="bg-dark h-100 position-relative">
-            <ChatComponent />
-          </div>
-        );
-      default:
-        return <AIChatBot />;
-    }
+    return <AIChatBot />;
   };
 
   return (
@@ -119,7 +61,7 @@ function App() {
       });
       
       setIsLoggedIn(true);
-      setUsername(response.data.nickname); 
+      setUsername(response.data.username); 
     } catch (error) {
       console.error('Failed to fetch user data or token is invalid:', error);
       localStorage.removeItem('accessToken');
