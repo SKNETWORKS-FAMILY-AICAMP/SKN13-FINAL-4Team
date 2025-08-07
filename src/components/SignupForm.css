@@ -1,20 +1,94 @@
-/* 유효할 때 적용될 파란색 테두리 스타일 */
-.form-control.is-valid-custom {
-    border-color: #0d6efd; /* Bootstrap의 primary blue 색상 */
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+.signup-container {
+    max-width: 450px;
+    margin: 50px auto;
+    padding: 40px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    color: #333;
 }
 
-/* 유효하지 않을 때 적용될 빨간색 테두리 스타일 */
-.form-control.is-invalid-custom {
-    border-color: #dc3545; /* Bootstrap의 danger red 색상 */
-    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+.signup-header {
+    text-align: center;
+    margin-bottom: 40px;
 }
 
-.form-group-centered {
-  /* 최대 너비를 400px로 제한 */
-  max-width: 400px;
-  
-  /* 좌우 마진을 auto로 설정하여 블록을 중앙에 배치 */
-  margin-left: auto;
-  margin-right: auto;
+.signup-header h1 {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.signup-header p {
+    font-size: 16px;
+    color: #666;
+}
+
+.signup-form .form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+.form-group input::placeholder {
+    color: #aaa;
+}
+
+.input-with-button {
+    display: flex;
+    gap: 10px;
+}
+
+.input-with-button input {
+    flex-grow: 1;
+}
+
+.input-with-button button {
+    padding: 0 15px;
+    border: 1px solid #ccc;
+    background-color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap; /* 버튼 텍스트가 줄바꿈되지 않도록 */
+    font-size: 14px;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #888;
+}
+
+.form-group small.error {
+    color: #e53e3e; /* 빨간색 에러 메시지 */
+}
+.form-group small.success {
+    color: #38a169; /* 초록색 성공 메시지 */
+}
+
+
+.signup-btn {
+    width: 100%;
+    padding: 15px;
+    background-color: #000;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 20px;
 }

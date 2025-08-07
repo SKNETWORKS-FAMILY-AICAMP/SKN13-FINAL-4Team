@@ -73,7 +73,7 @@ function App() {
           
           {/* 관리자용 유저 목록 페이지 */}
           <Route path="/management" element={<UserListPage />} />
-          
+ 
           {/* 개인 프로필 페이지 */}
           <Route path="/profile" element={<ProfilePage />} />
         </Routes>
