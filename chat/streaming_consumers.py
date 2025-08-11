@@ -35,6 +35,17 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             logger.warning(f"사용자 조회 실패: {e}")
             return None
 
+    @database_sync_to_async
+    def get_streamer_tts_settings(self, streamer_id):
+        """스트리머 TTS 설정 조회"""
+        try:
+            from .models import StreamerTTSSettings
+            settings, created = StreamerTTSSettings.get_or_create_for_streamer(streamer_id)
+            return settings.to_dict()
+        except Exception as e:
+            logger.warning(f"TTS 설정 조회 실패: {e}")
+            return None
+
     async def authenticate_user(self):
         """사용자 인증 처리 (JWT 전용)"""
         # JWT 토큰 확인
@@ -119,6 +130,15 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
         logger.info(f"스트리밍 채팅 연결 성공: {user.username} → {self.streamer_id}")
         logger.info(f"채널명: {self.channel_name}")
+        
+        # 현재 TTS 설정을 새로 접속한 클라이언트에게 전송
+        tts_settings = await self.get_streamer_tts_settings(self.streamer_id)
+        if tts_settings:
+            await self.send(text_data=json.dumps({
+                'type': 'initial_tts_settings',
+                'settings': tts_settings,
+                'message': 'TTS 설정이 서버에서 로드되었습니다.'
+            }))
         
         # 입장 알림 메시지
         await self.channel_layer.group_send(
@@ -258,7 +278,10 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
                 # AI 응답 시간 업데이트
                 self.last_ai_response_time = time.time()
                 
-                # AI 응답을 채팅방에 브로드캐스트
+                # 현재 TTS 설정을 가져와서 AI 응답과 함께 전송
+                current_tts_settings = await self.get_streamer_tts_settings(self.streamer_id)
+                
+                # AI 응답을 채팅방에 브로드캐스트 (TTS 설정 포함)
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
@@ -268,6 +291,7 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
                         'message_type': 'ai',
                         'ai_trigger_type': queue_item['type'],
                         'replied_to': queue_item['user'],
+                        'tts_settings': current_tts_settings,  # TTS 설정 추가
                         'timestamp': time.time()
                     }
                 )
@@ -299,7 +323,7 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
     # WebSocket 메시지 핸들러들
     async def chat_message(self, event):
         """채팅 메시지를 클라이언트에게 전송"""
-        await self.send(text_data=json.dumps({
+        message_data = {
             'type': 'chat_message',
             'message': event['message'],
             'sender': event['sender'],
@@ -307,7 +331,13 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             'ai_trigger_type': event.get('ai_trigger_type'),
             'replied_to': event.get('replied_to'),
             'timestamp': event.get('timestamp', time.time())
-        }))
+        }
+        
+        # AI 메시지인 경우 TTS 설정 포함
+        if event.get('tts_settings'):
+            message_data['tts_settings'] = event['tts_settings']
+        
+        await self.send(text_data=json.dumps(message_data))
 
     async def system_message(self, event):
         """시스템 메시지를 클라이언트에게 전송"""
@@ -316,4 +346,14 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             'message': event['message'],
             'message_type': event.get('message_type', 'system'),
             'timestamp': time.time()
+        }))
+
+    async def tts_settings_changed(self, event):
+        """TTS 설정 변경을 클라이언트에게 브로드캐스트"""
+        await self.send(text_data=json.dumps({
+            'type': 'tts_settings_changed',
+            'settings': event['settings'],
+            'changed_by': event['changed_by'],
+            'timestamp': event['timestamp'],
+            'message': f'{event["changed_by"]}님이 TTS 설정을 변경했습니다.'
         }))

@@ -27,7 +27,8 @@ from django.conf.urls.static import static
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/users/', include('users.urls')), 
-    path('', include('chat.urls')),  # Chat API URLs 추가
+    path('chat/', include('chat.urls')),  # Chat API URLs 추가
+    path('api/', include('chat.urls')),   # AI API URLs (/api/ai/...)를 위해 추가
 
     # 로그인(토큰 발급)과 토큰 재발급 API 경로
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

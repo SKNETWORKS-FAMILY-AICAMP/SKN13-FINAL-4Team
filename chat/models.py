@@ -1,15 +1,12 @@
 from django.db import models
-from django.contrib.auth import get_user_model
-from django.conf import settings
-
-User = get_user_model()
+import json
 
 class ChatRoom(models.Model):
     """
     채팅방 모델
     """
     host = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        'users.User',
         on_delete=models.CASCADE, # 호스트가 탈퇴하면 채팅방도 삭제
         related_name='hosted_rooms',
         help_text='채팅방을 생성한 호스트(방장)'
@@ -40,7 +37,7 @@ class ChatRoomLog(models.Model):
         ('exit', '퇴장'),
     )
     room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, help_text='관련 채팅방')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, help_text='기록의 주체 사용자')
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, help_text='기록의 주체 사용자')
     action = models.CharField(max_length=10, choices=ACTION_CHOICES, help_text='수행한 행동 (입장/퇴장)')
     timestamp = models.DateTimeField(auto_now_add=True, help_text='행동이 발생한 시간')
     class Meta:
@@ -53,10 +50,165 @@ class ChatMessage(models.Model):
     채팅 메시지 모델 (채팅 대화 로그)
     """
     room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name='messages', help_text='메시지가 속한 채팅방')
-    sender = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='sent_messages', help_text='메시지를 보낸 사용자')
+    sender = models.ForeignKey('users.User', on_delete=models.SET_NULL, null=True, related_name='sent_messages', help_text='메시지를 보낸 사용자')
     content = models.TextField(help_text='메시지 내용')
     created_at = models.DateTimeField(auto_now_add=True, help_text='메시지가 보내진 시간')
     class Meta:
         ordering = ['created_at']
     def __str__(self):
         return f"Message from {self.sender.username} in {self.room.name}"
+
+
+class StreamerTTSSettings(models.Model):
+    """
+    스트리머별 TTS 설정 모델
+    모든 사용자가 관리자로 간주되어 설정 변경 가능 (테스트용)
+    """
+    streamer_id = models.CharField(
+        max_length=100,
+        unique=True,
+        help_text='스트리머 ID (예: jammin-i)'
+    )
+    
+    # TTS 엔진 설정
+    tts_engine = models.CharField(
+        max_length=50,
+        default='elevenlabs',
+        help_text='사용할 TTS 엔진 (elevenlabs, melotts, coqui)'
+    )
+    
+    # ElevenLabs 설정
+    elevenlabs_voice = models.CharField(
+        max_length=100,
+        default='aneunjin',
+        help_text='ElevenLabs 음성 ID'
+    )
+    elevenlabs_model = models.CharField(
+        max_length=100,
+        default='eleven_multilingual_v2',
+        help_text='ElevenLabs 모델'
+    )
+    elevenlabs_stability = models.FloatField(
+        default=0.5,
+        help_text='ElevenLabs 안정성 (0.0-1.0)'
+    )
+    elevenlabs_similarity = models.FloatField(
+        default=0.8,
+        help_text='ElevenLabs 유사성 (0.0-1.0)'
+    )
+    elevenlabs_style = models.FloatField(
+        default=0.0,
+        help_text='ElevenLabs 스타일 (0.0-1.0)'
+    )
+    elevenlabs_speaker_boost = models.BooleanField(
+        default=True,
+        help_text='ElevenLabs 스피커 부스트'
+    )
+    
+    # MeloTTS 설정
+    melo_voice = models.CharField(
+        max_length=100,
+        default='default',
+        help_text='MeloTTS 음성'
+    )
+    
+    # Coqui 설정
+    coqui_model = models.CharField(
+        max_length=200,
+        default='tts_models/ko/css10/vits',
+        help_text='Coqui TTS 모델'
+    )
+    coqui_speaker = models.IntegerField(
+        default=0,
+        help_text='Coqui TTS 스피커 ID'
+    )
+    
+    # 기타 설정
+    auto_play = models.BooleanField(
+        default=True,
+        help_text='AI 메시지 자동 음성 재생'
+    )
+    streaming_delay = models.IntegerField(
+        default=50,
+        help_text='스트리밍 지연 시간 (ms)'
+    )
+    tts_delay = models.IntegerField(
+        default=500,
+        help_text='TTS 지연 시간 (ms)'
+    )
+    chunk_size = models.IntegerField(
+        default=3,
+        help_text='텍스트 청크 크기'
+    )
+    sync_mode = models.CharField(
+        max_length=20,
+        default='after_complete',
+        help_text='동기화 모드 (real_time, after_complete, chunked)'
+    )
+    
+    # 메타 정보
+    last_updated_by = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text='마지막 설정 변경자'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Streamer TTS Setting'
+        verbose_name_plural = 'Streamer TTS Settings'
+        ordering = ['streamer_id']
+    
+    def __str__(self):
+        return f"{self.streamer_id} TTS Settings ({self.tts_engine})"
+    
+    def to_dict(self):
+        """TTS 설정을 딕셔너리로 변환 (프론트엔드 전송용)"""
+        return {
+            'streamer_id': self.streamer_id,
+            'ttsEngine': self.tts_engine,
+            'elevenLabsVoice': self.elevenlabs_voice,
+            'elevenLabsModel': self.elevenlabs_model,
+            'elevenLabsStability': self.elevenlabs_stability,
+            'elevenLabsSimilarity': self.elevenlabs_similarity,
+            'elevenLabsStyle': self.elevenlabs_style,
+            'elevenLabsSpeakerBoost': self.elevenlabs_speaker_boost,
+            'meloVoice': self.melo_voice,
+            'coquiModel': self.coqui_model,
+            'coquiSpeaker': self.coqui_speaker,
+            'autoPlay': self.auto_play,
+            'streamingDelay': self.streaming_delay,
+            'ttsDelay': self.tts_delay,
+            'chunkSize': self.chunk_size,
+            'syncMode': self.sync_mode,
+            'lastUpdatedBy': self.last_updated_by.username if self.last_updated_by else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    @classmethod
+    def get_or_create_for_streamer(cls, streamer_id):
+        """스트리머 ID로 설정을 가져오거나 기본값으로 생성"""
+        settings, created = cls.objects.get_or_create(
+            streamer_id=streamer_id,
+            defaults={
+                'tts_engine': 'elevenlabs',
+                'elevenlabs_voice': 'aneunjin',
+                'elevenlabs_model': 'eleven_multilingual_v2',
+                'elevenlabs_stability': 0.5,
+                'elevenlabs_similarity': 0.8,
+                'elevenlabs_style': 0.0,
+                'elevenlabs_speaker_boost': True,
+                'melo_voice': 'default',
+                'coqui_model': 'tts_models/ko/css10/vits',
+                'coqui_speaker': 0,
+                'auto_play': True,
+                'streaming_delay': 50,
+                'tts_delay': 500,
+                'chunk_size': 3,
+                'sync_mode': 'after_complete'
+            }
+        )
+        return settings, created
