@@ -26,7 +26,14 @@ function StreamingPage({ isLoggedIn, username }) {
         textProgress: 0,
         totalChars: 0,
         revealedChars: 0,
-        syncMode: 'none'
+        syncMode: 'none',
+        ttsEngine: 'none',
+        voiceSettings: {},
+        audioFileSize: 0,
+        generationTime: 0,
+        error: null,
+        requestedEngine: 'none',
+        fallbackUsed: false
     });
     const [showDebug, setShowDebug] = useState(false); // 기본값을 false로 변경
 
@@ -99,7 +106,7 @@ function StreamingPage({ isLoggedIn, username }) {
     }, []);
 
     // AI 메시지와 음성 재생 시간을 받아 동기화된 자막 표시
-    const handleAIMessage = (message, audioDuration, audioElement) => {
+    const handleAIMessage = (message, audioDuration, audioElement, ttsInfo = {}) => {
         setCurrentSubtitle(message);
         setRevealedSubtitle('');
         setShowSubtitle(true);
@@ -112,7 +119,14 @@ function StreamingPage({ isLoggedIn, username }) {
             textProgress: 0,
             totalChars: message.length,
             revealedChars: 0,
-            syncMode: audioDuration > 0 ? 'audio-sync' : 'delay-sync'
+            syncMode: audioDuration > 0 ? 'audio-sync' : 'delay-sync',
+            ttsEngine: ttsInfo.engine || 'unknown',
+            voiceSettings: ttsInfo.voice || {},
+            audioFileSize: ttsInfo.fileSize || 0,
+            generationTime: ttsInfo.generationTime || 0,
+            error: ttsInfo.error || null,
+            requestedEngine: ttsInfo.requestedEngine || 'unknown',
+            fallbackUsed: ttsInfo.fallbackUsed || false
         });
         
         // 기존 타이머와 동기화 정리
@@ -182,8 +196,36 @@ function StreamingPage({ isLoggedIn, username }) {
                         </div>
                         <div className="debug-content">
                             <div className="row g-2">
+                                <div className="col-12 mb-2">
+                                    <strong>🎵 TTS 엔진:</strong>
+                                    <span className={`badge ms-2 ${
+                                        debugInfo.ttsEngine === 'openai' ? 'bg-success' :
+                                        debugInfo.ttsEngine === 'elevenlabs' ? 'bg-primary' :
+                                        debugInfo.ttsEngine === 'melotts' ? 'bg-warning' :
+                                        debugInfo.ttsEngine === 'coqui' ? 'bg-info' : 'bg-secondary'
+                                    }`}>
+                                        {debugInfo.ttsEngine === 'elevenlabs' ? 'ElevenLabs TTS' :
+                                         debugInfo.ttsEngine === 'elevenlabs' ? 'ElevenLabs' :
+                                         debugInfo.ttsEngine === 'melotts' ? 'MeloTTS' :
+                                         debugInfo.ttsEngine === 'coqui' ? 'Coqui TTS' :
+                                         debugInfo.ttsEngine.toUpperCase()}
+                                    </span>
+                                    {debugInfo.fallbackUsed && (
+                                        <span className="badge bg-warning ms-2" title={`요청: ${debugInfo.requestedEngine}, 실제사용: ${debugInfo.ttsEngine}`}>
+                                            ⚠️ 폴백됨 ({debugInfo.requestedEngine} → {debugInfo.ttsEngine})
+                                        </span>
+                                    )}
+                                    {debugInfo.requestedEngine !== debugInfo.ttsEngine && !debugInfo.fallbackUsed && (
+                                        <span className="badge bg-info ms-2" title="설정과 실제 사용 엔진이 다름">
+                                            ℹ️ 엔진불일치 (설정:{debugInfo.requestedEngine} / 사용:{debugInfo.ttsEngine})
+                                        </span>
+                                    )}
+                                    {debugInfo.voiceSettings && typeof debugInfo.voiceSettings === 'string' && (
+                                        <small className="ms-2 text-muted">({debugInfo.voiceSettings})</small>
+                                    )}
+                                </div>
                                 <div className="col-6">
-                                    <strong>모드:</strong>
+                                    <strong>동기화:</strong>
                                     <span className={`badge ms-2 ${
                                         debugInfo.syncMode === 'audio-sync' ? 'bg-success' : 
                                         debugInfo.syncMode === 'delay-sync' ? 'bg-warning' :
@@ -193,19 +235,37 @@ function StreamingPage({ isLoggedIn, username }) {
                                     </span>
                                 </div>
                                 <div className="col-6">
+                                    <strong>상태:</strong>
+                                    <span className={`badge ms-2 ${debugInfo.isPlaying ? 'bg-success' : 'bg-secondary'}`}>
+                                        {debugInfo.isPlaying ? '재생 중' : '정지'}
+                                    </span>
+                                </div>
+                                <div className="col-6">
                                     <strong>시간:</strong>
                                     <span className="ms-2 small">{debugInfo.currentTime.toFixed(1)}s / {debugInfo.audioDuration.toFixed(1)}s</span>
                                 </div>
                                 <div className="col-6">
-                                    <strong>진행:</strong>
-                                    <span className="ms-2 small">{debugInfo.revealedChars} / {debugInfo.totalChars}</span>
+                                    <strong>텍스트:</strong>
+                                    <span className="ms-2 small">{debugInfo.revealedChars} / {debugInfo.totalChars}자</span>
                                 </div>
-                                <div className="col-6">
-                                    <strong>상태:</strong>
-                                    <span className={`badge ms-2 ${debugInfo.isPlaying ? 'bg-success' : 'bg-secondary'}`}>
-                                        {debugInfo.isPlaying ? '재생' : '정지'}
-                                    </span>
-                                </div>
+                                {debugInfo.audioFileSize > 0 && (
+                                    <div className="col-6">
+                                        <strong>파일:</strong>
+                                        <span className="ms-2 small">{(debugInfo.audioFileSize / 1024).toFixed(1)}KB</span>
+                                    </div>
+                                )}
+                                {debugInfo.generationTime > 0 && (
+                                    <div className="col-6">
+                                        <strong>생성:</strong>
+                                        <span className="ms-2 small">{debugInfo.generationTime.toFixed(2)}초</span>
+                                    </div>
+                                )}
+                                {debugInfo.error && (
+                                    <div className="col-12 mt-2">
+                                        <span className="badge bg-danger me-2">⚠️ 오류</span>
+                                        <small className="text-danger">{debugInfo.error}</small>
+                                    </div>
+                                )}
                             </div>
                             <div className="progress mt-2" style={{ height: '3px' }}>
                                 <div 
@@ -222,7 +282,7 @@ function StreamingPage({ isLoggedIn, username }) {
             )}
 
             <Row>
-                <Col md={8}>
+                <Col md={6}>
                     <div className="video-player-wrapper" ref={videoContainerRef}>
                         {/* 비디오 플레이스홀더 */}
                         <div className="video-placeholder d-flex align-items-center justify-content-center h-100">
@@ -283,30 +343,37 @@ function StreamingPage({ isLoggedIn, username }) {
                         </div>
                     </div>
                 </Col>
-                <Col md={4}>
-                    <div className="chat-wrapper">
-                        {streamerId ? (
-                            <StreamingChatWithTTS 
-                                streamerId={streamerId}
-                                isLoggedIn={isLoggedIn}
-                                username={username}
-                                onAIMessage={handleAIMessage}
-                            />
-                        ) : (
-                            <div className="text-center text-muted p-4">
-                                <p>채팅을 불러오는 중...</p>
-                                <small>streamerId: {streamerId || 'loading...'}</small><br/>
-                                <small>isLoggedIn: {String(isLoggedIn)}</small><br/>
-                                <small>username: {username || 'loading...'}</small>
+                <Col md={6}>
+                    <div className="chat-section-wrapper d-flex flex-column h-100">
+                        {/* 채팅 컨테이너 - flex-grow-1로 남은 공간 모두 사용 */}
+                        <div className="chat-container flex-grow-1">
+                            {streamerId ? (
+                                <StreamingChatWithTTS 
+                                    streamerId={streamerId}
+                                    isLoggedIn={isLoggedIn}
+                                    username={username}
+                                    onAIMessage={handleAIMessage}
+                                />
+                            ) : (
+                                <div className="text-center text-muted p-4">
+                                    <p>채팅을 불러오는 중...</p>
+                                    <small>streamerId: {streamerId || 'loading...'}</small><br/>
+                                    <small>isLoggedIn: {String(isLoggedIn)}</small><br/>
+                                    <small>username: {username || 'loading...'}</small>
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* 후원 버튼 영역 - 고정 높이 */}
+                        <div className="chat-actions-wrapper flex-shrink-0">
+                            <div className="chat-actions">
+                                <Button variant="warning" size="sm" onClick={handleDonation}>
+                                    💰 후원
+                                </Button>
+                                <Button variant="light" size="sm" onClick={handleEmoji}>
+                                    😊 이모티콘
+                                </Button>
                             </div>
-                        )}
-                        <div className="chat-actions">
-                            <Button variant="warning" size="sm" onClick={handleDonation}>
-                                💰 후원
-                            </Button>
-                            <Button variant="light" size="sm" onClick={handleEmoji}>
-                                😊 이모티콘
-                            </Button>
                         </div>
                     </div>
                 </Col>

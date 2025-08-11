@@ -1,10 +1,9 @@
 import { useState, useRef } from 'react';
 import { DEFAULT_SETTINGS } from '../config/aiChatSettings';
 import { getSystemPrompt } from '../config/aiSystemPrompts';
-import { AITTSService } from '../services/aiTTSService';
+import { TTSServiceManager } from '../services/ttsServiceManager';
 import { AIAudioService } from '../services/aiAudioService';
 import { AITextSyncService } from '../services/aiTextSyncService';
-import { AITTSManager } from '../services/aiTTSManager';
 
 export const useAIChatBot = () => {
   // State management
@@ -34,20 +33,14 @@ export const useAIChatBot = () => {
 
   // Services
   const ttsManagerRef = useRef(null);
-  const ttsServiceRef = useRef(null);
   const audioServiceRef = useRef(null);
   const textSyncServiceRef = useRef(null);
 
   // Initialize services
   const initializeServices = () => {
-    // AI TTS 매니저 초기화 (Backend API 사용)
+    // TTS Service Manager 초기화 (여러 TTS 서비스 통합 관리)
     if (!ttsManagerRef.current) {
-      ttsManagerRef.current = new AITTSManager(null, settings); // OpenAI 클라이언트 제거
-    }
-    
-    // AI TTS 서비스 (호환성 유지, Backend API 사용)
-    if (!ttsServiceRef.current) {
-      ttsServiceRef.current = new AITTSService(null, settings); // OpenAI 클라이언트 제거
+      ttsManagerRef.current = new TTSServiceManager(settings);
     }
     
     if (!audioServiceRef.current && audioRef.current) {
@@ -166,7 +159,6 @@ export const useAIChatBot = () => {
 
     // Services
     ttsManagerRef,
-    ttsServiceRef,
     audioServiceRef,
     textSyncServiceRef,
 

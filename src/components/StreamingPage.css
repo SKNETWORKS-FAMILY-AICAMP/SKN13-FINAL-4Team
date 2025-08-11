@@ -32,14 +32,27 @@
     font-weight: bold;
 }
 
-.chat-wrapper {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 120px); /* Navbar + 여백을 고려한 전체 높이 */
-    border: 1px solid #ddd;
+/* 새로운 채팅 섹션 래퍼 - flexbox 컨테이너 */
+.chat-section-wrapper {
+    height: calc(100vh - 120px); /* 높이 증가 - 더 많은 공간 할당 */
+    border: 1px solid #495057;
     border-radius: 8px;
+    background-color: #212529;
     overflow: hidden;
     position: relative;
+}
+
+/* 채팅 컨테이너 - 대부분의 공간을 차지 */
+.chat-container {
+    overflow: hidden;
+    min-height: 0; /* flex item이 줄어들 수 있도록 설정 */
+}
+
+/* 채팅 액션 래퍼 - 하단 고정 */
+.chat-actions-wrapper {
+    border-top: 1px solid #495057;
+    background-color: #f8f9fa;
+    min-height: 60px; /* 최소 높이 보장 */
 }
 
 .chat-box {
@@ -68,27 +81,37 @@
 
 /* StreamingChat 컴포넌트 스타일 */
 .streaming-chat-container {
-    height: calc(100% - 130px); /* 후원 버튼(50px) + 채팅입력창(70px) + 여유공간(10px) */
-    border: 1px solid #495057;
-    border-radius: 8px 8px 0 0; /* 하단 모서리 제거 */
-    background-color: #212529;
-    margin-bottom: 80px; /* 채팅 입력창과 후원 버튼 영역 확보 */
+    height: 100%; /* 채팅 컨테이너 영역을 모두 사용 */
+    border: none; /* 외부 컨테이너에서 테두리 관리 */
+    border-radius: 0; /* 외부 컨테이너에서 border-radius 관리 */
+    background-color: #1a1d23;
+    color: #ffffff;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* flex 컨테이너가 줄어들 수 있도록 */
 }
 
 .streaming-chat-container .chat-header {
     font-size: 0.9rem;
+    color: #ffffff;
+    background-color: #2c3034;
+    border-bottom: 1px solid #495057;
 }
 
 .streaming-chat-container .chat-help {
     font-size: 0.75rem;
     line-height: 1.3;
+    color: #adb5bd;
 }
 
 .streaming-chat-container .chat-help code {
     font-size: 0.7rem;
-    padding: 1px 3px;
-    background-color: rgba(13, 202, 240, 0.15);
+    padding: 2px 4px;
+    background-color: rgba(13, 202, 240, 0.2);
+    color: #17a2b8;
     border-radius: 3px;
+    border: 1px solid rgba(13, 202, 240, 0.3);
 }
 
 .streaming-chat-container .chat-messages::-webkit-scrollbar {
@@ -108,51 +131,170 @@
     background: #adb5bd;
 }
 
+/* 채팅 메시지 기본 스타일 - 모든 메시지에 적용 */
+.streaming-chat-container .chat-message {
+    color: #ffffff;
+    line-height: 1.4;
+    word-wrap: break-word;
+}
+
+/* 채팅 메시지 영역 배경 */
+.streaming-chat-container .chat-messages {
+    background-color: #1a1d23 !important;
+    color: #ffffff;
+}
+
+/* 타임스탬프 스타일 개선 */
+.streaming-chat-container .chat-message .text-muted {
+    color: #adb5bd !important;
+}
+
+.streaming-chat-container .chat-message .small {
+    color: #adb5bd !important;
+}
+
 .streaming-chat-container .chat-message.system-message {
     text-align: center;
     font-style: italic;
+    color: #adb5bd;
+    background-color: rgba(108, 117, 125, 0.1);
+    padding: 6px 12px;
+    border-radius: 6px;
+    margin-bottom: 8px;
 }
 
 .streaming-chat-container .chat-message.ai-message {
-    background-color: rgba(13, 202, 240, 0.1);
-    padding: 8px;
-    border-radius: 6px;
+    background-color: rgba(13, 202, 240, 0.15);
+    border: 1px solid rgba(13, 202, 240, 0.3);
+    padding: 10px 12px;
+    border-radius: 8px;
     margin-bottom: 8px;
+    color: #ffffff;
 }
 
 .streaming-chat-container .chat-message.my-message {
-    background-color: rgba(25, 135, 84, 0.1);
-    padding: 8px;
-    border-radius: 6px;
+    background-color: rgba(25, 135, 84, 0.15);
+    border: 1px solid rgba(25, 135, 84, 0.3);
+    padding: 10px 12px;
+    border-radius: 8px;
     margin-bottom: 8px;
+    color: #ffffff;
 }
 
+.streaming-chat-container .chat-message.user-message {
+    background-color: rgba(108, 117, 125, 0.1);
+    border: 1px solid rgba(108, 117, 125, 0.2);
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    color: #ffffff;
+}
+
+/* 연결 상태 표시 */
 .streaming-chat-container .connection-status {
     font-size: 0.75rem;
+    color: #adb5bd;
+}
+
+.streaming-chat-container .connection-status .badge {
+    color: #ffffff;
+}
+
+/* 뱃지 스타일 개선 */
+.streaming-chat-container .badge {
+    color: #ffffff;
+}
+
+.streaming-chat-container .badge.bg-secondary {
+    background-color: #6c757d !important;
+}
+
+.streaming-chat-container .badge.bg-success {
+    background-color: #198754 !important;
+}
+
+.streaming-chat-container .badge.bg-primary {
+    background-color: #0d6efd !important;
 }
 
 .chat-actions {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 50px;
-    padding: 8px;
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-top: 1px solid #495057; /* StreamingChat 컨테이너와 구분 */
-    border-radius: 0 0 8px 8px;
+    position: relative;
+    min-height: 60px; /* 높이 증가 */
+    padding: 12px; /* 패딩 증가 */
+    background-color: #2c3034;
+    border: none; /* 외부 래퍼에서 테두리 관리 */
+    border-radius: 0;
+    border-top: 1px solid #495057;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    z-index: 10;
+    gap: 15px; /* 버튼 간격 증가 */
 }
 
-/* 채팅 입력창이 후원 버튼과 겹치지 않도록 조정 */
+.chat-actions .btn {
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 8px 16px;
+}
+
+.chat-actions .btn-primary {
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+}
+
+.chat-actions .btn-primary:hover {
+    background-color: #138496;
+    border-color: #138496;
+}
+
+/* 채팅 입력창 스타일 */
 .streaming-chat-container .chat-input-section {
     position: relative;
-    z-index: 5;
     margin-bottom: 0;
+    min-height: 120px; /* 입력창 영역 최소 높이 보장 */
+    padding: 15px; /* 패딩 증가로 더 넓은 공간 확보 */
+    background-color: #2c3034;
+    border-top: 1px solid #495057;
+}
+
+/* 입력창 textarea 스타일 개선 */
+.streaming-chat-container .chat-input-section .form-control {
+    min-height: 80px; /* textarea 최소 높이 증가 */
+    font-size: 14px;
+    line-height: 1.4;
+    background-color: #495057;
+    border: 1px solid #6c757d;
+    color: #ffffff;
+}
+
+.streaming-chat-container .chat-input-section .form-control:focus {
+    background-color: #495057;
+    border-color: #17a2b8;
+    color: #ffffff;
+    box-shadow: 0 0 0 0.2rem rgba(23, 162, 184, 0.25);
+}
+
+.streaming-chat-container .chat-input-section .form-control::placeholder {
+    color: #adb5bd;
+}
+
+/* 입력 그룹 스타일 개선 */
+.streaming-chat-container .chat-input-section .input-group {
+    align-items: flex-end; /* 버튼을 textarea 하단에 정렬 */
+}
+
+/* 전송 버튼 높이 조정 */
+.streaming-chat-container .chat-input-section .input-group .btn {
+    height: 80px; /* textarea와 같은 높이 */
+    min-width: 80px;
+    font-weight: bold;
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+}
+
+.streaming-chat-container .chat-input-section .input-group .btn:hover {
+    background-color: #138496;
+    border-color: #138496;
 }
 
 /* 음량 슬라이더 스타일 */
@@ -288,4 +430,58 @@
 
 .debug-panel-floating h6 {
     font-size: 0.9rem;
+}
+
+/* Additional dark theme improvements */
+.streaming-chat-container .form-select {
+    background-color: #495057 !important;
+    border-color: #6c757d !important;
+    color: #ffffff !important;
+}
+
+.streaming-chat-container .form-select option {
+    background-color: #495057;
+    color: #ffffff;
+}
+
+.streaming-chat-container .form-check-label {
+    color: #ffffff !important;
+}
+
+.streaming-chat-container .form-label {
+    color: #ffffff !important;
+}
+
+/* 설정 패널 스타일 개선 */
+.bg-dark .form-select {
+    background-color: #495057 !important;
+    border-color: #6c757d !important;
+    color: #ffffff !important;
+}
+
+.bg-dark .form-select option {
+    background-color: #495057;
+    color: #ffffff;
+}
+
+.bg-dark .form-check-label {
+    color: #ffffff !important;
+}
+
+.bg-dark .form-label {
+    color: #ffffff !important;
+}
+
+/* 범위 입력 스타일 개선 */
+.bg-dark .form-range {
+    background-color: #495057;
+}
+
+.bg-dark .form-range::-webkit-slider-thumb {
+    background-color: #17a2b8;
+}
+
+.bg-dark .form-range::-moz-range-thumb {
+    background-color: #17a2b8;
+    border: none;
 }

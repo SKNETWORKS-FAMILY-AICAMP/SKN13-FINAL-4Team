@@ -10,39 +10,8 @@ import UserListPage from './components/UserListPage';
 import ProfilePage from './components/ProfilePage';
 import StreamingPage from './components/StreamingPage';
 import HomeTemporary from './components/HomeTemporary';
-import AIChatBot from './components/AIChatBot'; // 메인 TTS 지원 AI 챗봇
+import TTSDebugTool from './components/TTSDebugTool';
 import './App.css';
-
-/**
- * TTS 챗봇 페이지 컴포넌트
- */
-const ChatBotPage = () => {
-
-  const NavigationBar = () => (
-    <nav className="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm" 
-         style={{ minHeight: '60px', zIndex: 1000 }}>
-      <div className="container-fluid px-3">
-        <div className="navbar-brand fw-bold d-flex align-items-center">
-          <span className="me-2">🤖</span>
-          <span>AI 인플루언서 - TTS 챗봇</span>
-        </div>
-      </div>
-    </nav>
-  );
-
-  const renderContent = () => {
-    return <AIChatBot />;
-  };
-
-  return (
-    <div className="vh-100 d-flex flex-column">
-      <NavigationBar />
-      <div className="flex-grow-1 overflow-hidden">
-        {renderContent()}
-      </div>
-    </div>
-  );
-};
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -56,7 +25,8 @@ function App() {
         throw new Error('Token expired');
       }
       
-      const response = await axios.get('http://localhost:8000/api/users/me/', {
+      const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+      const response = await axios.get(`${apiBaseUrl}/api/users/me/`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -97,7 +67,6 @@ function App() {
         <Navbar isLoggedIn={isLoggedIn} onLogout={handleLogout} />
         <Routes>
           <Route path="/" element={<HomeTemporary />} />
-          <Route path="/chatbot" element={<ChatBotPage />} />
           <Route path="/signup/terms" element={<TermsPage />} />
           <Route path="/signup" element={<SignupForm />} />
           <Route path="/login" element={<LoginForm onLogin={handleLogin} />} />
@@ -106,6 +75,7 @@ function App() {
           <Route path="/management/userlist" element={<UserListPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/stream/:streamerId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} />
+          <Route path="/debug/tts" element={<TTSDebugTool />} />
         </Routes>
       </div>
     </Router>

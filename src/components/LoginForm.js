@@ -24,7 +24,8 @@ function LoginForm({ onLogin }) {
         setError('');
 
         try {
-            const response = await axios.post('http://localhost:8000/api/token/', formData);
+            const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+            const response = await axios.post(`${apiBaseUrl}/api/token/`, formData);
             // App.js의 onLogin 함수를 호출하여 상태 업데이트 및 토큰 저장
             onLogin(response.data.access);
             

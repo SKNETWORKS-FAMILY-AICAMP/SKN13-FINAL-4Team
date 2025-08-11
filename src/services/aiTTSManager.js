@@ -1,6 +1,6 @@
 // AI TTS 매니저 - AI 챗봇 전용 여러 TTS 엔진을 통합 관리
 import { AITTSService } from './aiTTSService';
-import { MeloTTSService } from './meloTTSService';
+import { AIMeloTTSService } from './aiMeloTTSService';
 import { CoquiTTSService } from './coquiTTSService';
 
 /**
@@ -25,10 +25,10 @@ export const AI_TTS_ENGINE_CONFIGS = {
   },
   [AI_TTS_ENGINES.MELOTTS]: {
     name: 'MeloTTS',
-    description: '실시간 스트리밍, 빠른 응답',
-    supportsStreaming: true,
+    description: '다국어 지원, CPU 실시간 추론',
+    supportsStreaming: false, // 현재 구현은 HTTP API 기반
     voices: ['default', 'female', 'male'],
-    maxLength: 1000 // 권장 최대 길이
+    maxLength: 10000 // MeloTTS는 더 긴 텍스트 지원
   },
   [AI_TTS_ENGINES.COQUI]: {
     name: 'Coqui TTS',
@@ -61,10 +61,10 @@ export class AITTSManager {
       this.services[AI_TTS_ENGINES.OPENAI] = new AITTSService(this.openai, this.settings);
       
       // MeloTTS 서비스
-      this.services[AI_TTS_ENGINES.MELOTTS] = new MeloTTSService(this.settings);
+      this.services[AI_TTS_ENGINES.MELOTTS] = new AIMeloTTSService(this.settings);
       
-      // Coqui TTS 서비스
-      this.services[AI_TTS_ENGINES.COQUI] = new CoquiTTSService(this.settings);
+      // Coqui TTS 서비스 (아직 구현되지 않은 경우 주석 처리)
+      // this.services[AI_TTS_ENGINES.COQUI] = new CoquiTTSService(this.settings);
 
       console.log('✅ TTS 서비스들 초기화 완료');
     } catch (error) {
@@ -102,12 +102,12 @@ export class AITTSManager {
         throw new Error(`${engineType} 서비스가 초기화되지 않았습니다`);
       }
 
-      // MeloTTS인 경우 WebSocket 연결 확인
+      // MeloTTS인 경우 서버 상태 확인
       if (engineType === AI_TTS_ENGINES.MELOTTS) {
-        if (service.connect) {
-          await service.connect();
-          if (!service.isConnected) {
-            throw new Error('MeloTTS 서버에 연결할 수 없습니다');
+        if (service.checkServerStatus) {
+          const isAvailable = await service.checkServerStatus();
+          if (!isAvailable) {
+            throw new Error('MeloTTS 서버를 사용할 수 없습니다');
           }
         }
       }
@@ -262,13 +262,7 @@ export class AITTSManager {
    */
   cleanup() {
     try {
-      // MeloTTS 연결 해제
-      const meloService = this.services[AI_TTS_ENGINES.MELOTTS];
-      if (meloService && meloService.disconnect) {
-        meloService.disconnect();
-      }
-
-      // 다른 서비스들도 cleanup 메서드가 있다면 호출
+      // 모든 서비스들의 cleanup 메서드 호출
       Object.values(this.services).forEach(service => {
         if (service && service.cleanup && typeof service.cleanup === 'function') {
           service.cleanup();

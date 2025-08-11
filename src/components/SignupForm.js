@@ -94,7 +94,8 @@ function SignupForm() {
                     nickname: formData.nickname,
                     email: formData.email
                 };
-                await axios.post('http://localhost:8000/api/users/signup/', dataToSend);
+                const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+                await axios.post(`${apiBaseUrl}/api/users/signup/`, dataToSend);
                 alert('회원가입에 성공했습니다!');
                 navigate('/login');
             } catch (error) {

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Form, Button, Badge } from 'react-bootstrap';
-import { AITTSService } from '../services/aiTTSService';
+import { TTSServiceManager } from '../services/ttsServiceManager';
 import { AIAudioService } from '../services/aiAudioService';
 import { DEFAULT_SETTINGS } from '../config/aiChatSettings';
+import AITTSEngineSelector from './AITTSEngineSelector';
+import AISettingsPanel from './AISettingsPanel';
 
 const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage }) => {
     const [messages, setMessages] = useState([]);
@@ -12,15 +14,17 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
     const [isConnected, setIsConnected] = useState(false);
     const [onlineUsers, setOnlineUsers] = useState(0);
     
-    // TTS 관련 상태
+    // TTS 관련 상태 - 확장된 설정
     const [audioEnabled, setAudioEnabled] = useState(true);
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
     const [currentPlayingMessageId, setCurrentPlayingMessageId] = useState(null);
-    const [volume, setVolume] = useState(0.8); // 음량 상태 추가
-    const [ttsSettings] = useState({
-        ttsVoice: DEFAULT_SETTINGS.ttsVoice,
-        ttsSpeed: DEFAULT_SETTINGS.ttsSpeed,
-        autoPlay: true // AI 메시지 자동 재생 (기본값)
+    const [volume, setVolume] = useState(0.8);
+    const [showSettings, setShowSettings] = useState(false); // TTS 설정 패널 표시 여부
+    const [settings, setSettings] = useState({
+        ...DEFAULT_SETTINGS,
+        autoPlay: true, // AI 메시지 자동 재생
+        ttsEngine: 'elevenlabs', // 기본 엔진
+        elevenLabsVoice: 'aneunjin' // 기본 음성을 안은진으로 설정
     });
     
     const websocketRef = useRef(null);
@@ -30,9 +34,9 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
     const maxReconnectAttempts = 5;
     const isConnectingRef = useRef(false);
     
-    // TTS 서비스 참조
+    // TTS 서비스 참조 - TTS Manager 사용
     const audioRef = useRef(null);
-    const ttsServiceRef = useRef(null);
+    const ttsManagerRef = useRef(null);
     const audioServiceRef = useRef(null);
 
     // 메시지 추가 함수 (최대 개수 제한 포함)
@@ -47,10 +51,14 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
         });
     };
 
-    // TTS 서비스 초기화
+    // TTS Manager 초기화
     useEffect(() => {
-        if (!ttsServiceRef.current) {
-            ttsServiceRef.current = new AITTSService(null, ttsSettings);
+        if (!ttsManagerRef.current) {
+            ttsManagerRef.current = new TTSServiceManager(settings);
+            console.log('🎵 TTS Manager 초기화 완료:', settings);
+        } else {
+            // 이미 존재하면 설정만 업데이트
+            ttsManagerRef.current.updateSettings(settings);
         }
         
         if (!audioServiceRef.current && audioRef.current) {
@@ -63,7 +71,7 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
                 }
             );
         }
-    }, []);
+    }, [settings.ttsEngine]); // settings 전체가 아닌 ttsEngine만 감시
 
     // 음량 변경 효과
     useEffect(() => {
@@ -71,6 +79,28 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
             audioRef.current.volume = volume;
         }
     }, [volume]);
+
+    // TTS 설정 업데이트 함수
+    const updateSetting = (key, value) => {
+        const newSettings = { ...settings, [key]: value };
+        setSettings(newSettings);
+        
+        if (ttsManagerRef.current) {
+            ttsManagerRef.current.updateSettings(newSettings);
+        }
+    };
+
+    // 프리셋 적용 함수
+    const applyPreset = (presetName, presets) => {
+        if (presets[presetName]) {
+            const newSettings = { ...settings, ...presets[presetName] };
+            setSettings(newSettings);
+            
+            if (ttsManagerRef.current) {
+                ttsManagerRef.current.updateSettings(newSettings);
+            }
+        }
+    };
 
     useEffect(() => {
         let connectTimeout = null;
@@ -121,7 +151,9 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
             isConnectingRef.current = true;
 
             try {
-                let wsUrl = `ws://localhost:8000/ws/stream/${streamerId}/`;
+                const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+                const wsBaseUrl = apiBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+                let wsUrl = `${wsBaseUrl}/ws/stream/${streamerId}/`;
                 
                 const token = localStorage.getItem('accessToken');
                 if (token) {
@@ -151,11 +183,11 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
                         
                         // AI 메시지 처리
                         if (data.message_type === 'ai') {
-                            // TTS 자동 재생 및 자막 동기화
-                            if (audioEnabled) {
+                            // TTS 자동 재생 및 자막 동기화 (설정에 따라)
+                            if (audioEnabled && settings.autoPlay) {
                                 await playTTS(newMessage, onAIMessage);
                             } else {
-                                // 음성이 꺼져있을 때도 자막은 표시
+                                // 음성이 꺼져있거나 자동 재생이 꺼져있을 때도 자막은 표시
                                 if (onAIMessage) {
                                     onAIMessage(data.message, 0, null);
                                 }
@@ -255,16 +287,29 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
         }
     }, [messages]);
 
-    // TTS 재생 함수
+    // TTS 재생 함수 - TTS Manager 사용
     const playTTS = async (message, onAIMessage) => {
         if (!audioEnabled || !message.message || isPlayingAudio) {
+            console.log('🔇 TTS 재생 스킵:', { audioEnabled, hasMessage: !!message.message, isPlayingAudio });
+            return;
+        }
+
+        if (!ttsManagerRef.current) {
+            console.error('❌ TTS Manager가 초기화되지 않았습니다');
             return;
         }
 
         try {
+            console.log('🎵 TTS 재생 시작:', message.message.substring(0, 50) + '...');
             setCurrentPlayingMessageId(message.id);
-            // TTS 생성
-            const audioUrl = await ttsServiceRef.current.generateAudio(message.message);
+            setIsPlayingAudio(true);
+            
+            // TTS Manager를 통한 TTS 생성
+            const startTime = Date.now();
+            const audioUrl = await ttsManagerRef.current.generateAudio(message.message);
+            const generationTime = (Date.now() - startTime) / 1000;
+            
+            console.log('✅ TTS 생성 완료:', { generationTime: generationTime + 's', audioUrl: !!audioUrl });
             
             // 먼저 오디오 URL을 설정하고 충분한 버퍼링 후 재생
             if (audioRef.current) {
@@ -303,12 +348,46 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
                 };
                 
                 // 메타데이터 로드 이벤트 리스너 (자막 동기화용)
-                const handleLoadedMetadata = () => {
+                const handleLoadedMetadata = async () => {
                     const audioDuration = audioRef.current.duration;
                     
+                    // 오디오 파일 크기 측정 (근사값)
+                    let audioFileSize = 0;
+                    try {
+                        const response = await fetch(audioUrl);
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            audioFileSize = blob.size;
+                        }
+                    } catch (error) {
+                        console.log('오디오 파일 크기 측정 실패:', error);
+                    }
+                    
+                    // TTS 정보 객체 생성 (실제 사용된 엔진 정보)
+                    const actualEngine = ttsManagerRef.current ? ttsManagerRef.current.currentEngine : settings.ttsEngine;
+                    
+                    // 디버그 로깅
+                    console.log('🔍 TTS 디버그 정보:', {
+                        settingsEngine: settings.ttsEngine,
+                        actualEngine: actualEngine,
+                        managerExists: !!ttsManagerRef.current,
+                        managerCurrentEngine: ttsManagerRef.current?.currentEngine
+                    });
+                    
+                    const ttsInfo = {
+                        engine: actualEngine,
+                        requestedEngine: settings.ttsEngine, // 사용자가 요청한 엔진
+                        voice: settings.ttsEngine === 'elevenlabs' ? settings.elevenLabsVoice :
+                               settings.ttsEngine === 'melotts' ? settings.meloVoice :
+                               settings.ttsEngine === 'coqui' ? settings.coquiModel : 'default',
+                        fileSize: audioFileSize,
+                        generationTime: generationTime,
+                        fallbackUsed: actualEngine !== settings.ttsEngine
+                    };
+                    
                     if (onAIMessage) {
-                        // 음성 재생 시간과 오디오 엘리먼트를 함께 전달
-                        onAIMessage(message.message, audioDuration, audioRef.current);
+                        // 음성 재생 시간, 오디오 엘리먼트, TTS 정보를 함께 전달
+                        onAIMessage(message.message, audioDuration, audioRef.current, ttsInfo);
                     }
                     
                     // 이벤트 리스너 정리
@@ -329,12 +408,33 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
                 }
             }
         } catch (error) {
-            console.error('TTS 재생 오류:', error);
+            console.error('❌ TTS 재생 오류:', {
+                error: error.message,
+                stack: error.stack,
+                settings: settings,
+                ttsManager: !!ttsManagerRef.current,
+                currentEngine: ttsManagerRef.current?.currentEngine
+            });
+            
             setIsPlayingAudio(false);
             setCurrentPlayingMessageId(null);
+            
+            // 사용자에게 오류 알림
+            alert(`⚠️ 오류: ${error.message}`);
+            
             // TTS 실패 시에도 자막은 표시 (동기화 없이)
             if (onAIMessage) {
-                onAIMessage(message.message, 0, null);
+                const actualEngine = ttsManagerRef.current ? ttsManagerRef.current.currentEngine : settings.ttsEngine;
+                const ttsInfo = {
+                    engine: actualEngine,
+                    requestedEngine: settings.ttsEngine,
+                    voice: 'error',
+                    fileSize: 0,
+                    generationTime: 0,
+                    error: error.message,
+                    fallbackUsed: false
+                };
+                onAIMessage(message.message, 0, null, ttsInfo);
             }
         }
     };
@@ -452,6 +552,17 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
                         )}
                     </div>
                     <div className="d-flex align-items-center gap-2">
+                        {/* TTS 설정 버튼 */}
+                        <Button
+                            variant="link"
+                            size="sm"
+                            className="text-decoration-none p-1"
+                            onClick={() => setShowSettings(!showSettings)}
+                            title="TTS 엔진 설정"
+                        >
+                            ⚙️
+                        </Button>
+                        
                         {/* 음량 컨트롤 */}
                         <div className="d-flex align-items-center">
                             <Button
@@ -493,8 +604,46 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
                     <small className="text-light">
                         <strong className="text-warning">🤖 AI 어시스턴트 사용법:</strong><br/>
                         <code className="text-success bg-dark px-1 rounded">@메시지</code> <span className="text-light">- 스트리머 멘션으로 AI 호출</span>
-                        {audioEnabled && <span className="ms-2 text-info">| 🔊 AI 음성 자동 재생 활성화</span>}
+                        {audioEnabled && <span className="ms-2 text-info">| 🔊 AI 음성 자동 재생 ({
+                            settings.ttsEngine === 'elevenlabs' ? 'ElevenLabs TTS' : 
+                            settings.ttsEngine === 'elevenlabs' ? 'ElevenLabs' :
+                            settings.ttsEngine === 'melotts' ? 'MeloTTS' :
+                            settings.ttsEngine === 'coqui' ? 'Coqui TTS' :
+                            settings.ttsEngine.toUpperCase()
+                        })</span>}
                     </small>
+                </div>
+            )}
+
+            {/* TTS 엔진 설정 패널 */}
+            {showSettings && (
+                <div className="bg-dark border-bottom border-secondary p-3">
+                    <div className="mb-3">
+                        <AITTSEngineSelector
+                            currentEngine={settings.ttsEngine}
+                            settings={settings}
+                            onEngineChange={(engine) => updateSetting('ttsEngine', engine)}
+                            onSettingChange={updateSetting}
+                            ttsManager={ttsManagerRef.current}
+                        />
+                    </div>
+                    
+                    {/* 자동 재생 설정 */}
+                    <div className="mb-2">
+                        <div className="form-check">
+                            <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id="autoPlayCheck"
+                                checked={settings.autoPlay}
+                                onChange={(e) => updateSetting('autoPlay', e.target.checked)}
+                            />
+                            <label className="form-check-label text-light" htmlFor="autoPlayCheck">
+                                🎵 AI 메시지 자동 음성 재생
+                            </label>
+                        </div>
+                        <small className="text-muted">AI가 응답할 때 자동으로 음성을 재생합니다</small>
+                    </div>
                 </div>
             )}
 
@@ -504,7 +653,8 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
                 ref={chatContainerRef}
                 style={{ 
                     scrollbarWidth: 'thin',
-                    scrollbarColor: '#495057 #212529'
+                    scrollbarColor: '#495057 #212529',
+                    minHeight: '500px'
                 }}
             >
                 {messages.length === 0 ? (
@@ -522,7 +672,7 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
                 <div className="input-group">
                     <Form.Control
                         as="textarea"
-                        rows={2}
+                        rows={3}
                         placeholder={
                             !isLoggedIn 
                                 ? "로그인 후 채팅에 참여할 수 있습니다..." 
@@ -535,7 +685,12 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
                         onKeyPress={handleKeyPress}
                         disabled={!isLoggedIn || !isConnected}
                         className="bg-secondary text-light border-secondary"
-                        style={{ resize: 'none' }}
+                        style={{ 
+                            resize: 'none',
+                            minHeight: '80px',
+                            fontSize: '14px',
+                            lineHeight: '1.4'
+                        }}
                     />
                     <Button 
                         variant="primary"

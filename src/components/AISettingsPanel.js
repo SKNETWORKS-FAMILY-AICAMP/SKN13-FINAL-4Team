@@ -1,5 +1,5 @@
 import React from 'react';
-import { PRESETS, SYNC_MODES } from '../config/aiChatSettings';
+import { TTS_PRESETS, SYNC_MODES } from '../config/aiChatSettings';
 import { getAvailablePromptTypes } from '../config/aiSystemPrompts';
 import AITTSEngineSelector from './AITTSEngineSelector';
 
@@ -39,11 +39,11 @@ const AISettingsPanel = ({
    * 프리셋 적용 핸들러
    */
   const handlePresetApply = (presetName) => {
-    applyPreset(presetName, PRESETS);
+    applyPreset(presetName, TTS_PRESETS);
   };
 
   return (
-    <div className="bg-light border-bottom shadow-sm" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+    <div className="bg-dark text-light border-bottom shadow-sm" style={{ maxHeight: '70vh', overflowY: 'auto', borderColor: '#495057 !important' }}>
       <div className="container py-4">
         <div className="row">
           <div className="col-12">
@@ -53,7 +53,7 @@ const AISettingsPanel = ({
                 <span className="me-2">⚙️</span>
                 챗봇 설정
               </h5>
-              <small className="text-muted">
+              <small style={{ color: '#adb5bd' }}>
                 AI 개성, TTS 엔진, 성능 옵션을 조정하세요
               </small>
             </div>
@@ -80,7 +80,7 @@ const AISettingsPanel = ({
                   </button>
                 ))}
               </div>
-              <small className="text-muted d-block mt-2">
+              <small className="d-block mt-2" style={{ color: '#adb5bd' }}>
                 선택한 개성에 따라 AI의 말투와 응답 스타일이 달라집니다
               </small>
             </div>
@@ -103,7 +103,7 @@ const AISettingsPanel = ({
                 성능 프리셋
               </label>
               <div className="d-flex flex-wrap gap-2">
-                {Object.keys(PRESETS).map(preset => (
+                {Object.keys(TTS_PRESETS).map(preset => (
                   <button
                     key={preset}
                     className="btn btn-sm btn-outline-success"
@@ -114,7 +114,7 @@ const AISettingsPanel = ({
                   </button>
                 ))}
               </div>
-              <small className="text-muted d-block mt-2">
+              <small className="d-block mt-2" style={{ color: '#adb5bd' }}>
                 프리셋을 선택하면 아래 세부 설정이 자동으로 조정됩니다
               </small>
             </div>
@@ -128,7 +128,7 @@ const AISettingsPanel = ({
                   동기화 모드
                 </label>
                 <select 
-                  className="form-select"
+                  className="form-select bg-secondary text-light border-secondary"
                   value={settings.syncMode}
                   onChange={(e) => updateSetting('syncMode', e.target.value)}
                 >
@@ -155,7 +155,7 @@ const AISettingsPanel = ({
                   value={settings.ttsSpeed}
                   onChange={(e) => updateSetting('ttsSpeed', parseFloat(e.target.value))}
                 />
-                <div className="d-flex justify-content-between small text-muted">
+                <div className="d-flex justify-content-between small" style={{ color: '#adb5bd' }}>
                   <span>0.5x (느림)</span>
                   <span>1.0x (보통)</span>
                   <span>2.0x (빠름)</span>
@@ -176,7 +176,7 @@ const AISettingsPanel = ({
                   value={settings.streamingDelay}
                   onChange={(e) => updateSetting('streamingDelay', parseInt(e.target.value))}
                 />
-                <div className="d-flex justify-content-between small text-muted">
+                <div className="d-flex justify-content-between small" style={{ color: '#adb5bd' }}>
                   <span>10ms (빠름)</span>
                   <span>100ms (보통)</span>
                   <span>200ms (느림)</span>
@@ -197,7 +197,7 @@ const AISettingsPanel = ({
                   value={settings.ttsDelay}
                   onChange={(e) => updateSetting('ttsDelay', parseInt(e.target.value))}
                 />
-                <div className="d-flex justify-content-between small text-muted">
+                <div className="d-flex justify-content-between small" style={{ color: '#adb5bd' }}>
                   <span>0ms (즉시)</span>
                   <span>500ms (보통)</span>
                   <span>2000ms (지연)</span>
@@ -218,7 +218,7 @@ const AISettingsPanel = ({
                   value={settings.chunkSize}
                   onChange={(e) => updateSetting('chunkSize', parseInt(e.target.value))}
                 />
-                <div className="d-flex justify-content-between small text-muted">
+                <div className="d-flex justify-content-between small" style={{ color: '#adb5bd' }}>
                   <span>1글자 (세밀)</span>
                   <span>5글자 (보통)</span>
                   <span>10글자 (빠름)</span>
@@ -227,14 +227,14 @@ const AISettingsPanel = ({
             </div>
 
             {/* 설정 정보 */}
-            <div className="mt-4 p-3 bg-info bg-opacity-10 rounded">
-              <small className="text-muted">
-                <strong>💡 팁:</strong>
-                <ul className="mb-0 mt-2">
+            <div className="mt-4 p-3 rounded" style={{ backgroundColor: 'rgba(23, 162, 184, 0.1)', border: '1px solid rgba(23, 162, 184, 0.3)' }}>
+              <small style={{ color: '#adb5bd' }}>
+                <strong style={{ color: '#17a2b8' }}>💡 팁:</strong>
+                <ul className="mb-0 mt-2" style={{ color: '#ffffff' }}>
                   <li><strong>빠른 응답</strong>이 필요하면 "빠름" 프리셋 선택</li>
                   <li><strong>자연스러운 대화</strong>를 원하면 "자연스럽게" 프리셋 선택</li>
                   <li><strong>실시간 스트리밍</strong>을 원하면 MeloTTS나 Coqui TTS 선택</li>
-                  <li><strong>고품질 음성</strong>을 원하면 OpenAI TTS 선택</li>
+                  <li><strong>고품질 음성</strong>을 원하면 ElevenLabs TTS 선택</li>
                 </ul>
               </small>
             </div>
