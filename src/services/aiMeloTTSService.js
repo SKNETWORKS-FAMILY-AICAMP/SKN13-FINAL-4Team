@@ -39,10 +39,12 @@ export class AIMeloTTSService {
       const detectedLang = this.detectLanguage(text);
       
       // Backend MeloTTS API 호출
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(`${this.baseUrl}/api/ai/tts/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           text: text,

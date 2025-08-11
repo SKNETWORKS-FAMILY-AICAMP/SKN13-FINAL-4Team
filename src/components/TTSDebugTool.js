@@ -83,9 +83,13 @@ const TTSDebugTool = () => {
             addLog(`🧪 ${engine} TTS 실제 테스트 중...`, 'info');
             
             try {
+              const token = localStorage.getItem('accessToken');
               const testResponse = await fetch(`${baseUrl}/api/ai/tts/`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
                 body: JSON.stringify({
                   text: 'test',
                   engine: engine,
@@ -123,9 +127,13 @@ const TTSDebugTool = () => {
     
     try {
       // Django 백엔드에서 MeloTTS 초기화 상태 확인
+      const token = localStorage.getItem('accessToken');
       const response = await fetch(`${baseUrl}/api/ai/tts/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           text: 'Hello MeloTTS test',
           engine: 'melotts',

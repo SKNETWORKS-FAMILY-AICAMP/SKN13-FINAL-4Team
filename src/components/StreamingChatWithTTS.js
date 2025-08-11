@@ -11,6 +11,7 @@ const StreamingChatWithTTS = ({
     isLoggedIn, 
     username, 
     onAIMessage,
+    onWebSocketMessage,
     externalSettings,
     onSettingsChange,
     externalShowSettings,
@@ -37,6 +38,10 @@ const StreamingChatWithTTS = ({
         ttsEngine: 'elevenlabs',
         elevenLabsVoice: 'aneunjin'
     };
+    
+    // 서버 설정 동기화 상태
+    const [serverSettings, setServerSettings] = useState(null);
+    const [isSettingsSynced, setIsSettingsSynced] = useState(false);
     
     const websocketRef = useRef(null);
     const chatContainerRef = useRef(null);
@@ -91,10 +96,63 @@ const StreamingChatWithTTS = ({
         }
     }, [volume]);
 
-    // TTS 설정 업데이트 함수 - 외부 함수 사용
-    const updateSetting = onSettingsChange || ((key, value) => {
-        console.log('Settings change not available:', key, value);
-    });
+    // 서버로 TTS 설정 업데이트 요청
+    const updateServerTTSSettings = async (newSettings) => {
+        if (!streamerId || !isLoggedIn) return;
+        
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+            
+            const response = await fetch(`${apiBaseUrl}/api/streamer/${streamerId}/tts/settings/update/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(newSettings)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('✅ 서버 TTS 설정 업데이트 성공:', result.message);
+                // 서버 설정을 로컬에 반영 (WebSocket 브로드캐스트로도 받지만 즉시 반영)
+                setServerSettings(result.settings);
+                if (onSettingsChange) {
+                    // 외부 설정도 동기화
+                    Object.keys(result.settings).forEach(key => {
+                        if (key !== 'streamer_id' && key !== 'lastUpdatedBy' && key !== 'updatedAt') {
+                            onSettingsChange(key, result.settings[key]);
+                        }
+                    });
+                }
+            } else {
+                console.error('❌ 서버 TTS 설정 업데이트 실패:', result.error);
+                alert('TTS 설정 업데이트에 실패했습니다: ' + result.error);
+            }
+        } catch (error) {
+            console.error('❌ 서버 TTS 설정 업데이트 오류:', error);
+            alert('TTS 설정 업데이트 중 오류가 발생했습니다.');
+        }
+    };
+
+    // TTS 설정 업데이트 함수 - 서버 우선 적용
+    const updateSetting = (key, value) => {
+        if (!onSettingsChange) {
+            console.log('Settings change not available:', key, value);
+            return;
+        }
+        
+        // 즉시 로컬 설정 업데이트
+        onSettingsChange(key, value);
+        
+        // 서버에도 업데이트 요청 (비동기)
+        const newSettings = { [key]: value };
+        updateServerTTSSettings(newSettings).catch(error => {
+            console.error('서버 설정 업데이트 실패:', error);
+        });
+    };
 
     useEffect(() => {
         let connectTimeout = null;
@@ -167,6 +225,71 @@ const StreamingChatWithTTS = ({
                     try {
                         const data = JSON.parse(event.data);
                         
+                        // WebSocket 메시지 타입별 처리
+                        if (data.type === 'initial_tts_settings') {
+                            // 초기 TTS 설정 수신
+                            console.log('📡 서버에서 초기 TTS 설정 수신:', data.settings);
+                            setServerSettings(data.settings);
+                            setIsSettingsSynced(true);
+                            
+                            // 외부 설정을 서버 설정으로 동기화
+                            if (onSettingsChange && data.settings) {
+                                Object.keys(data.settings).forEach(key => {
+                                    if (key !== 'streamer_id' && key !== 'lastUpdatedBy' && key !== 'updatedAt') {
+                                        onSettingsChange(key, data.settings[key]);
+                                    }
+                                });
+                            }
+                            
+                            // TTS Manager에도 초기 설정 적용
+                            if (ttsManagerRef.current && data.settings) {
+                                console.log('🔄 초기 서버 TTS 설정을 TTS Manager에 적용:', data.settings);
+                                const updatedSettings = { ...settings, ...data.settings };
+                                ttsManagerRef.current.updateSettings(updatedSettings);
+                            }
+                            return;
+                        }
+                        
+                        if (data.type === 'tts_settings_changed') {
+                            // TTS 설정 변경 브로드캐스트 수신
+                            console.log('📡 TTS 설정 변경 브로드캐스트 수신:', data.changed_by, data.settings);
+                            setServerSettings(data.settings);
+                            
+                            // 부모 컴포넌트에도 WebSocket 메시지 전달
+                            if (onWebSocketMessage) {
+                                onWebSocketMessage(data);
+                            }
+                            
+                            // 외부 설정을 새로운 서버 설정으로 동기화
+                            if (onSettingsChange && data.settings) {
+                                Object.keys(data.settings).forEach(key => {
+                                    if (key !== 'streamer_id' && key !== 'lastUpdatedBy' && key !== 'updatedAt') {
+                                        onSettingsChange(key, data.settings[key]);
+                                    }
+                                });
+                            }
+                            
+                            // TTS Manager에도 즉시 설정 적용
+                            if (ttsManagerRef.current && data.settings) {
+                                console.log('🔄 TTS 설정 브로드캐스트로 TTS Manager 업데이트:', data.settings);
+                                const updatedSettings = { ...settings, ...data.settings };
+                                ttsManagerRef.current.updateSettings(updatedSettings);
+                            }
+                            
+                            // 설정 변경 알림 표시
+                            if (data.changed_by && username !== data.changed_by) {
+                                const alertMessage = {
+                                    id: Date.now() + Math.random(),
+                                    message: `${data.changed_by}님이 TTS 설정을 변경했습니다. (엔진: ${data.settings.ttsEngine}, 음성: ${data.settings.elevenLabsVoice})`,
+                                    message_type: 'system',
+                                    timestamp: Date.now()
+                                };
+                                addMessage(alertMessage);
+                            }
+                            return;
+                        }
+                        
+                        // 일반 채팅 메시지 처리
                         const newMessage = {
                             id: Date.now() + Math.random(),
                             ...data,
@@ -177,9 +300,33 @@ const StreamingChatWithTTS = ({
                         
                         // AI 메시지 처리
                         if (data.message_type === 'ai') {
-                            // TTS 자동 재생 및 자막 동기화 (설정에 따라)
-                            if (audioEnabled && settings.autoPlay) {
-                                await playTTS(newMessage, onAIMessage);
+                            // 서버에서 전송된 TTS 설정이 있으면 우선 사용
+                            let effectiveSettings = settings;
+                            if (data.tts_settings) {
+                                console.log('📡 AI 메시지와 함께 TTS 설정 수신:', data.tts_settings);
+                                setServerSettings(data.tts_settings);
+                                
+                                // 즉시 로컬 설정에 반영
+                                if (onSettingsChange) {
+                                    Object.keys(data.tts_settings).forEach(key => {
+                                        if (key !== 'streamer_id' && key !== 'lastUpdatedBy' && key !== 'updatedAt') {
+                                            onSettingsChange(key, data.tts_settings[key]);
+                                        }
+                                    });
+                                }
+                                
+                                effectiveSettings = { ...settings, ...data.tts_settings };
+                                
+                                // TTS Manager에도 즉시 서버 설정 적용
+                                if (ttsManagerRef.current) {
+                                    console.log('🔄 TTS Manager에 서버 설정 즉시 적용:', effectiveSettings);
+                                    ttsManagerRef.current.updateSettings(effectiveSettings);
+                                }
+                            }
+                            
+                            // TTS 자동 재생 및 자막 동기화 (서버 설정 적용)
+                            if (audioEnabled && effectiveSettings.autoPlay) {
+                                await playTTS(newMessage, onAIMessage, effectiveSettings);
                             } else {
                                 // 음성이 꺼져있거나 자동 재생이 꺼져있을 때도 자막은 표시
                                 if (onAIMessage) {
@@ -282,7 +429,7 @@ const StreamingChatWithTTS = ({
     }, [messages]);
 
     // TTS 재생 함수 - TTS Manager 사용
-    const playTTS = async (message, onAIMessage) => {
+    const playTTS = async (message, onAIMessage, effectiveSettings = null) => {
         if (!audioEnabled || !message.message || isPlayingAudio) {
             console.log('🔇 TTS 재생 스킵:', { audioEnabled, hasMessage: !!message.message, isPlayingAudio });
             return;
@@ -293,8 +440,17 @@ const StreamingChatWithTTS = ({
             return;
         }
 
+        // 전달받은 효과적인 설정이 있으면 사용, 없으면 현재 설정 사용
+        const currentSettings = effectiveSettings || settings;
+        
+        // TTS Manager에 최신 설정 확실히 적용
+        if (effectiveSettings) {
+            console.log('🔄 TTS 재생 전 설정 강제 업데이트:', effectiveSettings);
+            ttsManagerRef.current.updateSettings(effectiveSettings);
+        }
+
         try {
-            console.log('🎵 TTS 재생 시작:', message.message.substring(0, 50) + '...');
+            console.log('🎵 TTS 재생 시작 (설정:', currentSettings.ttsEngine, currentSettings.elevenLabsVoice, '):', message.message.substring(0, 50) + '...');
             setCurrentPlayingMessageId(message.id);
             setIsPlayingAudio(true);
             
@@ -370,13 +526,13 @@ const StreamingChatWithTTS = ({
                     
                     const ttsInfo = {
                         engine: actualEngine,
-                        requestedEngine: settings.ttsEngine, // 사용자가 요청한 엔진
-                        voice: settings.ttsEngine === 'elevenlabs' ? settings.elevenLabsVoice :
-                               settings.ttsEngine === 'melotts' ? settings.meloVoice :
-                               settings.ttsEngine === 'coqui' ? settings.coquiModel : 'default',
+                        requestedEngine: currentSettings.ttsEngine, // 사용자가 요청한 엔진
+                        voice: currentSettings.ttsEngine === 'elevenlabs' ? currentSettings.elevenLabsVoice :
+                               currentSettings.ttsEngine === 'melotts' ? currentSettings.meloVoice :
+                               currentSettings.ttsEngine === 'coqui' ? currentSettings.coquiModel : 'default',
                         fileSize: audioFileSize,
                         generationTime: generationTime,
-                        fallbackUsed: actualEngine !== settings.ttsEngine
+                        fallbackUsed: actualEngine !== currentSettings.ttsEngine
                     };
                     
                     if (onAIMessage) {
@@ -421,7 +577,7 @@ const StreamingChatWithTTS = ({
                 const actualEngine = ttsManagerRef.current ? ttsManagerRef.current.currentEngine : settings.ttsEngine;
                 const ttsInfo = {
                     engine: actualEngine,
-                    requestedEngine: settings.ttsEngine,
+                    requestedEngine: currentSettings.ttsEngine,
                     voice: 'error',
                     fileSize: 0,
                     generationTime: 0,
@@ -569,6 +725,9 @@ const StreamingChatWithTTS = ({
                             settings.ttsEngine === 'coqui' ? 'Coqui TTS' :
                             settings.ttsEngine.toUpperCase()
                         })</span>}
+                        {isSettingsSynced && serverSettings && (
+                            <span className="ms-2 text-success">| 📡 서버 설정 동기화됨 ({serverSettings.lastUpdatedBy || 'System'})</span>
+                        )}
                     </small>
                 </div>
             )}

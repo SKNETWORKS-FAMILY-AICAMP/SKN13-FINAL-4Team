@@ -42,7 +42,8 @@ function SignupForm() {
         }
         try {
             // 아이디 중복 확인 API (백엔드 구현 필요)
-            const response = await axios.get(`http://localhost:8000/api/users/check-username/?username=${formData.username}`);
+            const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+            const response = await axios.get(`${apiBaseUrl}/api/users/check-username/?username=${formData.username}`);
             if (response.data.is_taken) {
                 setUsernameStatus('이미 사용 중인 아이디입니다.');
             } else {
@@ -61,7 +62,8 @@ function SignupForm() {
             return;
         }
         try {
-            const response = await axios.get(`http://localhost:8000/api/users/check-nickname/?nickname=${formData.nickname}`);
+            const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+            const response = await axios.get(`${apiBaseUrl}/api/users/check-nickname/?nickname=${formData.nickname}`);
             if (response.data.is_taken) {
                 setNicknameStatus('이미 사용 중인 사용자명입니다.');
             } else {

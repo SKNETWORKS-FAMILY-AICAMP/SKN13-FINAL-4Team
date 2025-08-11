@@ -6,6 +6,7 @@ import { AITextSyncService } from '../services/aiTextSyncService';
 import { DEFAULT_SETTINGS } from '../config/aiChatSettings';
 import { TTSServiceManager } from '../services/ttsServiceManager';
 import AITTSEngineSelector from './AITTSEngineSelector';
+import TTSSettingsManager from './TTSSettingsManager';
 import './StreamingPage.css';
 
 function StreamingPage({ isLoggedIn, username }) {
@@ -47,10 +48,49 @@ function StreamingPage({ isLoggedIn, username }) {
         elevenLabsVoice: 'aneunjin'
     });
     const [showTtsSettings, setShowTtsSettings] = useState(false);
+    const [showSettingsManager, setShowSettingsManager] = useState(false);
     const ttsManagerRef = useRef(null);
+    
+    // 서버 TTS 설정 상태 추가
+    const [serverTtsSettings, setServerTtsSettings] = useState(null);
+    const [isServerSettingsLoaded, setIsServerSettingsLoaded] = useState(false);
 
     const [isMuted, setIsMuted] = useState(false);
     const [volume, setVolume] = useState(0.8);
+
+    // 서버에서 TTS 설정 가져오기
+    const fetchServerTtsSettings = async () => {
+        if (!streamerId || !isLoggedIn) return;
+        
+        try {
+            const token = localStorage.getItem('accessToken');
+            const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+            
+            const response = await fetch(`${apiBaseUrl}/api/streamer/${streamerId}/tts/settings/`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('📡 서버 TTS 설정 로드 성공:', result.settings);
+                setServerTtsSettings(result.settings);
+                setIsServerSettingsLoaded(true);
+                
+                // 로컬 설정도 서버 설정으로 동기화
+                setTtsSettings(prev => ({
+                    ...prev,
+                    ...result.settings
+                }));
+            } else {
+                console.error('❌ 서버 TTS 설정 로드 실패:', result.error);
+            }
+        } catch (error) {
+            console.error('❌ 서버 TTS 설정 로드 오류:', error);
+        }
+    };
 
     // TTS 설정 업데이트 함수
     const handleTtsSettingChange = (key, value) => {
@@ -61,6 +101,13 @@ function StreamingPage({ isLoggedIn, username }) {
             ttsManagerRef.current.updateSettings(newSettings);
         }
     };
+
+    // 서버 TTS 설정 로드
+    useEffect(() => {
+        if (isLoggedIn && streamerId) {
+            fetchServerTtsSettings();
+        }
+    }, [isLoggedIn, streamerId]);
 
     // TTS Manager 초기화
     useEffect(() => {
@@ -136,11 +183,31 @@ function StreamingPage({ isLoggedIn, username }) {
         }
     }, []);
 
+    // WebSocket 메시지 처리 (TTS 설정 변경 포함)
+    const handleWebSocketMessage = (data) => {
+        if (data.type === 'tts_settings_changed' && data.settings) {
+            console.log('📡 WebSocket으로 TTS 설정 변경 수신:', data.settings);
+            setServerTtsSettings(data.settings);
+            
+            // 로컬 설정도 동기화
+            setTtsSettings(prev => ({
+                ...prev,
+                ...data.settings
+            }));
+        }
+    };
+
     // AI 메시지와 음성 재생 시간을 받아 동기화된 자막 표시
     const handleAIMessage = (message, audioDuration, audioElement, ttsInfo = {}) => {
         setCurrentSubtitle(message);
         setRevealedSubtitle('');
         setShowSubtitle(true);
+        
+        // TTS 정보에서 서버 설정 업데이트
+        if (ttsInfo.serverSettings) {
+            console.log('📡 AI 메시지에서 서버 TTS 설정 업데이트:', ttsInfo.serverSettings);
+            setServerTtsSettings(ttsInfo.serverSettings);
+        }
         
         // 디버그 정보 초기화
         setDebugInfo({
@@ -211,8 +278,8 @@ function StreamingPage({ isLoggedIn, username }) {
 
     return (
         <Container fluid className="streaming-container mt-4">
-            {/* 통합 설정 패널 - 디버그와 TTS 설정 통합 */}
-            {(showDebug || showTtsSettings) && (
+            {/* 통합 설정 패널 - 디버그, TTS 설정, 설정 관리 통합 */}
+            {(showDebug || showTtsSettings || showSettingsManager) && (
                 <div className="settings-panel-overlay">
                     <div className="settings-panel-floating">
                         <div className="d-flex justify-content-between align-items-center mb-2">
@@ -232,10 +299,26 @@ function StreamingPage({ isLoggedIn, username }) {
                                     size="sm" 
                                     onClick={() => {
                                         setShowTtsSettings(!showTtsSettings);
-                                        if (!showTtsSettings) setShowDebug(false);
+                                        if (!showTtsSettings) {
+                                            setShowDebug(false);
+                                            setShowSettingsManager(false);
+                                        }
                                     }}
                                 >
                                     🎵 TTS 설정
+                                </Button>
+                                <Button 
+                                    variant={showSettingsManager ? "warning" : "outline-warning"}
+                                    size="sm" 
+                                    onClick={() => {
+                                        setShowSettingsManager(!showSettingsManager);
+                                        if (!showSettingsManager) {
+                                            setShowDebug(false);
+                                            setShowTtsSettings(false);
+                                        }
+                                    }}
+                                >
+                                    ⚙️ 설정 관리
                                 </Button>
                             </div>
                             <Button 
@@ -244,6 +327,7 @@ function StreamingPage({ isLoggedIn, username }) {
                                 onClick={() => {
                                     setShowDebug(false);
                                     setShowTtsSettings(false);
+                                    setShowSettingsManager(false);
                                 }}
                             >
                                 ✕
@@ -251,6 +335,17 @@ function StreamingPage({ isLoggedIn, username }) {
                         </div>
                         
                         <div>
+                            {/* 설정 관리 패널 내용 */}
+                            {showSettingsManager && (
+                                <div className="settings-content">
+                                    <TTSSettingsManager 
+                                        streamerId={streamerId}
+                                        isLoggedIn={isLoggedIn}
+                                        username={username}
+                                    />
+                                </div>
+                            )}
+                            
                             {/* TTS 설정 패널 내용 */}
                             {showTtsSettings && (
                                 <div className="settings-content">
@@ -381,6 +476,49 @@ function StreamingPage({ isLoggedIn, username }) {
                             <div className="text-center text-white">
                                 <h3>🎥 AI 스트리머 방송</h3>
                                 <p className="mb-0">실시간 스트리밍 중...</p>
+                                
+                                {/* 현재 TTS 설정 표시 */}
+                                {isServerSettingsLoaded && serverTtsSettings && (
+                                    <div className="mt-4 p-3 bg-dark bg-opacity-75 rounded">
+                                        <h5 className="text-warning mb-3">🎤 현재 TTS 설정</h5>
+                                        <div className="row text-start">
+                                            <div className="col-md-6">
+                                                <p><strong>엔진:</strong> 
+                                                    <span className="badge bg-primary ms-2">
+                                                        {serverTtsSettings.ttsEngine === 'elevenlabs' ? 'ElevenLabs' : 
+                                                         serverTtsSettings.ttsEngine.toUpperCase()}
+                                                    </span>
+                                                </p>
+                                                <p><strong>음성:</strong> 
+                                                    <span className="badge bg-success ms-2">
+                                                        {serverTtsSettings.elevenLabsVoice === 'aneunjin' ? '안은진' :
+                                                         serverTtsSettings.elevenLabsVoice === 'kimtaeri' ? '김태리' :
+                                                         serverTtsSettings.elevenLabsVoice === 'kimminjeong' ? '김민정' :
+                                                         serverTtsSettings.elevenLabsVoice === 'jinseonkyu' ? '진선규' :
+                                                         serverTtsSettings.elevenLabsVoice === 'parkchangwook' ? '박창욱' :
+                                                         serverTtsSettings.elevenLabsVoice}
+                                                    </span>
+                                                </p>
+                                                <p><strong>자동재생:</strong> 
+                                                    <span className={`badge ms-2 ${serverTtsSettings.autoPlay ? 'bg-success' : 'bg-secondary'}`}>
+                                                        {serverTtsSettings.autoPlay ? 'ON' : 'OFF'}
+                                                    </span>
+                                                </p>
+                                            </div>
+                                            <div className="col-md-6">
+                                                <p><strong>모델:</strong> <code>{serverTtsSettings.elevenLabsModel}</code></p>
+                                                <p><strong>안정성:</strong> {serverTtsSettings.elevenLabsStability}</p>
+                                                <p><strong>유사성:</strong> {serverTtsSettings.elevenLabsSimilarity}</p>
+                                            </div>
+                                        </div>
+                                        {serverTtsSettings.lastUpdatedBy && (
+                                            <small className="text-muted">
+                                                마지막 변경: {serverTtsSettings.lastUpdatedBy} 
+                                                ({new Date(serverTtsSettings.updatedAt).toLocaleString('ko-KR')})
+                                            </small>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                         
@@ -422,6 +560,14 @@ function StreamingPage({ isLoggedIn, username }) {
                             >
                                 🎵
                             </Button>
+                            <Button 
+                                variant="outline-warning" 
+                                size="sm" 
+                                onClick={() => setShowSettingsManager(!showSettingsManager)}
+                                title="TTS 관리 패널 토글"
+                            >
+                                ⚙️
+                            </Button>
                         </div>
                     </div>
                     <div className="stream-info mt-3">
@@ -453,6 +599,7 @@ function StreamingPage({ isLoggedIn, username }) {
                                     isLoggedIn={isLoggedIn}
                                     username={username}
                                     onAIMessage={handleAIMessage}
+                                    onWebSocketMessage={handleWebSocketMessage}
                                     externalSettings={ttsSettings}
                                     onSettingsChange={handleTtsSettingChange}
                                     externalShowSettings={showTtsSettings}

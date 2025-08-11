@@ -89,9 +89,13 @@ const AITTSEngineSelector = ({
     // ElevenLabs 테스트
     try {
       console.log('🧪 ElevenLabs 테스트 중...');
+      const token = localStorage.getItem('accessToken');
       const elevenLabsResponse = await fetch(`${baseUrl}/api/ai/tts/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           text: 'test',
           engine: 'elevenlabs',
@@ -114,9 +118,13 @@ const AITTSEngineSelector = ({
     // MeloTTS 테스트  
     try {
       console.log('🧪 MeloTTS 테스트 중...');
+      const token = localStorage.getItem('accessToken');
       const meloResponse = await fetch(`${baseUrl}/api/ai/tts/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           text: 'test',
           engine: 'melotts',
