@@ -72,7 +72,11 @@ function App() {
           <Route path="/login" element={<LoginForm onLogin={handleLogin} />} />
           <Route path="/find-id" element={<div>아이디 찾기 페이지</div>} />
           <Route path="/find-password" element={<div>비밀번호 찾기 페이지</div>} />
+          {/* 관리자용 유저 목록 페이지 */}
+          <Route path="/management" element={<UserListPage />} />
           <Route path="/management/userlist" element={<UserListPage />} />
+          
+          {/* 개인 프로필 페이지 */}
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/stream/:streamerId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} />
           <Route path="/debug/tts" element={<TTSDebugTool />} />
