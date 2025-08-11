@@ -200,3 +200,9 @@ AI_CHATBOT_SETTINGS = {
     'TEMPERATURE': 0.7,
     'SYSTEM_PROMPT': '당신은 도움이 되는 AI 어시스턴트입니다. 모든 사용자의 메시지에 친근하고 유용한 답변을 제공하세요.',
 }
+
+# 미디어 파일을 관리할 루트 디렉토리
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# 각 미디어 파일에 접근할 때 사용할 URL
+MEDIA_URL = '/media/'
