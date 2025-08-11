@@ -6,7 +6,16 @@ import { DEFAULT_SETTINGS } from '../config/aiChatSettings';
 import AITTSEngineSelector from './AITTSEngineSelector';
 import AISettingsPanel from './AISettingsPanel';
 
-const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage }) => {
+const StreamingChatWithTTS = ({ 
+    streamerId, 
+    isLoggedIn, 
+    username, 
+    onAIMessage,
+    externalSettings,
+    onSettingsChange,
+    externalShowSettings,
+    onShowSettingsChange
+}) => {
     const [messages, setMessages] = useState([]);
     const MAX_MESSAGES = 100; // 최대 메시지 개수 제한
     const [inputValue, setInputValue] = useState('');
@@ -19,13 +28,15 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
     const [currentPlayingMessageId, setCurrentPlayingMessageId] = useState(null);
     const [volume, setVolume] = useState(0.8);
-    const [showSettings, setShowSettings] = useState(false); // TTS 설정 패널 표시 여부
-    const [settings, setSettings] = useState({
+    // 외부에서 전달받은 설정 사용
+    const showSettings = externalShowSettings || false;
+    const setShowSettings = onShowSettingsChange || (() => {});
+    const settings = externalSettings || {
         ...DEFAULT_SETTINGS,
-        autoPlay: true, // AI 메시지 자동 재생
-        ttsEngine: 'elevenlabs', // 기본 엔진
-        elevenLabsVoice: 'aneunjin' // 기본 음성을 안은진으로 설정
-    });
+        autoPlay: true,
+        ttsEngine: 'elevenlabs',
+        elevenLabsVoice: 'aneunjin'
+    };
     
     const websocketRef = useRef(null);
     const chatContainerRef = useRef(null);
@@ -80,27 +91,10 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
         }
     }, [volume]);
 
-    // TTS 설정 업데이트 함수
-    const updateSetting = (key, value) => {
-        const newSettings = { ...settings, [key]: value };
-        setSettings(newSettings);
-        
-        if (ttsManagerRef.current) {
-            ttsManagerRef.current.updateSettings(newSettings);
-        }
-    };
-
-    // 프리셋 적용 함수
-    const applyPreset = (presetName, presets) => {
-        if (presets[presetName]) {
-            const newSettings = { ...settings, ...presets[presetName] };
-            setSettings(newSettings);
-            
-            if (ttsManagerRef.current) {
-                ttsManagerRef.current.updateSettings(newSettings);
-            }
-        }
-    };
+    // TTS 설정 업데이트 함수 - 외부 함수 사용
+    const updateSetting = onSettingsChange || ((key, value) => {
+        console.log('Settings change not available:', key, value);
+    });
 
     useEffect(() => {
         let connectTimeout = null;
@@ -475,11 +469,11 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
         // 시스템 메시지
         if (msg.message_type === 'system') {
             return (
-                <div key={msg.id} className="chat-message system-message mb-2">
-                    <small className="text-muted">
-                        <span className="me-2">[{messageTime}]</span>
-                        <span className="text-info">📢 {msg.message}</span>
-                    </small>
+                <div key={msg.id} className="chat-message system-message compact-message">
+                    <span className="message-badge">📢</span>
+                    <strong className="message-sender text-info">System</strong>
+                    <span className="message-text text-info">{msg.message}</span>
+                    <small className="message-time">[{messageTime}]</small>
                 </div>
             );
         }
@@ -487,24 +481,11 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
         // AI 응답 메시지
         if (msg.message_type === 'ai') {
             return (
-                <div key={msg.id} className="chat-message ai-message mb-2">
-                    <div className="d-flex align-items-start">
-                        <Badge bg="secondary" className="me-2 flex-shrink-0">🤖</Badge>
-                        <div className="flex-grow-1">
-                            <div className="d-flex justify-content-between align-items-start">
-                                <strong className="text-primary">AI Assistant</strong>
-                                <small className="text-muted ms-2">[{messageTime}]</small>
-                            </div>
-                            <div className="message-content mt-1">
-                                <span className="text-light">{msg.message}</span>
-                            </div>
-                            {msg.replied_to && (
-                                <small className="text-muted">
-                                    ↳ {msg.replied_to}님에게 답장 ({msg.ai_trigger_type})
-                                </small>
-                            )}
-                        </div>
-                    </div>
+                <div key={msg.id} className="chat-message ai-message compact-message">
+                    <span className="message-badge">🤖</span>
+                    <strong className="message-sender">AI</strong>
+                    <span className="message-text">{msg.message}</span>
+                    <small className="message-time">[{messageTime}]</small>
                 </div>
             );
         }
@@ -513,26 +494,13 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
         const isMyMessage = msg.sender === username;
         
         return (
-            <div key={msg.id} className={`chat-message user-message mb-2 ${isMyMessage ? 'my-message' : ''}`}>
-                <div className="d-flex align-items-start">
-                    <Badge 
-                        bg={isMyMessage ? "success" : "primary"} 
-                        className="me-2 flex-shrink-0"
-                    >
-                        👤
-                    </Badge>
-                    <div className="flex-grow-1">
-                        <div className="d-flex justify-content-between align-items-start">
-                            <strong className={isMyMessage ? "text-success" : "text-primary"}>
-                                {msg.sender}
-                            </strong>
-                            <small className="text-muted ms-2">[{messageTime}]</small>
-                        </div>
-                        <div className="message-content mt-1">
-                            <span className="text-light">{msg.message}</span>
-                        </div>
-                    </div>
-                </div>
+            <div key={msg.id} className={`chat-message user-message compact-message ${isMyMessage ? 'my-message' : ''}`}>
+                <span className="message-badge">👤</span>
+                <strong className={`message-sender ${isMyMessage ? 'text-success' : 'text-primary'}`}>
+                    {msg.sender}
+                </strong>
+                <span className="message-text">{msg.message}</span>
+                <small className="message-time">[{messageTime}]</small>
             </div>
         );
     };
@@ -552,16 +520,6 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
                         )}
                     </div>
                     <div className="d-flex align-items-center gap-2">
-                        {/* TTS 설정 버튼 */}
-                        <Button
-                            variant="link"
-                            size="sm"
-                            className="text-decoration-none p-1"
-                            onClick={() => setShowSettings(!showSettings)}
-                            title="TTS 엔진 설정"
-                        >
-                            ⚙️
-                        </Button>
                         
                         {/* 음량 컨트롤 */}
                         <div className="d-flex align-items-center">
@@ -615,37 +573,6 @@ const StreamingChatWithTTS = ({ streamerId, isLoggedIn, username, onAIMessage })
                 </div>
             )}
 
-            {/* TTS 엔진 설정 패널 */}
-            {showSettings && (
-                <div className="bg-dark border-bottom border-secondary p-3">
-                    <div className="mb-3">
-                        <AITTSEngineSelector
-                            currentEngine={settings.ttsEngine}
-                            settings={settings}
-                            onEngineChange={(engine) => updateSetting('ttsEngine', engine)}
-                            onSettingChange={updateSetting}
-                            ttsManager={ttsManagerRef.current}
-                        />
-                    </div>
-                    
-                    {/* 자동 재생 설정 */}
-                    <div className="mb-2">
-                        <div className="form-check">
-                            <input
-                                className="form-check-input"
-                                type="checkbox"
-                                id="autoPlayCheck"
-                                checked={settings.autoPlay}
-                                onChange={(e) => updateSetting('autoPlay', e.target.checked)}
-                            />
-                            <label className="form-check-label text-light" htmlFor="autoPlayCheck">
-                                🎵 AI 메시지 자동 음성 재생
-                            </label>
-                        </div>
-                        <small className="text-muted">AI가 응답할 때 자동으로 음성을 재생합니다</small>
-                    </div>
-                </div>
-            )}
 
             {/* 채팅 메시지 영역 */}
             <div 

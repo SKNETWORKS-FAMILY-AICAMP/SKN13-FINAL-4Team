@@ -4,6 +4,8 @@ import { Container, Row, Col, Image, Button, Badge } from 'react-bootstrap';
 import StreamingChatWithTTS from './StreamingChatWithTTS';
 import { AITextSyncService } from '../services/aiTextSyncService';
 import { DEFAULT_SETTINGS } from '../config/aiChatSettings';
+import { TTSServiceManager } from '../services/ttsServiceManager';
+import AITTSEngineSelector from './AITTSEngineSelector';
 import './StreamingPage.css';
 
 function StreamingPage({ isLoggedIn, username }) {
@@ -36,9 +38,38 @@ function StreamingPage({ isLoggedIn, username }) {
         fallbackUsed: false
     });
     const [showDebug, setShowDebug] = useState(false); // 기본값을 false로 변경
+    
+    // TTS 설정 상태 추가
+    const [ttsSettings, setTtsSettings] = useState({
+        ...DEFAULT_SETTINGS,
+        autoPlay: true,
+        ttsEngine: 'elevenlabs',
+        elevenLabsVoice: 'aneunjin'
+    });
+    const [showTtsSettings, setShowTtsSettings] = useState(false);
+    const ttsManagerRef = useRef(null);
 
     const [isMuted, setIsMuted] = useState(false);
     const [volume, setVolume] = useState(0.8);
+
+    // TTS 설정 업데이트 함수
+    const handleTtsSettingChange = (key, value) => {
+        const newSettings = { ...ttsSettings, [key]: value };
+        setTtsSettings(newSettings);
+        
+        if (ttsManagerRef.current) {
+            ttsManagerRef.current.updateSettings(newSettings);
+        }
+    };
+
+    // TTS Manager 초기화
+    useEffect(() => {
+        if (!ttsManagerRef.current) {
+            ttsManagerRef.current = new TTSServiceManager(ttsSettings);
+        } else {
+            ttsManagerRef.current.updateSettings(ttsSettings);
+        }
+    }, [ttsSettings.ttsEngine]);
 
     const handleAction = (action) => {
         if (!isLoggedIn) {
@@ -180,30 +211,89 @@ function StreamingPage({ isLoggedIn, username }) {
 
     return (
         <Container fluid className="streaming-container mt-4">
-            {/* 디버그 정보 패널 - 완전히 독립적인 플로팅 패널 */}
-            {showDebug && (
-                <div className="debug-panel-overlay">
-                    <div className="debug-panel-floating">
+            {/* 통합 설정 패널 - 디버그와 TTS 설정 통합 */}
+            {(showDebug || showTtsSettings) && (
+                <div className="settings-panel-overlay">
+                    <div className="settings-panel-floating">
                         <div className="d-flex justify-content-between align-items-center mb-2">
-                            <h6 className="mb-0 text-info">🔧 TTS 동기화 디버그</h6>
+                            <div className="d-flex gap-2">
+                                <Button 
+                                    variant={showDebug ? "info" : "outline-info"}
+                                    size="sm" 
+                                    onClick={() => {
+                                        setShowDebug(!showDebug);
+                                        if (!showDebug) setShowTtsSettings(false);
+                                    }}
+                                >
+                                    🔧 디버그
+                                </Button>
+                                <Button 
+                                    variant={showTtsSettings ? "primary" : "outline-primary"}
+                                    size="sm" 
+                                    onClick={() => {
+                                        setShowTtsSettings(!showTtsSettings);
+                                        if (!showTtsSettings) setShowDebug(false);
+                                    }}
+                                >
+                                    🎵 TTS 설정
+                                </Button>
+                            </div>
                             <Button 
                                 variant="outline-secondary" 
                                 size="sm" 
-                                onClick={() => setShowDebug(false)}
+                                onClick={() => {
+                                    setShowDebug(false);
+                                    setShowTtsSettings(false);
+                                }}
                             >
                                 ✕
                             </Button>
                         </div>
-                        <div className="debug-content">
-                            <div className="row g-2">
-                                <div className="col-12 mb-2">
-                                    <strong>🎵 TTS 엔진:</strong>
-                                    <span className={`badge ms-2 ${
-                                        debugInfo.ttsEngine === 'openai' ? 'bg-success' :
-                                        debugInfo.ttsEngine === 'elevenlabs' ? 'bg-primary' :
-                                        debugInfo.ttsEngine === 'melotts' ? 'bg-warning' :
-                                        debugInfo.ttsEngine === 'coqui' ? 'bg-info' : 'bg-secondary'
-                                    }`}>
+                        
+                        <div>
+                            {/* TTS 설정 패널 내용 */}
+                            {showTtsSettings && (
+                                <div className="settings-content">
+                                    <div className="mb-3">
+                                        <AITTSEngineSelector
+                                            currentEngine={ttsSettings.ttsEngine}
+                                            settings={ttsSettings}
+                                            onEngineChange={(engine) => handleTtsSettingChange('ttsEngine', engine)}
+                                            onSettingChange={handleTtsSettingChange}
+                                            ttsManager={ttsManagerRef.current}
+                                        />
+                                    </div>
+                                    
+                                    <div className="mb-2">
+                                        <div className="form-check">
+                                            <input
+                                                className="form-check-input"
+                                                type="checkbox"
+                                                id="autoPlayCheckFloat"
+                                                checked={ttsSettings.autoPlay}
+                                                onChange={(e) => handleTtsSettingChange('autoPlay', e.target.checked)}
+                                            />
+                                            <label className="form-check-label text-light" htmlFor="autoPlayCheckFloat">
+                                                🎵 AI 메시지 자동 음성 재생
+                                            </label>
+                                        </div>
+                                        <small className="text-muted">AI가 응답할 때 자동으로 음성을 재생합니다</small>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* 디버그 패널 내용 */}
+                            {showDebug && (
+                                <div className="debug-content">
+                                <div className="row g-2">
+                                    <div className="col-12 mb-2">
+                                        <strong>🎵 TTS 엔진:</strong>
+                                        <span className={`badge ms-2 ${
+                                            debugInfo.ttsEngine === 'openai' ? 'bg-success' :
+                                            debugInfo.ttsEngine === 'elevenlabs' ? 'bg-primary' :
+                                            debugInfo.ttsEngine === 'melotts' ? 'bg-warning' :
+                                            debugInfo.ttsEngine === 'coqui' ? 'bg-info' : 'bg-secondary'
+                                        }`}>
                                         {debugInfo.ttsEngine === 'elevenlabs' ? 'ElevenLabs TTS' :
                                          debugInfo.ttsEngine === 'elevenlabs' ? 'ElevenLabs' :
                                          debugInfo.ttsEngine === 'melotts' ? 'MeloTTS' :
@@ -276,13 +366,15 @@ function StreamingPage({ isLoggedIn, username }) {
                             <small className="text-muted d-block mt-1" style={{ fontSize: '0.7rem' }}>
                                 "{revealedSubtitle.length > 50 ? revealedSubtitle.substring(0, 50) + '...' : revealedSubtitle}"
                             </small>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             )}
 
             <Row>
-                <Col md={6}>
+                <Col md={8}>
                     <div className="video-player-wrapper" ref={videoContainerRef}>
                         {/* 비디오 플레이스홀더 */}
                         <div className="video-placeholder d-flex align-items-center justify-content-center h-100">
@@ -322,6 +414,14 @@ function StreamingPage({ isLoggedIn, username }) {
                             >
                                 🔧
                             </Button>
+                            <Button 
+                                variant="outline-primary" 
+                                size="sm" 
+                                onClick={() => setShowTtsSettings(!showTtsSettings)}
+                                title="TTS 설정 패널 토글"
+                            >
+                                🎵
+                            </Button>
                         </div>
                     </div>
                     <div className="stream-info mt-3">
@@ -343,16 +443,20 @@ function StreamingPage({ isLoggedIn, username }) {
                         </div>
                     </div>
                 </Col>
-                <Col md={6}>
+                <Col md={4}>
                     <div className="chat-section-wrapper d-flex flex-column h-100">
-                        {/* 채팅 컨테이너 - flex-grow-1로 남은 공간 모두 사용 */}
-                        <div className="chat-container flex-grow-1">
+                        {/* 채팅 컨테이너 - 대부분의 공간 사용, 입력창 포함 */}
+                        <div className="chat-container-with-input flex-grow-1 d-flex flex-column">
                             {streamerId ? (
                                 <StreamingChatWithTTS 
                                     streamerId={streamerId}
                                     isLoggedIn={isLoggedIn}
                                     username={username}
                                     onAIMessage={handleAIMessage}
+                                    externalSettings={ttsSettings}
+                                    onSettingsChange={handleTtsSettingChange}
+                                    externalShowSettings={showTtsSettings}
+                                    onShowSettingsChange={setShowTtsSettings}
                                 />
                             ) : (
                                 <div className="text-center text-muted p-4">
@@ -364,9 +468,9 @@ function StreamingPage({ isLoggedIn, username }) {
                             )}
                         </div>
                         
-                        {/* 후원 버튼 영역 - 고정 높이 */}
-                        <div className="chat-actions-wrapper flex-shrink-0">
-                            <div className="chat-actions">
+                        {/* 후원 버튼 영역 - 다시 활성화 */}
+                        <div className="external-actions-wrapper flex-shrink-0">
+                            <div className="external-actions">
                                 <Button variant="warning" size="sm" onClick={handleDonation}>
                                     💰 후원
                                 </Button>

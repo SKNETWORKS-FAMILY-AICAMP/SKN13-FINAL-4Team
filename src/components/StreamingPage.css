@@ -6,7 +6,7 @@
     position: relative;
     background-color: #000;
     border-radius: 8px;
-    overflow: hidden;
+    overflow: visible; /* 패널이 보이도록 변경 */
     min-height: 400px;
     aspect-ratio: 16/9;
 }
@@ -32,27 +32,57 @@
     font-weight: bold;
 }
 
-/* 새로운 채팅 섹션 래퍼 - flexbox 컨테이너 */
+/* 새로운 채팅 섹션 래퍼 - 화면 높이에 맞춤 */
 .chat-section-wrapper {
-    height: calc(100vh - 120px); /* 높이 증가 - 더 많은 공간 할당 */
+    height: calc(100vh - 100px); /* 화면 전체 높이에서 네비게이션/여백 제외 */
+    max-height: calc(100vh - 100px); /* 최대 높이도 동일하게 */
+    min-height: 500px; /* 최소 높이 보장 */
     border: 1px solid #495057;
     border-radius: 8px;
     background-color: #212529;
     overflow: hidden;
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
-/* 채팅 컨테이너 - 대부분의 공간을 차지 */
-.chat-container {
+/* 채팅 컨테이너 with 입력창 - 대부분의 공간을 차지 */
+.chat-container-with-input {
+    flex: 1 1 auto; /* 남은 공간을 모두 차지하면서 줄어들 수 있음 */
     overflow: hidden;
     min-height: 0; /* flex item이 줄어들 수 있도록 설정 */
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px; /* 후원 버튼과의 간격 */
 }
 
-/* 채팅 액션 래퍼 - 하단 고정 */
-.chat-actions-wrapper {
+/* 기존 채팅 컨테이너 스타일 유지 (호환성) */
+.chat-container {
+    flex: 1 1 auto;
+    overflow: hidden;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 외부 액션 래퍼 - 채팅과 완전히 분리된 하단 고정 */
+.external-actions-wrapper {
+    flex: 0 0 auto; /* 크기 고정, 줄어들지 않음 */
     border-top: 1px solid #495057;
     background-color: #f8f9fa;
-    min-height: 60px; /* 최소 높이 보장 */
+    height: 50px; /* 고정 높이 */
+    min-height: 50px;
+    max-height: 50px;
+    margin-top: 5px; /* 채팅 영역과의 간격 줄임 */
+}
+
+/* 기존 채팅 액션 래퍼 스타일 유지 (호환성) */
+.chat-actions-wrapper {
+    flex: 0 0 auto;
+    border-top: 1px solid #495057;
+    background-color: #f8f9fa;
+    min-height: 60px;
+    max-height: 60px;
 }
 
 .chat-box {
@@ -82,6 +112,7 @@
 /* StreamingChat 컴포넌트 스타일 */
 .streaming-chat-container {
     height: 100%; /* 채팅 컨테이너 영역을 모두 사용 */
+    max-height: 100%; /* 최대 높이 제한 */
     border: none; /* 외부 컨테이너에서 테두리 관리 */
     border-radius: 0; /* 외부 컨테이너에서 border-radius 관리 */
     background-color: #1a1d23;
@@ -90,19 +121,31 @@
     display: flex;
     flex-direction: column;
     min-height: 0; /* flex 컨테이너가 줄어들 수 있도록 */
+    overflow: hidden; /* 컨테이너에서 넘치는 내용 숨김 */
 }
 
+/* 채팅 헤더 고정 */
 .streaming-chat-container .chat-header {
+    flex: 0 0 auto; /* 크기 고정, 줄어들지 않음 */
     font-size: 0.9rem;
     color: #ffffff;
     background-color: #2c3034;
     border-bottom: 1px solid #495057;
+    height: 60px; /* 고정 높이 */
+    min-height: 60px;
+    max-height: 60px;
 }
 
+/* AI 사용법 안내 고정 */
 .streaming-chat-container .chat-help {
+    flex: 0 0 auto; /* 크기 고정, 줄어들지 않음 */
     font-size: 0.75rem;
     line-height: 1.3;
     color: #adb5bd;
+    height: 70px; /* 고정 높이 */
+    min-height: 70px;
+    max-height: 70px;
+    overflow-y: auto; /* 내용이 많으면 스크롤 */
 }
 
 .streaming-chat-container .chat-help code {
@@ -114,8 +157,17 @@
     border: 1px solid rgba(13, 202, 240, 0.3);
 }
 
+/* 채팅 메시지 영역 스크롤 개선 - 동적 높이 */
+.streaming-chat-container .chat-messages {
+    flex: 1 1 auto !important; /* 남은 공간을 모두 사용하도록 변경 */
+    overflow-y: auto; /* 세로 스크롤만 허용 */
+    overflow-x: hidden; /* 가로 스크롤 숨김 */
+    min-height: 200px !important; /* 최소 높이만 보장 */
+    scroll-behavior: smooth; /* 부드러운 스크롤 */
+}
+
 .streaming-chat-container .chat-messages::-webkit-scrollbar {
-    width: 6px;
+    width: 8px; /* 스크롤바 두께 증가 */
 }
 
 .streaming-chat-container .chat-messages::-webkit-scrollbar-track {
@@ -134,8 +186,10 @@
 /* 채팅 메시지 기본 스타일 - 모든 메시지에 적용 */
 .streaming-chat-container .chat-message {
     color: #ffffff;
-    line-height: 1.4;
+    line-height: 1.2; /* 줄 간격 줄임 */
     word-wrap: break-word;
+    margin-bottom: 6px !important; /* 메시지 간 간격 줄임 */
+    font-size: 0.9rem; /* 폰트 크기 약간 줄임 */
 }
 
 /* 채팅 메시지 영역 배경 */
@@ -147,10 +201,107 @@
 /* 타임스탬프 스타일 개선 */
 .streaming-chat-container .chat-message .text-muted {
     color: #adb5bd !important;
+    font-size: 0.8rem; /* 타임스탬프 폰트 크기 줄임 */
 }
 
 .streaming-chat-container .chat-message .small {
     color: #adb5bd !important;
+    font-size: 0.75rem !important; /* small 텍스트 크기 줄임 */
+}
+
+/* 컴팩트 메시지 스타일 - 1줄 레이아웃 */
+.streaming-chat-container .compact-message {
+    display: flex !important;
+    align-items: flex-start; /* 여러 줄일 때 상단 정렬 */
+    gap: 8px;
+    padding: 4px 8px !important;
+    margin-bottom: 4px !important;
+    font-size: 0.85rem;
+    line-height: 1.3;
+    min-height: auto !important;
+    flex-wrap: wrap; /* 필요시 줄바꿈 허용 */
+}
+
+.streaming-chat-container .compact-message .message-badge {
+    flex-shrink: 0;
+    font-size: 0.9rem;
+}
+
+.streaming-chat-container .compact-message .message-sender {
+    flex-shrink: 0;
+    font-size: 0.8rem;
+    min-width: 40px;
+    max-width: 80px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.streaming-chat-container .compact-message .message-text {
+    flex: 1 1 auto;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    color: #ffffff !important;
+    max-width: 200px; /* 최대 너비 제한 - 이 너비를 넘으면 줄바꿈 */
+    white-space: pre-wrap; /* 공백과 줄바꿈 문자 보존 */
+    hyphens: auto; /* 긴 단어 자동 하이픈 처리 */
+}
+
+.streaming-chat-container .compact-message .message-time {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    color: #adb5bd !important;
+    margin-left: auto;
+    align-self: flex-start; /* 다중 줄일 때 상단 정렬 */
+    white-space: nowrap; /* 시간은 줄바꿈 금지 */
+}
+
+/* 컴팩트 메시지 타입별 배경색 */
+.streaming-chat-container .compact-message.system-message {
+    background-color: rgba(108, 117, 125, 0.1) !important;
+    border: 1px solid rgba(108, 117, 125, 0.2) !important;
+    border-radius: 4px;
+}
+
+.streaming-chat-container .compact-message.ai-message {
+    background-color: rgba(13, 202, 240, 0.1) !important;
+    border: 1px solid rgba(13, 202, 240, 0.2) !important;
+    border-radius: 4px;
+}
+
+.streaming-chat-container .compact-message.user-message {
+    background-color: rgba(108, 117, 125, 0.05) !important;
+    border: 1px solid rgba(108, 117, 125, 0.1) !important;
+    border-radius: 4px;
+}
+
+.streaming-chat-container .compact-message.my-message {
+    background-color: rgba(25, 135, 84, 0.1) !important;
+    border: 1px solid rgba(25, 135, 84, 0.2) !important;
+    border-radius: 4px;
+}
+
+/* 메시지 텍스트 너비 반응형 조정 */
+@media (min-width: 768px) {
+    .streaming-chat-container .compact-message .message-text {
+        max-width: 250px; /* 중간 화면에서는 더 넓게 */
+    }
+}
+
+@media (min-width: 1024px) {
+    .streaming-chat-container .compact-message .message-text {
+        max-width: 300px; /* 큰 화면에서는 더욱 넓게 */
+    }
+}
+
+@media (max-width: 576px) {
+    .streaming-chat-container .compact-message .message-text {
+        max-width: 150px; /* 작은 화면에서는 더 좁게 */
+    }
+    
+    .streaming-chat-container .compact-message .message-sender {
+        max-width: 60px; /* 작은 화면에서 이름도 더 짧게 */
+    }
 }
 
 .streaming-chat-container .chat-message.system-message {
@@ -158,35 +309,35 @@
     font-style: italic;
     color: #adb5bd;
     background-color: rgba(108, 117, 125, 0.1);
-    padding: 6px 12px;
+    padding: 4px 10px; /* 패딩 줄임 */
     border-radius: 6px;
-    margin-bottom: 8px;
+    margin-bottom: 6px !important; /* 마진 줄임 */
 }
 
 .streaming-chat-container .chat-message.ai-message {
     background-color: rgba(13, 202, 240, 0.15);
     border: 1px solid rgba(13, 202, 240, 0.3);
-    padding: 10px 12px;
-    border-radius: 8px;
-    margin-bottom: 8px;
+    padding: 8px 10px; /* 패딩 줄임 */
+    border-radius: 6px; /* 보더 반지름 줄임 */
+    margin-bottom: 6px !important; /* 마진 줄임 */
     color: #ffffff;
 }
 
 .streaming-chat-container .chat-message.my-message {
     background-color: rgba(25, 135, 84, 0.15);
     border: 1px solid rgba(25, 135, 84, 0.3);
-    padding: 10px 12px;
-    border-radius: 8px;
-    margin-bottom: 8px;
+    padding: 8px 10px; /* 패딩 줄임 */
+    border-radius: 6px; /* 보더 반지름 줄임 */
+    margin-bottom: 6px !important; /* 마진 줄임 */
     color: #ffffff;
 }
 
 .streaming-chat-container .chat-message.user-message {
     background-color: rgba(108, 117, 125, 0.1);
     border: 1px solid rgba(108, 117, 125, 0.2);
-    padding: 10px 12px;
-    border-radius: 8px;
-    margin-bottom: 8px;
+    padding: 8px 10px; /* 패딩 줄임 */
+    border-radius: 6px; /* 보더 반지름 줄임 */
+    margin-bottom: 6px !important; /* 마진 줄임 */
     color: #ffffff;
 }
 
@@ -217,26 +368,61 @@
     background-color: #0d6efd !important;
 }
 
+/* 외부 액션 버튼 스타일 */
+.external-actions {
+    position: relative;
+    min-height: 50px; /* 높이 줄임 */
+    padding: 8px 12px; /* 세로 패딩 줄임 */
+    background-color: #2c3034;
+    border: none;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px; /* 간격 줄임 */
+}
+
+/* 기존 채팅 액션 스타일 유지 */
 .chat-actions {
     position: relative;
-    min-height: 60px; /* 높이 증가 */
-    padding: 12px; /* 패딩 증가 */
+    min-height: 60px;
+    padding: 12px;
     background-color: #2c3034;
-    border: none; /* 외부 래퍼에서 테두리 관리 */
+    border: none;
     border-radius: 0;
     border-top: 1px solid #495057;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 15px; /* 버튼 간격 증가 */
+    gap: 15px;
 }
 
+/* 외부 액션 버튼 스타일 */
+.external-actions .btn {
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 8px 16px;
+}
+
+/* 기존 채팅 액션 버튼 스타일 유지 */
 .chat-actions .btn {
     border-radius: 8px;
     font-weight: 500;
     padding: 8px 16px;
 }
 
+/* 외부 액션 버튼 색상 */
+.external-actions .btn-primary {
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+}
+
+.external-actions .btn-primary:hover {
+    background-color: #138496;
+    border-color: #138496;
+}
+
+/* 기존 채팅 액션 버튼 색상 유지 */
 .chat-actions .btn-primary {
     background-color: #17a2b8;
     border-color: #17a2b8;
@@ -249,10 +435,13 @@
 
 /* 채팅 입력창 스타일 */
 .streaming-chat-container .chat-input-section {
+    flex: 0 0 auto; /* 크기 고정, 줄어들지 않음 */
     position: relative;
     margin-bottom: 0;
-    min-height: 120px; /* 입력창 영역 최소 높이 보장 */
-    padding: 15px; /* 패딩 증가로 더 넓은 공간 확보 */
+    height: 120px; /* 고정 높이 */
+    min-height: 120px;
+    max-height: 120px;
+    padding: 15px; /* 패딩으로 공간 확보 */
     background-color: #2c3034;
     border-top: 1px solid #495057;
 }
@@ -379,30 +568,72 @@
     font-size: 24px;
 }
 
-/* 플로팅 디버그 패널 스타일 */
-.debug-panel-overlay {
-    position: fixed;
-    top: 80px;
-    right: 20px;
+/* 통합 설정 패널 스타일 - 비디오 화면 좌상단 */
+.settings-panel-overlay {
+    position: absolute;
+    top: 20px;
+    left: 20px;
     z-index: 9999;
     pointer-events: auto;
 }
 
-.debug-panel-floating {
-    background-color: rgba(13, 27, 42, 0.96);
+.settings-panel-floating {
+    background-color: rgba(13, 27, 42, 0.95);
     border: 1px solid #495057;
     border-radius: 8px;
     padding: 12px;
     color: #ffffff;
     font-size: 0.8rem;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    min-width: 300px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+    min-width: 320px;
     max-width: 400px;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(15px);
+    max-height: 70vh; /* 화면 높이의 70%를 넘지 않도록 */
+    overflow-y: auto; /* 내용이 많으면 스크롤 */
 }
 
 .debug-content {
     font-family: 'Monaco', 'Consolas', monospace;
+}
+
+.settings-content {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.settings-content .form-select {
+    background-color: #495057 !important;
+    border-color: #6c757d !important;
+    color: #ffffff !important;
+    font-size: 0.85rem;
+}
+
+.settings-content .form-select option {
+    background-color: #495057;
+    color: #ffffff;
+}
+
+.settings-content .form-check-label {
+    color: #ffffff !important;
+    font-size: 0.85rem;
+}
+
+.settings-content .form-label {
+    color: #ffffff !important;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.settings-content .form-range {
+    background-color: #495057;
+}
+
+.settings-content .form-range::-webkit-slider-thumb {
+    background-color: #0d6efd;
+}
+
+.settings-content .form-range::-moz-range-thumb {
+    background-color: #0d6efd;
+    border: none;
 }
 
 .debug-content strong {
@@ -430,6 +661,77 @@
 
 .debug-panel-floating h6 {
     font-size: 0.9rem;
+}
+
+/* 화면 높이에 따른 반응형 조정 */
+@media (max-height: 800px) {
+    .chat-section-wrapper {
+        height: calc(100vh - 80px) !important; /* 더 작은 여백으로 조정 */
+        max-height: calc(100vh - 80px) !important;
+    }
+    
+    /* 작은 화면에서 각 요소 높이 축소 */
+    .streaming-chat-container .chat-header {
+        height: 50px !important;
+        min-height: 50px !important;
+        max-height: 50px !important;
+    }
+    
+    .streaming-chat-container .chat-help {
+        height: 60px !important;
+        min-height: 60px !important;
+        max-height: 60px !important;
+    }
+    
+    .streaming-chat-container .chat-input-section {
+        height: 100px !important;
+        min-height: 100px !important;
+        max-height: 100px !important;
+    }
+    
+    .external-actions-wrapper {
+        height: 40px !important;
+        min-height: 40px !important;
+        max-height: 40px !important;
+    }
+    
+    .external-actions {
+        min-height: 40px !important;
+        padding: 6px 10px !important;
+    }
+}
+
+@media (max-height: 600px) {
+    .chat-section-wrapper {
+        height: calc(100vh - 60px) !important;
+        max-height: calc(100vh - 60px) !important;
+        min-height: 400px !important;
+    }
+    
+    /* 매우 작은 화면에서 더욱 압축 */
+    .streaming-chat-container .chat-header {
+        height: 40px !important;
+        min-height: 40px !important;
+        max-height: 40px !important;
+    }
+    
+    .streaming-chat-container .chat-help {
+        height: 50px !important;
+        min-height: 50px !important;
+        max-height: 50px !important;
+    }
+    
+    .streaming-chat-container .chat-input-section {
+        height: 90px !important;
+        min-height: 90px !important;
+        max-height: 90px !important;
+    }
+    
+    .streaming-chat-container .bg-dark.border-bottom.border-secondary.p-3 {
+        height: 120px !important;
+        min-height: 120px !important;
+        max-height: 120px !important;
+    }
 }
 
 /* Additional dark theme improvements */
@@ -484,4 +786,15 @@
 .bg-dark .form-range::-moz-range-thumb {
     background-color: #17a2b8;
     border: none;
+}
+
+/* TTS 설정 패널 스타일 */
+.streaming-chat-container .bg-dark.border-bottom.border-secondary.p-3 {
+    flex: 0 0 auto; /* 크기 고정, 줄어들지 않음 */
+    height: 150px; /* 고정 높이 */
+    min-height: 150px;
+    max-height: 150px; /* 설정 패널 최대 높이 제한 */
+    overflow-y: auto; /* 내용이 많으면 스크롤 */
+    background-color: #2c3034 !important;
+    border-color: #495057 !important;
 }
