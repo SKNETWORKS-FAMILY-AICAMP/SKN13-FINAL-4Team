@@ -143,17 +143,16 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # React가 3000 포트, Django가 8000 포트로 실행될 때
 # CORS(Cross-Origin Resource Sharing) 문제를 해결하기 위해 추가합니다.
 # 'django-cors-headers' 라이브러리가 설치되어 있어야 합니다.
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",
+#     "http://127.0.0.1:3000",
+# ]
 
-# CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = True
 
 # CORS_ALLOWED_ORIGINS = [
 #     "http://localhost:3000",
 #     "http://127.0.0.1:3000", 
-#     "http://192.168.0.51:3000",  # 외부 PC 접근용
 # ]
 
 # WebSocket에서 쿠키 기반 세션 인증을 위해 필요
@@ -190,8 +189,9 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 30,
 }
 
-# OpenAI API 설정
+# AI API 설정
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 
 # AI 챗봇 설정
 AI_CHATBOT_SETTINGS = {

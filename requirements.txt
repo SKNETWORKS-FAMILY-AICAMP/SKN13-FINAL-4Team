@@ -20,3 +20,11 @@ Pillow
 # AI Integration
 openai
 python-dotenv
+httpx  # ElevenLabs API 호출용
+
+# TTS Services (MeloTTS는 선택사항으로 별도 설치)
+# melotts는 PyPI 패키지 문제로 인해 주석 처리
+# 필요시 컨테이너 내부에서 수동 설치:
+# pip install git+https://github.com/myshell-ai/MeloTTS.git
+soundfile  # 오디오 파일 처리
+numpy  # 오디오 데이터 처리
