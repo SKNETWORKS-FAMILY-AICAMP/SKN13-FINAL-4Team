@@ -2,11 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Container, Row, Col, Image, Button, Badge } from 'react-bootstrap';
 import StreamingChatWithTTS from './StreamingChatWithTTS';
-import { AITextSyncService } from '../services/aiTextSyncService';
-import { DEFAULT_SETTINGS } from '../config/aiChatSettings';
-import { TTSServiceManager } from '../services/ttsServiceManager';
-import AITTSEngineSelector from './AITTSEngineSelector';
-import TTSSettingsManager from './TTSSettingsManager';
+import { AITextSyncService } from '../../services/aiTextSyncService';
+import { DEFAULT_SETTINGS } from '../../config/aiChatSettings';
+import { TTSServiceManager } from '../../services/ttsServiceManager';
+import AITTSEngineSelector from '../ai/AITTSEngineSelector';
+import TTSSettingsManager from '../ai/TTSSettingsManager';
 import './StreamingPage.css';
 
 function StreamingPage({ isLoggedIn, username }) {
@@ -75,7 +75,6 @@ function StreamingPage({ isLoggedIn, username }) {
             const result = await response.json();
             
             if (result.success) {
-                console.log('📡 서버 TTS 설정 로드 성공:', result.settings);
                 setServerTtsSettings(result.settings);
                 setIsServerSettingsLoaded(true);
                 
@@ -186,7 +185,6 @@ function StreamingPage({ isLoggedIn, username }) {
     // WebSocket 메시지 처리 (TTS 설정 변경 포함)
     const handleWebSocketMessage = (data) => {
         if (data.type === 'tts_settings_changed' && data.settings) {
-            console.log('📡 WebSocket으로 TTS 설정 변경 수신:', data.settings);
             setServerTtsSettings(data.settings);
             
             // 로컬 설정도 동기화
@@ -205,7 +203,6 @@ function StreamingPage({ isLoggedIn, username }) {
         
         // TTS 정보에서 서버 설정 업데이트
         if (ttsInfo.serverSettings) {
-            console.log('📡 AI 메시지에서 서버 TTS 설정 업데이트:', ttsInfo.serverSettings);
             setServerTtsSettings(ttsInfo.serverSettings);
         }
         
@@ -471,8 +468,25 @@ function StreamingPage({ isLoggedIn, username }) {
             <Row>
                 <Col md={8}>
                     <div className="video-player-wrapper" ref={videoContainerRef}>
-                        {/* 비디오 플레이스홀더 */}
-                        <div className="video-placeholder d-flex align-items-center justify-content-center h-100">
+                        {/* 비디오 플레이어 */}
+                        <video 
+                            className="streaming-video" 
+                            autoPlay 
+                            loop 
+                            muted 
+                            playsInline
+                            onError={(e) => {
+                                console.error('비디오 로딩 실패:', e);
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                            }}
+                        >
+                            <source src="/videos/a_idle.mp4" type="video/mp4" />
+                            Your browser does not support the video tag.
+                        </video>
+                        
+                        {/* 비디오 로딩 실패 시 플레이스홀더 */}
+                        <div className="video-placeholder d-flex align-items-center justify-content-center h-100" style={{display: 'none'}}>
                             <div className="text-center text-white">
                                 <h3>🎥 AI 스트리머 방송</h3>
                                 <p className="mb-0">실시간 스트리밍 중...</p>

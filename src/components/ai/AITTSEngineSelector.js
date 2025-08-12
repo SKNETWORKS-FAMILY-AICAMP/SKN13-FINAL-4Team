@@ -5,7 +5,7 @@ import {
   ELEVENLABS_MODEL_OPTIONS,
   MELO_VOICE_OPTIONS, 
   COQUI_MODEL_OPTIONS 
-} from '../config/aiChatSettings';
+} from '../../config/aiChatSettings';
 
 /**
  * AI TTS 엔진 선택 컴포넌트

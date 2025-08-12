@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Form, Button, Badge } from 'react-bootstrap';
-import { TTSServiceManager } from '../services/ttsServiceManager';
-import { AIAudioService } from '../services/aiAudioService';
-import { DEFAULT_SETTINGS } from '../config/aiChatSettings';
-import AITTSEngineSelector from './AITTSEngineSelector';
-import AISettingsPanel from './AISettingsPanel';
+import { TTSServiceManager } from '../../services/ttsServiceManager';
+import { AIAudioService } from '../../services/aiAudioService';
+import { DEFAULT_SETTINGS } from '../../config/aiChatSettings';
 
 const StreamingChatWithTTS = ({ 
     streamerId, 
@@ -71,7 +69,6 @@ const StreamingChatWithTTS = ({
     useEffect(() => {
         if (!ttsManagerRef.current) {
             ttsManagerRef.current = new TTSServiceManager(settings);
-            console.log('🎵 TTS Manager 초기화 완료:', settings);
         } else {
             // 이미 존재하면 설정만 업데이트
             ttsManagerRef.current.updateSettings(settings);
@@ -116,7 +113,6 @@ const StreamingChatWithTTS = ({
             const result = await response.json();
             
             if (result.success) {
-                console.log('✅ 서버 TTS 설정 업데이트 성공:', result.message);
                 // 서버 설정을 로컬에 반영 (WebSocket 브로드캐스트로도 받지만 즉시 반영)
                 setServerSettings(result.settings);
                 if (onSettingsChange) {
@@ -140,7 +136,6 @@ const StreamingChatWithTTS = ({
     // TTS 설정 업데이트 함수 - 서버 우선 적용
     const updateSetting = (key, value) => {
         if (!onSettingsChange) {
-            console.log('Settings change not available:', key, value);
             return;
         }
         
@@ -228,7 +223,6 @@ const StreamingChatWithTTS = ({
                         // WebSocket 메시지 타입별 처리
                         if (data.type === 'initial_tts_settings') {
                             // 초기 TTS 설정 수신
-                            console.log('📡 서버에서 초기 TTS 설정 수신:', data.settings);
                             setServerSettings(data.settings);
                             setIsSettingsSynced(true);
                             
@@ -243,8 +237,7 @@ const StreamingChatWithTTS = ({
                             
                             // TTS Manager에도 초기 설정 적용
                             if (ttsManagerRef.current && data.settings) {
-                                console.log('🔄 초기 서버 TTS 설정을 TTS Manager에 적용:', data.settings);
-                                const updatedSettings = { ...settings, ...data.settings };
+                                    const updatedSettings = { ...settings, ...data.settings };
                                 ttsManagerRef.current.updateSettings(updatedSettings);
                             }
                             return;
@@ -252,7 +245,6 @@ const StreamingChatWithTTS = ({
                         
                         if (data.type === 'tts_settings_changed') {
                             // TTS 설정 변경 브로드캐스트 수신
-                            console.log('📡 TTS 설정 변경 브로드캐스트 수신:', data.changed_by, data.settings);
                             setServerSettings(data.settings);
                             
                             // 부모 컴포넌트에도 WebSocket 메시지 전달
@@ -271,8 +263,7 @@ const StreamingChatWithTTS = ({
                             
                             // TTS Manager에도 즉시 설정 적용
                             if (ttsManagerRef.current && data.settings) {
-                                console.log('🔄 TTS 설정 브로드캐스트로 TTS Manager 업데이트:', data.settings);
-                                const updatedSettings = { ...settings, ...data.settings };
+                                    const updatedSettings = { ...settings, ...data.settings };
                                 ttsManagerRef.current.updateSettings(updatedSettings);
                             }
                             
@@ -303,7 +294,6 @@ const StreamingChatWithTTS = ({
                             // 서버에서 전송된 TTS 설정이 있으면 우선 사용
                             let effectiveSettings = settings;
                             if (data.tts_settings) {
-                                console.log('📡 AI 메시지와 함께 TTS 설정 수신:', data.tts_settings);
                                 setServerSettings(data.tts_settings);
                                 
                                 // 즉시 로컬 설정에 반영
@@ -319,8 +309,7 @@ const StreamingChatWithTTS = ({
                                 
                                 // TTS Manager에도 즉시 서버 설정 적용
                                 if (ttsManagerRef.current) {
-                                    console.log('🔄 TTS Manager에 서버 설정 즉시 적용:', effectiveSettings);
-                                    ttsManagerRef.current.updateSettings(effectiveSettings);
+                                        ttsManagerRef.current.updateSettings(effectiveSettings);
                                 }
                             }
                             
@@ -431,7 +420,6 @@ const StreamingChatWithTTS = ({
     // TTS 재생 함수 - TTS Manager 사용
     const playTTS = async (message, onAIMessage, effectiveSettings = null) => {
         if (!audioEnabled || !message.message || isPlayingAudio) {
-            console.log('🔇 TTS 재생 스킵:', { audioEnabled, hasMessage: !!message.message, isPlayingAudio });
             return;
         }
 
@@ -445,12 +433,10 @@ const StreamingChatWithTTS = ({
         
         // TTS Manager에 최신 설정 확실히 적용
         if (effectiveSettings) {
-            console.log('🔄 TTS 재생 전 설정 강제 업데이트:', effectiveSettings);
             ttsManagerRef.current.updateSettings(effectiveSettings);
         }
 
         try {
-            console.log('🎵 TTS 재생 시작 (설정:', currentSettings.ttsEngine, currentSettings.elevenLabsVoice, '):', message.message.substring(0, 50) + '...');
             setCurrentPlayingMessageId(message.id);
             setIsPlayingAudio(true);
             
@@ -459,7 +445,6 @@ const StreamingChatWithTTS = ({
             const audioUrl = await ttsManagerRef.current.generateAudio(message.message);
             const generationTime = (Date.now() - startTime) / 1000;
             
-            console.log('✅ TTS 생성 완료:', { generationTime: generationTime + 's', audioUrl: !!audioUrl });
             
             // 먼저 오디오 URL을 설정하고 충분한 버퍼링 후 재생
             if (audioRef.current) {
@@ -510,19 +495,11 @@ const StreamingChatWithTTS = ({
                             audioFileSize = blob.size;
                         }
                     } catch (error) {
-                        console.log('오디오 파일 크기 측정 실패:', error);
                     }
                     
                     // TTS 정보 객체 생성 (실제 사용된 엔진 정보)
                     const actualEngine = ttsManagerRef.current ? ttsManagerRef.current.currentEngine : settings.ttsEngine;
                     
-                    // 디버그 로깅
-                    console.log('🔍 TTS 디버그 정보:', {
-                        settingsEngine: settings.ttsEngine,
-                        actualEngine: actualEngine,
-                        managerExists: !!ttsManagerRef.current,
-                        managerCurrentEngine: ttsManagerRef.current?.currentEngine
-                    });
                     
                     const ttsInfo = {
                         engine: actualEngine,

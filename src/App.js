@@ -2,15 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
-import Navbar from './components/Navbar';
-import SignupForm from './components/SignupForm';
-import LoginForm from './components/LoginForm';
-import TermsPage from './components/TermsPage';
-import UserListPage from './components/UserListPage';
-import ProfilePage from './components/ProfilePage';
-import StreamingPage from './components/StreamingPage';
-import HomeTemporary from './components/HomeTemporary';
-import TTSDebugTool from './components/TTSDebugTool';
+import Navbar from './components/layout/Navbar';
+import SignupForm from './components/auth/SignupForm';
+import LoginForm from './components/auth/LoginForm';
+import TermsPage from './components/auth/TermsPage';
+import UserListPage from './components/user/UserListPage';
+import ProfilePage from './components/user/ProfilePage';
+import StreamingPage from './components/streaming/StreamingPage';
+import HomeTemporary from './components/pages/HomeTemporary';
+import TTSDebugTool from './components/ai/TTSDebugTool';
 import './App.css';
 
 function App() {

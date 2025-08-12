@@ -20,7 +20,6 @@ export class ElevenLabsService {
   getVoiceOptimizedModel(voiceName) {
     // 1. 사용자가 해당 음성에 대해 개별 설정한 model_id가 있으면 사용
     if (this.settings.elevenLabsVoiceModels && this.settings.elevenLabsVoiceModels[voiceName]) {
-      console.log(`🎛️ ${voiceName} 음성에 대한 사용자 개별 모델 사용: ${this.settings.elevenLabsVoiceModels[voiceName]}`);
       return this.settings.elevenLabsVoiceModels[voiceName];
     }
 

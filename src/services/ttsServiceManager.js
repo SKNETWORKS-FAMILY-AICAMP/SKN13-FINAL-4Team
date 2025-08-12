@@ -22,7 +22,6 @@ export class TTSServiceManager {
     try {
       // ElevenLabs TTS 서비스 (기본 엔진)
       this.services.elevenlabs = new ElevenLabsService(this.settings);
-      console.log('✅ ElevenLabs TTS 서비스 초기화 완료');
 
       // TODO: 필요시 다른 TTS 서비스들 추가
       // this.services.melotts = new MeloTTSService(this.settings);
@@ -59,7 +58,6 @@ export class TTSServiceManager {
     const previousEngine = this.currentEngine;
     this.currentEngine = engine;
     
-    console.log(`🔄 TTS 엔진 변경: ${previousEngine} → ${engine}`);
     
     // 이전 오디오 정리
     this.cleanupAudio();
@@ -81,7 +79,6 @@ export class TTSServiceManager {
       // 이전 오디오 정리
       this.cleanupAudio();
       
-      console.log(`🎵 ${this.currentEngine.toUpperCase()} TTS로 음성 생성 시작`);
       const audioUrl = await service.generateAudio(text);
       
       // 생성된 오디오 URL 추적
@@ -94,7 +91,6 @@ export class TTSServiceManager {
       
       // 폴백 로직: ElevenLabs가 아닌 경우 ElevenLabs로 재시도
       if (this.currentEngine !== 'elevenlabs' && this.services.elevenlabs) {
-        console.log('🔄 ElevenLabs TTS로 폴백 시도...');
         try {
           const fallbackUrl = await this.services.elevenlabs.generateAudio(text);
           this.activeAudioUrl = fallbackUrl;
@@ -161,10 +157,6 @@ export class TTSServiceManager {
       }
     });
     
-    console.log('🔧 TTS 매니저 설정 업데이트:', {
-      currentEngine: this.currentEngine,
-      availableEngines: this.getAvailableEngines()
-    });
   }
 
   /**
@@ -204,7 +196,6 @@ export class TTSServiceManager {
       try {
         URL.revokeObjectURL(this.activeAudioUrl);
         this.activeAudioUrl = null;
-        console.log('🧹 이전 오디오 URL 정리 완료');
       } catch (error) {
         console.warn('⚠️ 오디오 URL 정리 중 오류:', error);
       }
@@ -225,7 +216,6 @@ export class TTSServiceManager {
       }
     });
     
-    console.log('🧹 TTS 매니저 전체 정리 완료');
   }
 
   /**

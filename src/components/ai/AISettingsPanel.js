@@ -1,6 +1,6 @@
 import React from 'react';
-import { TTS_PRESETS, SYNC_MODES } from '../config/aiChatSettings';
-import { getAvailablePromptTypes } from '../config/aiSystemPrompts';
+import { TTS_PRESETS, SYNC_MODES } from '../../config/aiChatSettings';
+import { getAvailablePromptTypes } from '../../config/aiSystemPrompts';
 import AITTSEngineSelector from './AITTSEngineSelector';
 
 /**
