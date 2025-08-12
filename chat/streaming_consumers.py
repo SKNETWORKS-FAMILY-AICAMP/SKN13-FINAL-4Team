@@ -2,7 +2,6 @@
 import json
 import asyncio
 import time
-import re
 import logging
 from urllib.parse import parse_qs
 from channels.generic.websocket import AsyncWebsocketConsumer
