@@ -9,6 +9,8 @@ function ProfilePage() {
     const [error, setError] = useState('');
     
     const [nickname, setNickname] = useState('');
+    const [birthDate, setBirthDate] = useState(''); 
+    const [gender, setGender] = useState('');
     const [passwordData, setPasswordData] = useState({
         current_password: '',
         new_password: '',
@@ -43,6 +45,8 @@ function ProfilePage() {
                 });
                 setUser(response.data);
                 setNickname(response.data.nickname || '');
+                setBirthDate(response.data.birth_date || '');
+                setGender(response.data.gender || '');
                 setProfileImage(response.data.profile_image || '');
                 console.log('사용자 정보====================================:', response.data);
             } catch (err) {
@@ -93,6 +97,8 @@ function ProfilePage() {
 
     // 입력 필드 변경 핸들러
     const handleNicknameChange = (e) => setNickname(e.target.value);
+    const handleBirthDateChange = (e) => setBirthDate(e.target.value);
+    const handleGenderChange = (e) => setGender(e.target.value);
     const handlePasswordChange = (e) => {
         const { name, value } = e.target;
         setPasswordData(prev => ({ ...prev, [name]: value }));
@@ -275,7 +281,7 @@ function ProfilePage() {
                     <small className="form-label text-start d-block">비밀번호는 영문 + 숫자 + 특수문자를 포함하여 9자리 이상으로 설정해주세요.</small>
                 </div>
                 <div className="form-group">
-                    <label htmlFor="confirmPassword" className="form-label text-start d-block">새 비밀번호 확인</label>
+                    <label htmlFor="confirmPassword">새 비밀번호 확인</label>
                     <input
                         type="password"
                         id="confirmPassword"
@@ -285,6 +291,28 @@ function ProfilePage() {
                         onChange={handlePasswordChange}
                     />
                 </div>
+
+                {/* 생년월일 필드 */}
+                <div className="form-group">
+                    <label htmlFor="birthDate" className="form-label text-start d-block">생년월일</label>
+                    <input
+                        type="date"
+                        id="birthDate"
+                        name="birth_date"
+                        value={birthDate}
+                        onChange={handleBirthDateChange}
+                    />
+                </div>
+
+                {/* 성별 필드 */}
+                <div className="form-group">
+                    <label htmlFor="gender" className="form-label text-start d-block">성별</label>
+                    <select id="gender" name="gender" value={gender} onChange={handleGenderChange}>
+                        <option value="M">남성</option>
+                        <option value="F">여성</option>
+                    </select>
+                </div>
+                <hr style={{ margin: '2rem 0' }} />
                 <div className="form-actions">
                     <button type="button" className="cancel-btn" onClick={() => navigate(-1)}>취소</button>
                     <button type="submit" className="save-btn" disabled={!nicknameStatus.isValid}>변경사항 저장</button>
