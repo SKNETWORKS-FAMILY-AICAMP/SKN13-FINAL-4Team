@@ -1,10 +1,12 @@
 from django.shortcuts import render
-from rest_framework import status, viewsets
+from rest_framework import viewsets, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.parsers import MultiPartParser, FormParser
+from django.db.models import Q
+from django.conf import settings 
 
 from .models import User 
 from .serializers import MyTokenObtainPairSerializer, UserRegistrationSerializer, UserSerializer,CustomTokenObtainPairSerializer, PasswordChangeSerializer, ProfileUpdateSerializer
@@ -50,12 +52,40 @@ class MyProfileAPIView(APIView):
 class UserAdminViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
     serializer_class = UserSerializer
+
+from django.db.models import Q # ✅ 1. Q 객체를 import 합니다.
+from rest_framework import viewsets, filters
+from rest_framework.permissions import IsAdminUser
+from .models import User
+from .serializers import UserSerializer
+
+# ... (다른 View 클래스들은 그대로 둡니다)
+
+class UserAdminViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAdminUser]
+    serializer_class = UserSerializer
+
     def get_queryset(self):
         """
-        이 ViewSet이 사용할 객체 목록을 반환합니다.
-        관리자는 모든 사용자를 볼 수 있도록 합니다.
+        URL의 'search' 쿼리 파라미터를 사용하여 사용자 목록을 필터링합니다.
+        검색어가 숫자이면 ID를, 문자이면 username/nickname을 검색합니다.
         """
-        return User.objects.all().order_by('id')
+        queryset = User.objects.all().order_by('id')
+        
+        search_query = self.request.query_params.get('search', None)
+        if search_query:
+            # 1. 검색어가 숫자로만 이루어져 있는지 확인합니다.
+            if search_query.isdigit():
+                # 2. 숫자이면 id 필드에서 정확히 일치하는 것을 찾습니다.
+                queryset = queryset.filter(id=search_query)
+            else:
+                # 3. 숫자가 아니면 기존처럼 username과 nickname에서 검색합니다.
+                queryset = queryset.filter(
+                    Q(username__icontains=search_query) | 
+                    Q(nickname__icontains=search_query)
+                )
+        return queryset
+
     
 class CustomTokenObtainPairView(TokenObtainPairView):
     """
