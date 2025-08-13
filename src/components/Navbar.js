@@ -67,7 +67,7 @@ function Navbar({ isLoggedIn, onLogout }) {
                 {user ? (
                   <>
                     <div className="d-flex align-items-center mb-3">
-                      <Image src="https://via.placeholder.com/50" roundedCircle />
+                      <Image src={user.profile_image ? `http://localhost:8000${user.profile_image}` : `http://localhost:8000/media/profile_pics/default_profile.png`} roundedCircle  style={{ width: '40px', height: '40px', objectFit: 'cover' }} />
                       <div className="ms-3">
                         <h6 className="mb-0">{user.nickname || user.username}</h6>
                         <div className="text-muted" style={{ fontSize: '0.9rem' }}>{user.email}</div>

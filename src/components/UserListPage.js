@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Container, Table, Spinner, Alert, Form, Pagination } from 'react-bootstrap';
+import { Container, Table, Spinner, Alert, Form, Pagination, InputGroup, Button, Row, Col } from 'react-bootstrap';
 
 function UserListPage() {
     const [users, setUsers] = useState([]);
@@ -13,13 +13,23 @@ function UserListPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
 
-    const fetchUsers = useCallback(async (page) => {
+    // ✅ 1. 검색을 위한 state 추가
+    const [searchTerm, setSearchTerm] = useState(''); // 검색창의 입력값
+    const [searchQuery, setSearchQuery] = useState(''); // 실제 API로 보낼 검색어
+
+    const fetchUsers = useCallback(async (page, query) => {
         const accessToken = localStorage.getItem('accessToken');
         if (!accessToken) return;
 
         setLoading(true);
         try {
-            const response = await axios.get(`http://localhost:8000/api/users/management/?page=${page}`, {
+            // ✅ 2. API URL에 검색 쿼리 파라미터 추가
+            let url = `http://localhost:8000/api/users/management/?page=${page}`;
+            if (query) {
+                url += `&search=${query}`;
+            }
+
+            const response = await axios.get(url, {
                 headers: { Authorization: `Bearer ${accessToken}` }
             });
             
@@ -39,10 +49,7 @@ function UserListPage() {
     useEffect(() => {
         const checkAdmin = async () => {
             const accessToken = localStorage.getItem('accessToken');
-            if (!accessToken) {
-                navigate('/login');
-                return;
-            }
+            if (!accessToken) navigate('/login');
             try {
                 const meResponse = await axios.get('http://localhost:8000/api/users/me/', {
                     headers: { Authorization: `Bearer ${accessToken}` }
@@ -62,9 +69,10 @@ function UserListPage() {
 
     useEffect(() => {
         if (currentUser && currentUser.is_staff) {
-            fetchUsers(currentPage);
+            // ✅ 3. searchQuery가 변경될 때도 데이터를 다시 불러옴
+            fetchUsers(currentPage, searchQuery);
         }
-    }, [currentUser, currentPage, fetchUsers]);
+    }, [currentUser, currentPage, searchQuery, fetchUsers]);
 
     const handleAdminToggle = async (userToUpdate) => {
         if (currentUser && currentUser.username === userToUpdate.username) {
@@ -91,21 +99,47 @@ function UserListPage() {
         }
     };
 
-    const handlePageChange = (pageNumber) => {
-        setCurrentPage(pageNumber);
+    const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
+
+    // ✅ 4. 검색 실행 핸들러
+    const handleSearch = (e) => {
+        e.preventDefault();
+        setCurrentPage(1); // 검색 시 1페이지부터 보도록 초기화
+        setSearchQuery(searchTerm);
     };
 
-    if (loading) {
-        return <Container className="d-flex justify-content-center mt-5"><Spinner animation="border" /></Container>;
-    }
+    // ✅ 5. 전체 보기 핸들러
+    const handleShowAll = () => {
+        setSearchTerm('');
+        setSearchQuery('');
+        setCurrentPage(1);
+    };
 
-    if (error) {
-        return <Container className="mt-5"><Alert variant="danger">{error}</Alert></Container>;
-    }
+    if (loading) return <Container className="d-flex justify-content-center mt-5"><Spinner animation="border" /></Container>;
+    if (error) return <Container className="mt-5"><Alert variant="danger">{error}</Alert></Container>;
 
     return (
         <Container className="mt-5">
-            <h2 className="mb-4">전체 사용자 관리</h2>
+            <h2 className="mb-4">사용자 관리</h2>
+
+            {/* ✅ 6. 검색 폼 UI 추가 */}
+            <Form onSubmit={handleSearch} className="mb-4">
+                <Row className="justify-content-center">
+                    <Col xs={12} md={6}>
+                        <InputGroup>
+                            <Form.Control
+                                type="text"
+                                placeholder="ID 또는 닉네임으로 검색"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                            <Button type="submit" variant="primary">검색</Button>
+                            <Button variant="outline-secondary" onClick={handleShowAll}>전체 보기</Button>
+                        </InputGroup>
+                    </Col>
+                </Row>
+            </Form>
+
             <Table striped bordered hover responsive>
                 <thead>
                     <tr>
