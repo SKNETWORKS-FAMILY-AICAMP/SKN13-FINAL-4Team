@@ -80,8 +80,8 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'username', 'nickname', 'email', 'date_joined', 'is_staff', 'profile_image', 'gender', 'birth_date')
-        read_only_fields = fields
+        fields = ('id', 'username', 'nickname', 'email', 'date_joined', 'is_staff', 'profile_image', 'gender', 'birth_date', 'sanctioned_until', 'is_sanctioned')
+        read_only_fields = ('id', 'username', 'email', 'date_joined', 'is_sanctioned')
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
