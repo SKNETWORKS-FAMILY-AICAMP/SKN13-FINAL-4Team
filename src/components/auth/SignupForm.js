@@ -11,37 +11,46 @@ function SignupForm() {
         nickname: '',
         email: ''
     });
-    // 백엔드에서 오는 에러 메시지를 저장합니다.
     const [errors, setErrors] = useState({});
-    // 아이디, 닉네임 중복 확인 결과를 저장합니다.
-    const [usernameStatus, setUsernameStatus] = useState(''); 
-    const [nicknameStatus, setNicknameStatus] = useState(''); 
+    const [usernameStatus, setUsernameStatus] = useState('');
+    const [nicknameStatus, setNicknameStatus] = useState('');
+    const [isPasswordValid, setIsPasswordValid] = useState(null); // 비밀번호 유효성 상태
 
     const navigate = useNavigate();
 
-    // 입력 필드 변경 핸들러
+    const validatePassword = (password) => {
+        if (!password) return null; // 비어있을 땐 null
+        const length = password.length >= 9;
+        const letter = /[a-zA-Z]/.test(password);
+        const number = /[0-9]/.test(password);
+        const special = /[^a-zA-Z0-9]/.test(password);
+        return length && letter && number && special;
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData({
-            ...formData,
-            [name]: value
-        });
-        // 입력이 변경되면 중복 확인 상태와 에러 메시지를 초기화합니다.
-        if (name === 'username') setUsernameStatus('');
-        if (name === 'nickname') setNicknameStatus('');
+        setFormData(prev => ({ ...prev, [name]: value }));
+        
+        // 입력 변경 시 관련 에러 초기화
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: null }));
         }
+
+        if (name === 'username') setUsernameStatus('');
+        if (name === 'nickname') setNicknameStatus('');
+
+        // 비밀번호 입력 시 실시간 유효성 검사 및 상태 업데이트
+        if (name === 'password') {
+            setIsPasswordValid(validatePassword(value));
+        }
     };
 
-    // 아이디 중복 확인 핸들러
     const handleCheckUsername = async () => {
         if (!formData.username) {
             alert('아이디를 입력해주세요.');
             return;
         }
         try {
-            // 아이디 중복 확인 API (백엔드 구현 필요)
             const response = await axios.get(`http://localhost:8000/api/users/check-username/?username=${formData.username}`);
             if (response.data.is_taken) {
                 setUsernameStatus('이미 사용 중인 아이디입니다.');
@@ -54,7 +63,6 @@ function SignupForm() {
         }
     };
 
-    // 닉네임 중복 확인 핸들러
     const handleCheckNickname = async () => {
         if (!formData.nickname) {
             alert('사용자명을 입력해주세요.');
@@ -73,16 +81,25 @@ function SignupForm() {
         }
     };
 
-    // 폼 제출 핸들러
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setErrors({});
+        
+        // 제출 시 유효성 검사
+        const isPwValid = validatePassword(formData.password);
+        const isPwConfirmValid = formData.password === formData.password_confirm;
 
-        // 프론트엔드 유효성 검사
-        if (formData.password !== formData.password_confirm) {
-            setErrors({ password_confirm: '비밀번호가 일치하지 않습니다.' });
+        if (!isPwValid || !isPwConfirmValid) {
+            let newErrors = {};
+            if (!isPwValid) {
+                newErrors.password = ['비밀번호는 영문, 숫자, 특수문자를 포함하여 9자리 이상이어야 합니다.'];
+            }
+            if (!isPwConfirmValid) {
+                newErrors.password_confirm = ['비밀번호가 일치하지 않습니다.'];
+            }
+            setErrors(newErrors);
             return;
         }
+
         if (usernameStatus !== '사용 가능한 아이디입니다.') {
             alert('아이디 중복 확인을 해주세요.');
             return;
@@ -92,21 +109,27 @@ function SignupForm() {
             return;
         }
 
+        // 모든 검증 통과 후 서버에 데이터 전송
         try {
-            // API로 보낼 데이터에서 password_confirm 제외합니다. (백엔드 시리얼라이저가 처리)
             const { password_confirm, ...signupData } = formData;
-            await axios.post('http://localhost:8000/api/users/signup/', formData); 
+            await axios.post('http://localhost:8000/api/users/signup/', signupData);
             alert('회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.');
             navigate('/login');
         } catch (err) {
             if (err.response && err.response.data) {
                 console.error('회원가입 실패:', err.response.data);
-                setErrors(err.response.data); // 백엔드에서 오는 에러 메시지 표시
+                setErrors(err.response.data);
             } else {
                 alert('회원가입 중 알 수 없는 오류가 발생했습니다.');
                 console.error(err);
             }
         }
+    };
+
+    // 비밀번호 input의 className을 결정하는 함수
+    const getPasswordInputClass = () => {
+        if (formData.password === '') return ''; // 비어있을 땐 기본
+        return isPasswordValid ? 'valid-input' : 'invalid-input';
     };
 
     return (
@@ -118,7 +141,7 @@ function SignupForm() {
             <form className="signup-form" onSubmit={handleSubmit}>
                 {/* 아이디 */}
                 <div className="form-group">
-                    <label htmlFor="username">아이디</label>
+                    <label htmlFor="username" className="form-label text-start d-block">아이디</label>
                     <div className="input-with-button">
                         <input type="text" id="username" name="username" placeholder="아이디를 입력하세요" value={formData.username} onChange={handleChange} required />
                         <button type="button" onClick={handleCheckUsername}>중복 확인</button>
@@ -129,22 +152,39 @@ function SignupForm() {
 
                 {/* 비밀번호 */}
                 <div className="form-group">
-                    <label htmlFor="password">비밀번호</label>
-                    <input type="password" id="password" name="password" placeholder="비밀번호를 입력하세요" value={formData.password} onChange={handleChange} required />
-                    <small>비밀번호는 영문 + 숫자 + 특수문자를 포함하여 9자리 이상으로 설정해주세요.</small>
+                    <label htmlFor="password" className="form-label text-start d-block">비밀번호</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="영문, 숫자, 특수문자 포함 9자리 이상"
+                        value={formData.password}
+                        onChange={handleChange}
+                        required
+                        className={getPasswordInputClass()}
+                    />
                     {errors.password && <small className="error">{errors.password.join(' ')}</small>}
+                    <small className="form-label text-start d-block" >비밀번호는 영문 + 숫자 + 특수문자를 포함하여 9자리 이상으로 설정해주세요.</small>
                 </div>
 
                 {/* 비밀번호 확인 */}
                 <div className="form-group">
-                    <label htmlFor="password_confirm">비밀번호 확인</label>
-                    <input type="password" id="password_confirm" name="password_confirm" placeholder="비밀번호를 다시 입력하세요" value={formData.password_confirm} onChange={handleChange} required />
+                    <label htmlFor="password_confirm" className="form-label text-start d-block">비밀번호 확인</label>
+                    <input 
+                      type="password" 
+                      id="password_confirm" 
+                      name="password_confirm" 
+                      placeholder="비밀번호를 다시 입력하세요" 
+                      value={formData.password_confirm} 
+                      onChange={handleChange} 
+                      required 
+                    />
                     {errors.password_confirm && <small className="error">{errors.password_confirm.join(' ')}</small>}
                 </div>
 
                 {/* 사용자명 (닉네임) */}
                 <div className="form-group">
-                    <label htmlFor="nickname">사용자명</label>
+                    <label htmlFor="nickname" className="form-label text-start d-block">사용자명</label>
                     <div className="input-with-button">
                         <input type="text" id="nickname" name="nickname" placeholder="사용자명을 입력하세요" value={formData.nickname} onChange={handleChange} required />
                         <button type="button" onClick={handleCheckNickname}>중복 확인</button>
@@ -155,7 +195,7 @@ function SignupForm() {
 
                 {/* 이메일 */}
                 <div className="form-group">
-                    <label htmlFor="email">이메일</label>
+                    <label htmlFor="email" className="form-label text-start d-block">이메일</label>
                     <input type="email" id="email" name="email" placeholder="이메일을 입력하세요" value={formData.email} onChange={handleChange} required />
                     {errors.email && <small className="error">{errors.email.join(' ')}</small>}
                 </div>

@@ -49,11 +49,11 @@ function LoginForm({ onLogin }) {
                 <Col md={6} lg={4}>
                     <Card className="p-4">
                         <Card.Body>
-                            <h2 className="text-center mb-4">로그인</h2>
+                            <h2 className="text-center mb-4 ">로그인</h2>
                             {error && <Alert variant="danger">{error}</Alert>}
                             <Form onSubmit={handleSubmit}>
                                 <Form.Group className="mb-3" controlId="formBasicUsername">
-                                    <Form.Label>아이디</Form.Label>
+                                    <Form.Label className="form-label text-start d-block">아이디</Form.Label>
                                     <Form.Control 
                                         type="text" 
                                         name="username" 
@@ -64,7 +64,7 @@ function LoginForm({ onLogin }) {
                                     />
                                 </Form.Group>
                                 <Form.Group className="mb-3" controlId="formBasicPassword">
-                                    <Form.Label>비밀번호</Form.Label>
+                                    <Form.Label className="form-label text-start d-block">비밀번호</Form.Label>
                                     <Form.Control 
                                         type="password" 
                                         name="password" 

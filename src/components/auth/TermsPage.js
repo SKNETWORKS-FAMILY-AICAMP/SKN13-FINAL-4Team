@@ -56,7 +56,7 @@ function TermsPage() {
                             label="아래 약관에 모두 동의합니다."
                             checked={agreements.all}
                             onChange={handleAllAgreement}
-                            className="fw-bold mb-3"
+                            className="fw-bold mb-3 text-start" 
                         />
                         <hr />
                         <Form.Group className="mb-3">
@@ -68,8 +68,9 @@ function TermsPage() {
                                 checked={agreements.termsOfService}
                                 onChange={handleSingleAgreement}
                                 required
+                                className="text-start" 
                             />
-                            <div style={termsStyle} className="mt-2">
+                            <div style={termsStyle} className="mt-2 text-start"> 
                                 <strong>제1조 (목적)</strong><br />
                                 이 약관은... (약관 내용)
                             </div>
@@ -83,8 +84,9 @@ function TermsPage() {
                                 checked={agreements.privacyPolicy}
                                 onChange={handleSingleAgreement}
                                 required
+                                className="text-start" // ⬅️ text-start 클래스 추가
                             />
-                            <div style={termsStyle} className="mt-2">
+                            <div style={termsStyle} className="mt-2 text-start"> 
                                 <strong>1. 수집하는 개인정보 항목</strong><br />
                                 회사는... (개인정보 수집 동의 내용)
                             </div>

@@ -206,7 +206,7 @@ function ProfilePage() {
 
     return (
         <div className="profile-container">
-            <h1>프로필 수정</h1>
+            <h1 >프로필 수정</h1>
             <div className="profile-image-container">
                 <img 
                     src={user.profile_image ? `http://localhost:8000${user.profile_image}` : `http://localhost:8000/media/profile_pics/default_profile.png`} 
@@ -228,7 +228,7 @@ function ProfilePage() {
 
             <form className="profile-form" onSubmit={handleSubmit}>
                 <div className="form-group">
-                    <label htmlFor="nickname">사용자명</label>
+                    <label htmlFor="nickname" className="form-label text-start d-block">사용자명</label>
                     <input
                         type="text"
                         id="nickname"
@@ -241,7 +241,7 @@ function ProfilePage() {
                     </small>
                 </div>
                 <div className="form-group">
-                    <label htmlFor="email">이메일</label>
+                    <label htmlFor="email" className="form-label text-start d-block">이메일</label>
                     <input
                         type="email"
                         id="email"
@@ -252,7 +252,7 @@ function ProfilePage() {
                 </div>
                 <hr style={{ margin: '2rem 0' }} />
                 <div className="form-group">
-                    <label htmlFor="currentPassword">현재 비밀번호</label>
+                    <label htmlFor="currentPassword" className="form-label text-start d-block">현재 비밀번호</label>
                     <input
                         type="password"
                         id="currentPassword"
@@ -263,7 +263,7 @@ function ProfilePage() {
                     />
                 </div>
                 <div className="form-group">
-                    <label htmlFor="newPassword">새 비밀번호</label>
+                    <label htmlFor="newPassword" className="form-label text-start d-block">새 비밀번호</label>
                     <input
                         type="password"
                         id="newPassword"
@@ -272,10 +272,10 @@ function ProfilePage() {
                         value={passwordData.new_password}
                         onChange={handlePasswordChange}
                     />
-                    <small>비밀번호는 영문 + 숫자 + 특수문자를 포함하여 9자리 이상으로 설정해주세요.</small>
+                    <small className="form-label text-start d-block">비밀번호는 영문 + 숫자 + 특수문자를 포함하여 9자리 이상으로 설정해주세요.</small>
                 </div>
                 <div className="form-group">
-                    <label htmlFor="confirmPassword">새 비밀번호 확인</label>
+                    <label htmlFor="confirmPassword" className="form-label text-start d-block">새 비밀번호 확인</label>
                     <input
                         type="password"
                         id="confirmPassword"
