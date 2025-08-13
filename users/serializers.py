@@ -18,7 +18,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('username', 'password', 'password_confirm', 'nickname', 'email')
+        fields = ('username', 'password', 'password_confirm', 'nickname', 'email', 'gender', 'birth_date')
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -50,11 +50,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         if value and len(value) < 2: # 닉네임이 입력되었을 경우에만 검사
             raise serializers.ValidationError("닉네임은 2글자 이상이어야 합니다.")
         return value
-    
-    def validate_password(self, value):
-        if len(value) < 9:
-            raise serializers.ValidationError("비밀번호는 9자리 이상이어야 합니다.")
-        return value
 
     def validate(self, data):
         if data['password'] != data['password_confirm']:
@@ -69,8 +64,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        # 수정할 필드인 nickname과 profile_image만 포함합니다.
-        fields = ('nickname', 'profile_image')
+        fields = ('nickname', 'profile_image', 'gender', 'birth_date')
 
     def validate_nickname(self, value):
         if value and len(value) < 2:
@@ -86,8 +80,7 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'username', 'nickname', 'email', 'date_joined', 'is_staff', 'profile_image')
-        # 모든 필드를 읽기 전용으로 만들어도 안전합니다.
+        fields = ('id', 'username', 'nickname', 'email', 'date_joined', 'is_staff', 'profile_image', 'gender', 'birth_date')
         read_only_fields = fields
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
