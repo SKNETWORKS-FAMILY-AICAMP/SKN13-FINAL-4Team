@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import './ProfilePage.css';
+import Sidebar from '../layout/Sidebar';
+
 
 function ProfilePage() {
     const [user, setUser] = useState(null);
@@ -211,6 +213,8 @@ function ProfilePage() {
     if (!user) return <div className="loading-message">사용자 정보가 없습니다.</div>;
 
     return (
+                <div className="profile-page-wrapper"> 
+            {user.is_staff && <Sidebar />}
         <div className="profile-container">
             <h1 >프로필 수정</h1>
             <div className="profile-image-container">
@@ -319,6 +323,7 @@ function ProfilePage() {
                 </div>
             </form>
         </div>
+                </div>
     );
 }
 
