@@ -1,3 +1,4 @@
+import re
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -22,9 +23,27 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'password': {'write_only': True}
         }
 
-    def validate_username(self, value):
-        if len(value) < 6:
-            raise serializers.ValidationError("ID는 6자리 이상이어야 합니다.")
+    # 새로운 비밀번호를 검사할때 다른 규칙이 필요할수있으므로 미리 제작해둠 
+    def validate_new_password(self, value):
+        if len(value) < 9:
+            raise serializers.ValidationError("새 비밀번호는 9자리 이상이어야 합니다.")
+        if not re.search(r'[a-zA-Z]', value):
+            raise serializers.ValidationError("새 비밀번호는 영문자를 포함해야 합니다.")
+        if not re.search(r'[0-9]', value):
+            raise serializers.ValidationError("새 비밀번호는 숫자를 포함해야 합니다.")
+        if not re.search(r'[^a-zA-Z0-9]', value):
+            raise serializers.ValidationError("새 비밀번호는 특수문자를 포함해야 합니다.")
+        return value
+    
+    def validate_password(self, value):
+        if len(value) < 9:
+            raise serializers.ValidationError("비밀번호는 9자리 이상이어야 합니다.")
+        if not re.search(r'[a-zA-Z]', value):
+            raise serializers.ValidationError("비밀번호는 영문자를 포함해야 합니다.")
+        if not re.search(r'[0-9]', value):
+            raise serializers.ValidationError("비밀번호는 숫자를 포함해야 합니다.")
+        if not re.search(r'[^a-zA-Z0-9]', value):
+            raise serializers.ValidationError("비밀번호는 특수문자를 포함해야 합니다.")
         return value
         
     def validate_nickname(self, value):

@@ -15,6 +15,7 @@ from .views import (
     MyTokenObtainPairView
 )
 
+
 router = DefaultRouter()
 router.register('management', UserAdminViewSet, basename='user-admin')
 
