@@ -42,8 +42,7 @@ function SignupForm() {
         }
         try {
             // 아이디 중복 확인 API (백엔드 구현 필요)
-            const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-            const response = await axios.get(`${apiBaseUrl}/api/users/check-username/?username=${formData.username}`);
+            const response = await axios.get(`http://localhost:8000/api/users/check-username/?username=${formData.username}`);
             if (response.data.is_taken) {
                 setUsernameStatus('이미 사용 중인 아이디입니다.');
             } else {
@@ -62,8 +61,7 @@ function SignupForm() {
             return;
         }
         try {
-            const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-            const response = await axios.get(`${apiBaseUrl}/api/users/check-nickname/?nickname=${formData.nickname}`);
+            const response = await axios.get(`http://localhost:8000/api/users/check-nickname/?nickname=${formData.nickname}`);
             if (response.data.is_taken) {
                 setNicknameStatus('이미 사용 중인 사용자명입니다.');
             } else {
@@ -95,9 +93,9 @@ function SignupForm() {
         }
 
         try {
-            // 회원가입 데이터 전송
-            const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-            await axios.post(`${apiBaseUrl}/api/users/signup/`, formData); 
+            // API로 보낼 데이터에서 password_confirm 제외합니다. (백엔드 시리얼라이저가 처리)
+            const { password_confirm, ...signupData } = formData;
+            await axios.post('http://localhost:8000/api/users/signup/', formData); 
             alert('회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.');
             navigate('/login');
         } catch (err) {
