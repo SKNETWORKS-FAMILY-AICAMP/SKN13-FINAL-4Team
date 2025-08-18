@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Container, Row, Col, Image, Button, Badge } from 'react-bootstrap';
 import StreamingChatWithTTS from './StreamingChatWithTTS';
+import VideoControlPanel from './VideoControlPanel';
+import VideoTransitionManager from './VideoTransitionManager';
 import { AITextSyncService } from '../../services/aiTextSyncService';
 import { DEFAULT_SETTINGS } from '../../config/aiChatSettings';
 import { TTSServiceManager } from '../../services/ttsServiceManager';
@@ -13,6 +15,10 @@ function StreamingPage({ isLoggedIn, username }) {
     const { streamerId } = useParams();
     const audioRef = useRef(null);
     const videoContainerRef = useRef(null);
+    const videoTransitionRef = useRef(null);
+    
+    // 비디오 상태 추가
+    const [currentVideo, setCurrentVideo] = useState('a_idle_0.mp4');
     
     // 자막 상태 추가
     const [currentSubtitle, setCurrentSubtitle] = useState('');
@@ -150,6 +156,22 @@ function StreamingPage({ isLoggedIn, username }) {
         if (videoContainerRef.current && videoContainerRef.current.requestFullscreen) {
             videoContainerRef.current.requestFullscreen();
         }
+    };
+
+    // 비디오 변경 핸들러
+    const handleVideoChange = (video, index) => {
+        console.log('🎥 StreamingPage: 비디오 변경 핸들러 호출', {
+            videoName: video.name,
+            index,
+            currentVideo
+        });
+        setCurrentVideo(video.name);
+        console.log('✅ currentVideo state 업데이트됨:', video.name);
+    };
+
+    // 비디오 로딩 완료 핸들러
+    const handleVideoLoaded = (videoSrc) => {
+        console.log('✅ 비디오 전환 완료:', videoSrc);
     };
 
     // 텍스트 동기화 서비스 초기화
@@ -468,22 +490,13 @@ function StreamingPage({ isLoggedIn, username }) {
             <Row>
                 <Col md={8}>
                     <div className="video-player-wrapper" ref={videoContainerRef}>
-                        {/* 비디오 플레이어 */}
-                        <video 
-                            className="streaming-video" 
-                            autoPlay 
-                            loop 
-                            muted 
-                            playsInline
-                            onError={(e) => {
-                                console.error('비디오 로딩 실패:', e);
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'flex';
-                            }}
-                        >
-                            <source src="/videos/a_idle.mp4" type="video/mp4" />
-                            Your browser does not support the video tag.
-                        </video>
+                        {/* 비디오 트랜지션 매니저 */}
+                        <VideoTransitionManager
+                            ref={videoTransitionRef}
+                            currentVideo={currentVideo}
+                            onVideoLoaded={handleVideoLoaded}
+                            className="streaming-video-container"
+                        />
                         
                         {/* 비디오 로딩 실패 시 플레이스홀더 */}
                         <div className="video-placeholder d-flex align-items-center justify-content-center h-100" style={{display: 'none'}}>
@@ -583,6 +596,9 @@ function StreamingPage({ isLoggedIn, username }) {
                                 ⚙️
                             </Button>
                         </div>
+                        
+                        {/* 비디오 제어 패널 */}
+                        <VideoControlPanel onVideoChange={handleVideoChange} />
                     </div>
                     <div className="stream-info mt-3">
                         <h3>{streamInfo.title}</h3>
