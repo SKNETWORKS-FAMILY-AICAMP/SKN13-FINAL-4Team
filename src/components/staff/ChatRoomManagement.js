@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -15,10 +14,11 @@ function ChatRoomManagement() {
     const [selectedRoom, setSelectedRoom] = useState(null);
     const [editFormData, setEditFormData] = useState({});
     
-    // 모달 내 썸네일 수정을 위한 state
     const [editThumbnailFile, setEditThumbnailFile] = useState(null);
     const [editThumbnailPreview, setEditThumbnailPreview] = useState('');
     const fileInputRef = useRef(null);
+
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 
     const fetchRooms = useCallback(async () => {
         const accessToken = localStorage.getItem('accessToken');
@@ -29,23 +29,23 @@ function ChatRoomManagement() {
         }
         setLoading(true);
         try {
-            const response = await axios.get('http://localhost:8000/api/chat/rooms/', {
+            const response = await axios.get(`${apiBaseUrl}/api/chat/rooms/`, {
                 headers: { Authorization: `Bearer ${accessToken}` }
             });
-            setRooms(response.data);
+            // 페이지네이션 응답에 맞게 수정
+            setRooms(response.data.results || response.data);
         } catch (err) {
             setError('방송 목록을 불러오는 데 실패했습니다.');
             console.error(err);
         } finally {
             setLoading(false);
         }
-    }, [navigate]);
+    }, [navigate, apiBaseUrl]); // apiBaseUrl을 의존성 배열에 추가
 
     useEffect(() => {
         fetchRooms();
     }, [fetchRooms]);
 
-    // 모달 열기 핸들러 (썸네일 상태 초기화 추가)
     const handleEdit = (room) => {
         setSelectedRoom(room);
         setEditFormData({
@@ -53,12 +53,11 @@ function ChatRoomManagement() {
             description: room.description,
             status: room.status,
         });
-        // 현재 썸네일로 미리보기 초기화
-        setEditThumbnailPreview(room.thumbnail ? `http://localhost:8000${room.thumbnail}` : '');
+        // [수정] 썸네일 주소에 apiBaseUrl 변수 사용
+        setEditThumbnailPreview(room.thumbnail ? `${apiBaseUrl}${room.thumbnail}` : '');
         setShowEditModal(true);
     };
 
-    // 모달 닫기 핸들러 (썸네일 상태 초기화 추가)
     const handleCloseModal = () => {
         setShowEditModal(false);
         setSelectedRoom(null);
@@ -72,7 +71,6 @@ function ChatRoomManagement() {
         setEditFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    // 모달 내 썸네일 파일 변경 핸들러
     const handleEditThumbnailChange = (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -81,7 +79,6 @@ function ChatRoomManagement() {
         }
     };
 
-    // 모달 저장 핸들러 (FormData 사용)
     const handleUpdate = async (e) => {
         e.preventDefault();
         if (!selectedRoom) return;
@@ -91,19 +88,18 @@ function ChatRoomManagement() {
         submissionData.append('description', editFormData.description);
         submissionData.append('status', editFormData.status);
 
-        // 새 썸네일 파일이 선택된 경우에만 FormData에 추가
         if (editThumbnailFile) {
             submissionData.append('thumbnail', editThumbnailFile);
         }
 
         try {
             const accessToken = localStorage.getItem('accessToken');
-            await axios.patch(`http://localhost:8000/api/chat/rooms/${selectedRoom.id}/`, 
-                submissionData, // FormData 객체 전송
+            await axios.patch(`${apiBaseUrl}/api/chat/rooms/${selectedRoom.id}/`, 
+                submissionData,
                 { 
                     headers: { 
                         Authorization: `Bearer ${accessToken}`,
-                        'Content-Type': 'multipart/form-data' // 헤더 변경
+                        'Content-Type': 'multipart/form-data'
                     } 
                 }
             );
@@ -120,7 +116,7 @@ function ChatRoomManagement() {
         if (window.confirm(`${roomId}번 방송을 정말로 삭제하시겠습니까?`)) {
             try {
                 const accessToken = localStorage.getItem('accessToken');
-                await axios.delete(`http://localhost:8000/api/chat/rooms/${roomId}/`, {
+                await axios.delete(`${apiBaseUrl}/api/chat/rooms/${roomId}/`, {
                     headers: { Authorization: `Bearer ${accessToken}` }
                 });
                 alert('방송이 삭제되었습니다.');
@@ -150,13 +146,24 @@ function ChatRoomManagement() {
             <Container className="admin-content-container">
                 <h2 className="mb-4">방송 관리</h2>
                 <Table striped bordered hover responsive>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>썸네일</th>
+                            <th>방송 제목</th>
+                            <th>인플루언서</th>
+                            <th>상태</th>
+                            <th>생성일</th>
+                            <th>관리</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {rooms.map(room => (
                             <tr key={room.id}>
                                 <td>{room.id}</td>
                                 <td>
                                     <img 
-                                        src={room.thumbnail ? `http://localhost:8000${room.thumbnail}` : 'https://via.placeholder.com/80x45'} 
+                                        src={room.thumbnail ? `${apiBaseUrl}${room.thumbnail}` : 'https://via.placeholder.com/80x45'} 
                                         alt={room.name} 
                                         style={{ width: '80px', height: '45px', objectFit: 'cover' }}
                                     />
@@ -179,22 +186,20 @@ function ChatRoomManagement() {
                 </Table>
             </Container>
 
-            {/* 썸네일 수정 기능이 추가된 모달 */}
             {selectedRoom && (
                 <Modal show={showEditModal} onHide={handleCloseModal} centered>
                     <Modal.Header closeButton>
-                        <Modal.Title>방송 정보 수정 {/*(ID: {selectedRoom.id})*/}</Modal.Title>
+                        <Modal.Title>방송 정보 수정</Modal.Title>
                     </Modal.Header>
                     <Form onSubmit={handleUpdate}>
                         <Modal.Body>
-                            {/* 썸네일 수정 UI */}
                             <Form.Group className="mb-3 text-center">
                                 <Form.Label>썸네일 이미지</Form.Label>
-                                <div className="thumbnail-preview mx-auto mb-2">
+                                <div className="thumbnail-preview mx-auto mb-2" style={{width: '150px', height: '84px', border: '1px solid #ddd', backgroundColor: '#f8f9fa', overflow: 'hidden'}}>
                                     {editThumbnailPreview ? (
                                         <img src={editThumbnailPreview} alt="썸네일 미리보기" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
-                                        <div className="thumbnail-placeholder d-flex align-items-center justify-content-center h-100">이미지 없음</div>
+                                        <div className="thumbnail-placeholder d-flex align-items-center justify-content-center h-100" style={{fontSize: '14px', color: '#6c757d'}}>이미지 없음</div>
                                     )}
                                 </div>
                                 <input
@@ -209,7 +214,6 @@ function ChatRoomManagement() {
                                 </Button>
                             </Form.Group>
 
-                            {/* 방송 제목 */}
                             <Form.Group className="mb-3">
                                 <Form.Label>방송 제목</Form.Label>
                                 <Form.Control 
@@ -220,7 +224,6 @@ function ChatRoomManagement() {
                                 />
                             </Form.Group>
 
-                            {/* 방송 설명 */}
                             <Form.Group className="mb-3">
                                 <Form.Label>방송 설명</Form.Label>
                                 <Form.Control 
@@ -232,7 +235,6 @@ function ChatRoomManagement() {
                                 />
                             </Form.Group>
 
-                            {/* 방송 상태 */}
                             <Form.Group className="mb-3">
                                 <Form.Label>방송 상태</Form.Label>
                                 <Form.Select

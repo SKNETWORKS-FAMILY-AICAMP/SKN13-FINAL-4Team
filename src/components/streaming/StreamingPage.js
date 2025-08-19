@@ -46,6 +46,9 @@ function StreamingPage({ isLoggedIn, username }) {
     const [isMuted, setIsMuted] = useState(false);
     const [volume, setVolume] = useState(0.8);
 
+
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
     useEffect(() => {
         const fetchChatRoomData = async () => {
             if (!roomId) {
@@ -54,7 +57,7 @@ function StreamingPage({ isLoggedIn, username }) {
                 return;
             }
             try {
-                const response = await axios.get(`http://localhost:8000/api/chat/rooms/${roomId}/`);
+                const response = await axios.get(`${apiBaseUrl}/api/chat/rooms/${roomId}/`);
                 setChatRoom(response.data);
             } catch (err) {
                 setError('채팅방 정보를 불러오는 데 실패했습니다.');
@@ -204,7 +207,7 @@ function StreamingPage({ isLoggedIn, username }) {
                         </div>
                         <hr />
                         <div className="d-flex align-items-center my-3">
-                            <Image src={chatRoom.influencer?.profile_image ? `http://localhost:8000${chatRoom.influencer.profile_image}` : 'https://via.placeholder.com/50'} roundedCircle />
+                            <Image src={chatRoom.influencer?.profile_image ? `${apiBaseUrl}${chatRoom.influencer.profile_image}` : 'https://via.placeholder.com/50'} roundedCircle />
                             <div className="ms-3">
                                 <h5 className="mb-0">{chatRoom.influencer?.nickname || chatRoom.host.username}</h5>
                                 <p className="mb-0">{chatRoom.description}</p>

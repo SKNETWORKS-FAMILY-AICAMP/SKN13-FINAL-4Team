@@ -5,7 +5,6 @@ import './ProfilePage.css'; // 프로필 페이지 전용 CSS
 import Sidebar from '../layout/Sidebar';
 
 function ProfilePage() {
-    // ... (모든 state와 함수 로직은 기존과 동일) ...
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -30,6 +29,8 @@ function ProfilePage() {
 
     const navigate = useNavigate();
 
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
     useEffect(() => {
         const fetchUserData = async () => {
             const accessToken = localStorage.getItem('accessToken');
@@ -39,7 +40,7 @@ function ProfilePage() {
                 return;
             }
             try {
-                const response = await axios.get('http://localhost:8000/api/users/me/', {
+                const response = await axios.get(`${apiBaseUrl}/api/users/me/`, {
                     headers: { Authorization: `Bearer ${accessToken}` }
                 });
                 setUser(response.data);
@@ -53,7 +54,7 @@ function ProfilePage() {
             }
         };
         fetchUserData();
-    }, [navigate]);
+    }, [navigate, apiBaseUrl]); // apiBaseUrl을 의존성 배열에 추가
 
     const checkNickname = useCallback(async () => {
         if (nickname.length > 0 && nickname.length < 2) {
@@ -62,7 +63,7 @@ function ProfilePage() {
         }
         setNicknameStatus({ isChecking: true, isValid: true, message: '' });
         try {
-            const response = await axios.get(`http://localhost:8000/api/users/check-nickname/?nickname=${nickname}`, {
+            const response = await axios.get(`${apiBaseUrl}/api/users/check-nickname/?nickname=${nickname}`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
             });
             if (response.data.is_taken) {
@@ -73,7 +74,7 @@ function ProfilePage() {
         } catch (error) {
             setNicknameStatus({ isChecking: false, isValid: false, message: '검사 중 오류가 발생했습니다.' });
         }
-    }, [nickname]);
+    }, [nickname, apiBaseUrl]); // apiBaseUrl을 의존성 배열에 추가
 
     useEffect(() => {
         if (user && nickname !== user.nickname && nickname.trim() !== '') {
@@ -111,7 +112,7 @@ function ProfilePage() {
         formData.append('profile_image', imageFile);
         try {
             const accessToken = localStorage.getItem('accessToken');
-            const response = await axios.patch('http://localhost:8000/api/users/me/', formData, {
+            const response = await axios.patch(`${apiBaseUrl}/api/users/me/`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                     Authorization: `Bearer ${accessToken}`,
@@ -142,9 +143,9 @@ function ProfilePage() {
         if (birthDate !== user.birth_date) { dataToUpdate.birth_date = birthDate; isChanged = true; }
         if (gender !== user.gender) { dataToUpdate.gender = gender; isChanged = true; }
         
-        if (isChanged) {
+        if (Object.keys(dataToUpdate).length > 0) {
             try {
-                await axios.patch('http://localhost:8000/api/users/me/', dataToUpdate, {
+                await axios.patch(`${apiBaseUrl}/api/users/me/`, dataToUpdate, {
                     headers: { Authorization: `Bearer ${accessToken}` }
                 });
             } catch (err) {
@@ -153,10 +154,21 @@ function ProfilePage() {
             }
         }
 
-        const { current_password, new_password } = passwordData;
+        const { new_password, new_password_confirm } = passwordData;
         if (new_password) {
-            // ... (기존 비밀번호 변경 로직) ...
-            isChanged = true;
+            if (new_password !== new_password_confirm) {
+                alert('새 비밀번호가 일치하지 않습니다.');
+                return;
+            }
+            try {
+                await axios.post(`${apiBaseUrl}/api/users/change-password/`, passwordData, {
+                    headers: { Authorization: `Bearer ${accessToken}` }
+                });
+                isChanged = true;
+            } catch (err) {
+                alert('비밀번호 변경에 실패했습니다. 현재 비밀번호를 확인해주세요.');
+                return;
+            }
         }
         
         if (isChanged) {
@@ -174,7 +186,6 @@ function ProfilePage() {
     return (
         <div className="profile-page-wrapper"> 
             {user.is_staff && <Sidebar />}
-            {/* [수정] className을 signup-container로 변경 */}
             <div className="signup-container">
                 <div className="signup-header">
                     <h1>프로필 수정</h1>
@@ -182,7 +193,7 @@ function ProfilePage() {
 
                 <div className="profile-image-container">
                     <img 
-                        src={imagePreviewUrl || (user.profile_image ? `http://localhost:8000${user.profile_image}` : `http://localhost:8000/media/profile_pics/default_profile.png`)} 
+                        src={imagePreviewUrl || (user.profile_image ? `${apiBaseUrl}${user.profile_image}` : `${apiBaseUrl}/media/profile_pics/default_profile.png`)} 
                         alt="Profile" 
                         className="profile-image" 
                     />
@@ -196,7 +207,6 @@ function ProfilePage() {
                     />
                 </div>
 
-                {/* [수정] className을 signup-form으로 변경 */}
                 <form className="signup-form" onSubmit={handleSubmit}>
                     {/* 사용자명 */}
                     <div className="form-group">

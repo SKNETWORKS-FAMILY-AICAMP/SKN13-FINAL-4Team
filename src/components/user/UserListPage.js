@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Container, Table, Spinner, Alert, Form, Pagination, InputGroup, Button, Row, Col, Badge } from 'react-bootstrap';
-import Sidebar from '../layout/Sidebar'; // ⬅️ 1. Sidebar 컴포넌트 import
+import Sidebar from '../layout/Sidebar';
 
 function UserListPage() {
     const [users, setUsers] = useState([]);
@@ -19,7 +19,9 @@ function UserListPage() {
 
     const [sanctionDates, setSanctionDates] = useState({});
 
-    // ... (formatDateTimeLocal, fetchUsers, useEffect 등 다른 함수들은 기존과 동일) ...
+    // [수정] 백엔드 API 기본 주소를 환경 변수에서 가져오도록 설정
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
     const formatDateTimeLocal = (isoString) => {
         if (!isoString) return '';
         const date = new Date(isoString);
@@ -34,7 +36,8 @@ function UserListPage() {
 
         setLoading(true);
         try {
-            let url = `http://localhost:8000/api/users/management/?page=${page}`;
+            // [수정] API 주소에 apiBaseUrl 변수 사용
+            let url = `${apiBaseUrl}/api/users/management/?page=${page}`;
             if (query) {
                 url += `&search=${query}`;
             }
@@ -59,14 +62,15 @@ function UserListPage() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [apiBaseUrl]); // apiBaseUrl을 의존성 배열에 추가
 
     useEffect(() => {
         const checkAdmin = async () => {
             const accessToken = localStorage.getItem('accessToken');
             if (!accessToken) navigate('/login');
             try {
-                const meResponse = await axios.get('http://localhost:8000/api/users/me/', {
+                // [수정] API 주소에 apiBaseUrl 변수 사용
+                const meResponse = await axios.get(`${apiBaseUrl}/api/users/me/`, {
                     headers: { Authorization: `Bearer ${accessToken}` }
                 });
                 setCurrentUser(meResponse.data);
@@ -80,7 +84,7 @@ function UserListPage() {
             }
         };
         checkAdmin();
-    }, [navigate]);
+    }, [navigate, apiBaseUrl]); // apiBaseUrl을 의존성 배열에 추가
 
     useEffect(() => {
         if (currentUser && currentUser.is_staff) {
@@ -97,7 +101,8 @@ function UserListPage() {
         const newStatus = !userToUpdate.is_staff;
         if (window.confirm(`${userToUpdate.username} 님의 관리자 권한을 ${newStatus ? '부여' : '해제'}하시겠습니까?`)) {
             try {
-                await axios.patch(`http://localhost:8000/api/users/management/${userToUpdate.id}/`, 
+                // [수정] API 주소에 apiBaseUrl 변수 사용
+                await axios.patch(`${apiBaseUrl}/api/users/management/${userToUpdate.id}/`, 
                     { is_staff: newStatus },
                     { headers: { Authorization: `Bearer ${accessToken}` } }
                 );
@@ -120,7 +125,8 @@ function UserListPage() {
 
         const accessToken = localStorage.getItem('accessToken');
         try {
-            await axios.patch(`http://localhost:8000/api/users/management/${userToUpdate.id}/`, 
+            // [수정] API 주소에 apiBaseUrl 변수 사용
+            await axios.patch(`${apiBaseUrl}/api/users/management/${userToUpdate.id}/`, 
                 { sanctioned_until: utcDate },
                 { headers: { Authorization: `Bearer ${accessToken}` } }
             );
@@ -144,18 +150,15 @@ function UserListPage() {
         setCurrentPage(1);
     };
 
-
     if (loading) return <Container className="d-flex justify-content-center mt-5"><Spinner animation="border" /></Container>;
     if (error) return <Container className="mt-5"><Alert variant="danger">{error}</Alert></Container>;
 
-    // ⬅️ 2. JSX 구조 변경
     return (
         <div className="admin-page-wrapper">
             <Sidebar />
             <Container className="admin-content-container">
                 <h2 className="mb-4">사용자 관리</h2>
 
-                {/* 검색 폼 UI */}
                 <Form onSubmit={handleSearch} className="mb-4">
                     <Row className="justify-content-center">
                         <Col xs={12} md={8} lg={6}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'; // useEffect 추가
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../layout/Sidebar';
@@ -8,35 +8,40 @@ function CreateChatRoom() {
     const [formData, setFormData] = useState({
         name: '',
         description: '',
-        influencer: '', // [수정] 초기값 비우기
-        status: 'pending', // [수정] 방송상태 필드 및 기본값 추가
+        influencer: '',
+        status: 'pending',
     });
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [thumbnailPreview, setThumbnailPreview] = useState('');
     
-    const [influencers, setInfluencers] = useState([]); // [추가] 인플루언서 목록 state
+    const [influencers, setInfluencers] = useState([]);
     const [error, setError] = useState('');
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
 
-    // [추가] 컴포넌트 로딩 시 인플루언서 목록을 API로부터 받아옵니다.
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
     useEffect(() => {
         const fetchInfluencers = async () => {
             try {
                 const accessToken = localStorage.getItem('accessToken');
-                const response = await axios.get('http://localhost:8000/api/users/management/', {
+                const response = await axios.get(`${apiBaseUrl}/api/users/management/`, {
                     headers: { Authorization: `Bearer ${accessToken}` }
                 });
-                setInfluencers(response.data.results || []);
-                if (response.data.results && response.data.results.length > 0) {
-                    setFormData(prev => ({ ...prev, influencer: response.data.results[0].id }));
+
+                const userList = response.data.results || [];
+                setInfluencers(userList);
+
+                // 인플루언서 목록을 불러온 후 첫 번째 사용자를 기본값으로 설정
+                if (userList.length > 0) {
+                    setFormData(prev => ({ ...prev, influencer: userList[0].id }));
                 }
             } catch (err) {
                 console.error("인플루언서 목록 로딩 실패:", err);
             }
         };
         fetchInfluencers();
-    }, []);
+    }, [apiBaseUrl]); // apiBaseUrl을 의존성 배열에 추가
 
     const handleChange = (e) => {
         setFormData({
@@ -72,16 +77,14 @@ function CreateChatRoom() {
         }
 
         try {
-            // [수정] localStorage.getItem('accessToken')으로 변경
             const accessToken = localStorage.getItem('accessToken');
-            const response = await axios.post('http://localhost:8000/api/chat/rooms/', submissionData, {
+            const response = await axios.post(`${apiBaseUrl}/api/chat/rooms/`, submissionData, {
                 headers: { 
                     Authorization: `Bearer ${accessToken}`,
                     'Content-Type': 'multipart/form-data',
                 }
             });
             alert("방송이 생성되었습니다.");
-            // 백틱(`)을 사용하여 변수를 올바르게 포함
             navigate(`/chat/${response.data.id}`);
         } catch (error){
             setError('방송 생성 중 오류가 발생했습니다.');
@@ -122,6 +125,7 @@ function CreateChatRoom() {
                         </button>
                     </div>
 
+                    {/* 방송 제목 */}
                     <div className="form-group">
                         <label htmlFor="name" className="form-label text-start d-block">방송 제목</label>
                         <input
@@ -135,6 +139,7 @@ function CreateChatRoom() {
                         />
                     </div>
 
+                    {/* 방송 설명 */}
                     <div className="form-group">
                         <label htmlFor="description" className="form-label text-start d-block">방송 설명</label>
                         <textarea
@@ -147,7 +152,7 @@ function CreateChatRoom() {
                         />
                     </div>
 
-                    {/* [수정] 인플루언서 선택 (동적 데이터) */}
+                    {/* 인플루언서 선택 */}
                     <div className="form-group">
                         <label htmlFor="influencer" className="form-label text-start d-block">인플루언서</label>
                         <select id="influencer" name="influencer" value={formData.influencer} onChange={handleChange} required>
@@ -160,7 +165,7 @@ function CreateChatRoom() {
                         </select>
                     </div>
 
-                    {/* [수정] 방송상태 (올바른 value 값) */}
+                    {/* 방송상태 */}
                     <div className="form-group">
                         <label htmlFor="status" className="form-label text-start d-block">방송상태</label>
                         <select id="status" name="status" value={formData.status} onChange={handleChange}>

@@ -20,8 +20,10 @@ function SignupForm() {
 
     const navigate = useNavigate();
 
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
     const validatePassword = (password) => {
-        if (!password) return null; // 비어있을 땐 null
+        if (!password) return null;
         const length = password.length >= 9;
         const letter = /[a-zA-Z]/.test(password);
         const number = /[0-9]/.test(password);
@@ -51,7 +53,7 @@ function SignupForm() {
             return;
         }
         try {
-            const response = await axios.get(`http://localhost:8000/api/users/check-username/?username=${formData.username}`);
+            const response = await axios.get(`${apiBaseUrl}/api/users/check-username/?username=${formData.username}`);
             if (response.data.is_taken) {
                 setUsernameStatus('이미 사용 중인 아이디입니다.');
             } else {
@@ -69,7 +71,7 @@ function SignupForm() {
             return;
         }
         try {
-            const response = await axios.get(`http://localhost:8000/api/users/check-nickname/?nickname=${formData.nickname}`);
+            const response = await axios.get(`${apiBaseUrl}/api/users/check-nickname/?nickname=${formData.nickname}`);
             if (response.data.is_taken) {
                 setNicknameStatus('이미 사용 중인 사용자명입니다.');
             } else {
@@ -87,25 +89,21 @@ function SignupForm() {
         let newErrors = {};
         let isValid = true;
 
-        // 비밀번호 유효성 검사
         if (!validatePassword(formData.password)) {
             newErrors.password = ['비밀번호는 영문, 숫자, 특수문자를 포함하여 9자리 이상이어야 합니다.'];
             isValid = false;
         }
 
-        // 비밀번호 확인 검사
         if (formData.password !== formData.password_confirm) {
             newErrors.password_confirm = ['비밀번호가 일치하지 않습니다.'];
             isValid = false;
         }
         
-        // 생년월일 유효성 검사
         if (!formData.birth_date) {
             newErrors.birth_date = ['생년월일을 입력해주세요.'];
             isValid = false;
         }
         
-        // 중복 확인 여부 검사
         if (usernameStatus !== '사용 가능한 아이디입니다.') {
             alert('아이디 중복 확인을 해주세요.');
             isValid = false;
@@ -115,18 +113,16 @@ function SignupForm() {
             isValid = false;
         }
 
-        // 유효성 검사에서 에러가 있으면 상태 업데이트 후 종료
         if (!isValid) {
             setErrors(newErrors);
             return;
         }
         
-        // 모든 검증 통과 후 서버에 데이터 전송
         try {
             const { password_confirm, ...signupData } = formData;
             if (!signupData.gender) signupData.gender = null;
 
-            await axios.post('http://localhost:8000/api/users/signup/', signupData);
+            await axios.post(`${apiBaseUrl}/api/users/signup/`, signupData);
             alert('회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.');
             navigate('/login');
         } catch (err) {
@@ -141,7 +137,7 @@ function SignupForm() {
     };
 
     const getPasswordInputClass = () => {
-        if (formData.password === '') return ''; // 비어있을 땐 기본
+        if (formData.password === '') return '';
         return isPasswordValid ? 'valid-input' : 'invalid-input';
     };
 
