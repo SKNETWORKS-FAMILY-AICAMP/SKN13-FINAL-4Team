@@ -1,5 +1,6 @@
+from rest_framework import viewsets
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny 
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
@@ -7,8 +8,14 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 import json
 import logging
+from django.core.cache import cache
+from django_redis import get_redis_connection
+from django.utils import timezone
 
-from .models import StreamerTTSSettings
+from .models import StreamerTTSSettings, ChatRoom 
+from .serializers import ChatRoomSerializer, ChatRoomCreateSerializer 
+
+
 
 logger = logging.getLogger(__name__)
 channel_layer = get_channel_layer()
@@ -165,3 +172,59 @@ def list_all_tts_settings(request):
             'success': False,
             'error': str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ChatRoomViewSet(viewsets.ModelViewSet):
+    queryset = ChatRoom.objects.all().order_by('-created_at')
+    # permission_classes = [IsAdminUser] # 관리자만 채팅방을 관리할 수 있도록 설정
+
+    def get_permissions(self):
+        """
+        요청 종류(action)에 따라 다른 권한을 적용합니다.
+        - 'list': 목록 조회는 누구나 가능
+        - 그 외(create, update 등): 관리자만 가능
+        """
+        if self.action == 'list':
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAdminUser]
+        return [permission() for permission in permission_classes]
+    
+    def get_serializer_class(self):
+        # 생성(create) 시에는 ChatRoomCreateSerializer를, 그 외에는 ChatRoomSerializer를 사용
+        if self.action == 'create':
+            return ChatRoomCreateSerializer
+        return ChatRoomSerializer
+
+    def perform_create(self, serializer):
+        # 채팅방 생성 시, 현재 요청을 보낸 사용자를 'host'로 자동 할당
+        serializer.save(host=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        # Redis Raw 클라이언트 가져오기
+        redis_conn = get_redis_connection("default")
+        
+        # redis_conn으로 Sorted Set 조회
+        # (zrevrange는 byte 문자열로 반환하므로 utf-8로 디코딩 필요)
+        room_keys_bytes = redis_conn.zrevrange('all_chatrooms', 0, -1)
+        room_keys = [key.decode('utf-8') for key in room_keys_bytes]
+        
+        if room_keys:
+            print("Cache Hit: Fetching all rooms from Redis")
+            # key 목록으로 데이터 조회는 Django 기본 캐시(get_many) 사용 가능
+            cached_rooms = cache.get_many(room_keys)
+            response_data = [cached_rooms[key] for key in room_keys if key in cached_rooms]
+            return Response(response_data)
+
+        print("Cache Miss: Fetching rooms from DB and populating cache")
+        response = super().list(request, *args, **kwargs)
+        
+        for room_data in response.data:
+            key = f"chatroom:{room_data['id']}"
+            created_at_ts = timezone.datetime.fromisoformat(room_data['created_at']).timestamp()
+            cache.set(key, room_data)
+            # [수정] redis_conn으로 Sorted Set에 저장
+            redis_conn.zadd('all_chatrooms', {key: created_at_ts})
+            if room_data['status'] == 'live':
+                redis_conn.zadd('live_chatrooms', {key: created_at_ts})
+                
+        return response

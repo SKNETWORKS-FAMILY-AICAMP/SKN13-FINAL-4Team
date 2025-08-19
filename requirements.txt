@@ -9,6 +9,7 @@ djangorestframework-simplejwt
 channels
 channels_redis
 daphne
+django-redis
 
 # PostgreSQL
 psycopg2-binary

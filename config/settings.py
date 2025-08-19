@@ -179,6 +179,16 @@ CHANNEL_LAYERS = {
     },
 }
 
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://redis:6379/1", # Channels와 다른 DB 번호 사용
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    }
+}
+
 AUTH_USER_MODEL = 'users.User'  # '앱이름.모델클래스이름' 형식
 
 REST_FRAMEWORK = {

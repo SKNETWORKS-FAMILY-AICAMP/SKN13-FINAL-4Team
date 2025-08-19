@@ -1,19 +1,59 @@
 from django.db import models
 import json
 
+def chatroom_thumbnail_path(instance, filename):
+    # 예: chatrooms/1/thumbnail/my_thumbnail.jpg
+    return f'chatrooms/{instance.id}/thumbnail/{filename}'
+
 class ChatRoom(models.Model):
     """
     채팅방 모델
     """
+    # [추가] 방송 상태 선택을 위한 CHOICES 정의
+    STATUS_CHOICES = (
+        ('pending', '준비중'),
+        ('live', '방송중'),
+        ('finished', '방송종료'),
+    )
+
     host = models.ForeignKey(
         'users.User',
-        on_delete=models.CASCADE, # 호스트가 탈퇴하면 채팅방도 삭제
+        on_delete=models.CASCADE,
         related_name='hosted_rooms',
-        help_text='채팅방을 생성한 호스트(방장)'
+        help_text='채팅방을 생성한 호스트(관리자)'
     )
     name = models.CharField(
         max_length=255,
-        help_text='채팅방의 이름'
+        help_text='방송 제목'
+    )
+    # 방송 설명 필드
+    description = models.TextField(
+        blank=True, 
+        null=True, 
+        help_text='방송 설명'
+    )
+    # 썸네일 이미지 필드
+    thumbnail = models.ImageField(
+        upload_to=chatroom_thumbnail_path,
+        null=True,
+        blank=True,
+        help_text='채팅방 썸네일 이미지'
+    )
+    # 인플루언서(방송인) 필드
+    influencer = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='chat_rooms',
+        help_text='채팅방과 연결된 인플루언서'
+    )
+    # 방송 상태 필드
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='pending',
+        help_text='방송 상태'
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
