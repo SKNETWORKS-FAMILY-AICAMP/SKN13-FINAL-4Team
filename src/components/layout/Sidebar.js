@@ -16,12 +16,12 @@ function Sidebar() {
                 </li>
                 <li className="sidebar-item">
                     <NavLink to="/staff/create" className="sidebar-link">
-                        채팅방 생성
+                        방송 생성
                     </NavLink>
                 </li>
                 <li className="sidebar-item">
-                    <NavLink to="/staff/management_room" className="sidebar-link">
-                        채팅방 관리
+                    <NavLink to="/staff/management" className="sidebar-link">
+                        방송 관리
                     </NavLink>
                 </li>
             </ul>

@@ -80,12 +80,12 @@ function CreateChatRoom() {
                     'Content-Type': 'multipart/form-data',
                 }
             });
-            alert("채팅방이 생성되었습니다.");
-            // [수정] 백틱(`)을 사용하여 변수를 올바르게 포함
+            alert("방송이 생성되었습니다.");
+            // 백틱(`)을 사용하여 변수를 올바르게 포함
             navigate(`/chat/${response.data.id}`);
         } catch (error){
-            setError('채팅방 생성 중 오류가 발생했습니다.');
-            console.error('채팅방 생성 오류:', error);
+            setError('방송 생성 중 오류가 발생했습니다.');
+            console.error('방송 생성 오류:', error);
         }
     };
 
@@ -94,8 +94,8 @@ function CreateChatRoom() {
             <Sidebar />
             <div className="signup-container">
                 <div className="signup-header">
-                    <h1>채팅방 생성</h1>
-                    <p>새로운 채팅방의 정보를 입력해주세요.</p>
+                    <h1>방송 생성</h1>
+                    <p>새로운 방송의 정보를 입력해주세요.</p>
                 </div>
                 <form className="signup-form" onSubmit={handleSubmit}>
                     {error && <p className="error-message" style={{color: 'red', textAlign: 'center'}}>{error}</p>}
@@ -128,7 +128,7 @@ function CreateChatRoom() {
                             type="text"
                             id="name"
                             name="name"
-                            placeholder="채팅방 이름을 입력하세요"
+                            placeholder="방송 이름을 입력하세요"
                             value={formData.name}
                             onChange={handleChange}
                             required
@@ -141,7 +141,7 @@ function CreateChatRoom() {
                             id="description"
                             name="description"
                             rows="4"
-                            placeholder="채팅방에 대한 간단한 설명을 입력하세요"
+                            placeholder="방송에 대한 간단한 설명을 입력하세요"
                             value={formData.description}
                             onChange={handleChange}
                         />

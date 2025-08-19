@@ -12,7 +12,7 @@ import StreamingPage from './components/streaming/StreamingPage';
 import HomeTemporary from './components/pages/HomeTemporary';
 import TTSDebugTool from './components/ai/TTSDebugTool';
 import CreateChatRoom from './components/staff/CreateChatRoom';
-import ManagementChatRoom from './components/staff/ManagementChatRoom';
+import ChatRoomManagement from './components/staff/ChatRoomManagement';
 import './App.css';
 
 function App() {
@@ -83,7 +83,7 @@ function App() {
           <Route path="/stream/:roomId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} />
           <Route path="/debug/tts" element={<TTSDebugTool />} />
           <Route path="/staff/create" element={<CreateChatRoom />}/>
-          <Route path="/staff/management_room" element={<ManagementChatRoom />}/>
+          <Route path="/staff/management" element={<ChatRoomManagement />}/>
         </Routes>
       </div>
     </Router>
