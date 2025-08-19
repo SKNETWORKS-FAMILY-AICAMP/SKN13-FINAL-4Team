@@ -11,6 +11,8 @@ import ProfilePage from './components/user/ProfilePage';
 import StreamingPage from './components/streaming/StreamingPage';
 import HomeTemporary from './components/pages/HomeTemporary';
 import TTSDebugTool from './components/ai/TTSDebugTool';
+import CreateChatRoom from './components/staff/CreateChatRoom';
+import ManagementChatRoom from './components/staff/ManagementChatRoom';
 import './App.css';
 
 function App() {
@@ -78,8 +80,10 @@ function App() {
           
           {/* 개인 프로필 페이지 */}
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/stream/:streamerId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} />
+          <Route path="/stream/:roomId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} />
           <Route path="/debug/tts" element={<TTSDebugTool />} />
+          <Route path="/staff/create" element={<CreateChatRoom />}/>
+          <Route path="/staff/management_room" element={<ManagementChatRoom />}/>
         </Routes>
       </div>
     </Router>

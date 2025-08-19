@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Container, Table, Spinner, Alert, Form, Pagination, InputGroup, Button, Row, Col, Badge } from 'react-bootstrap';
+import Sidebar from '../layout/Sidebar'; // ⬅️ 1. Sidebar 컴포넌트 import
 
 function UserListPage() {
     const [users, setUsers] = useState([]);
@@ -16,17 +17,14 @@ function UserListPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
 
-    // 제재일시 입력을 관리하는 state
     const [sanctionDates, setSanctionDates] = useState({});
 
-    // 날짜 포맷팅 헬퍼 함수
+    // ... (formatDateTimeLocal, fetchUsers, useEffect 등 다른 함수들은 기존과 동일) ...
     const formatDateTimeLocal = (isoString) => {
         if (!isoString) return '';
-        // UTC 시간을 한국 시간(KST)으로 변환
         const date = new Date(isoString);
         const kstOffset = 9 * 60 * 60 * 1000;
         const kstDate = new Date(date.getTime() + kstOffset);
-        // 'YYYY-MM-DDTHH:mm' 형식으로 변환
         return kstDate.toISOString().slice(0, 16);
     };
 
@@ -48,7 +46,6 @@ function UserListPage() {
             const userList = response.data.results || [];
             setUsers(userList);
 
-            // 사용자 목록을 불러온 후 제재일시 state 초기화
             const initialDates = {};
             userList.forEach(user => {
                 initialDates[user.id] = formatDateTimeLocal(user.sanctioned_until);
@@ -64,7 +61,6 @@ function UserListPage() {
         }
     }, []);
 
-    // ... (useEffect, handleAdminToggle 등 다른 함수들은 기존과 거의 동일) ...
     useEffect(() => {
         const checkAdmin = async () => {
             const accessToken = localStorage.getItem('accessToken');
@@ -114,15 +110,12 @@ function UserListPage() {
         }
     };
 
-    // [추가] 제재일시 입력 변경 핸들러
     const handleDateChange = (userId, date) => {
         setSanctionDates(prev => ({ ...prev, [userId]: date }));
     };
 
-    // [추가] 제재일시 업데이트 핸들러
     const handleUpdateSanction = async (userToUpdate) => {
         const newDate = sanctionDates[userToUpdate.id] || null;
-        // 로컬 시간을 UTC로 변환하여 전송
         const utcDate = newDate ? new Date(newDate).toISOString() : null;
 
         const accessToken = localStorage.getItem('accessToken');
@@ -132,7 +125,6 @@ function UserListPage() {
                 { headers: { Authorization: `Bearer ${accessToken}` } }
             );
             alert('제재일시가 성공적으로 업데이트되었습니다.');
-            // 목록 새로고침
             fetchUsers(currentPage, searchQuery);
         } catch (err) {
             alert('제재일시 업데이트에 실패했습니다.');
@@ -152,74 +144,96 @@ function UserListPage() {
         setCurrentPage(1);
     };
 
+
     if (loading) return <Container className="d-flex justify-content-center mt-5"><Spinner animation="border" /></Container>;
     if (error) return <Container className="mt-5"><Alert variant="danger">{error}</Alert></Container>;
 
+    // ⬅️ 2. JSX 구조 변경
     return (
-        <Container className="mt-5">
-            <h2 className="mb-4">사용자 관리</h2>
-            {/* ... (검색 폼은 기존과 동일) ... */}
-            <Table striped bordered hover responsive>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Username</th>
-                        <th>Nickname</th>
-                        <th>Email</th>
-                        <th>관리자 권한</th>
-                        <th>제재 만료일</th> {/* [추가] */}
-                    </tr>
-                </thead>
-                <tbody>
-                    {users.map(user => (
-                        <tr key={user.id}>
-                            <td>{user.id}</td>
-                            <td>{user.username}</td>
-                            <td>{user.nickname}</td>
-                            <td>{user.email}</td>
-                            <td>
-                                <Form.Check 
-                                    type="switch"
-                                    id={`admin-switch-${user.id}`}
-                                    checked={user.is_staff}
-                                    onChange={() => handleAdminToggle(user)}
-                                    disabled={currentUser && currentUser.username === user.username}
-                                    label={user.is_staff ? 'Admin' : 'User'}
-                                />
-                            </td>
-                            {/* [추가] 제재일시 표시 및 수정 UI */}
-                            <td>
-                                {user.is_sanctioned && <Badge bg="danger" className="me-2">제재 중</Badge>}
-                                <InputGroup size="sm">
-                                    <Form.Control
-                                        type="datetime-local"
-                                        value={sanctionDates[user.id] || ''}
-                                        onChange={(e) => handleDateChange(user.id, e.target.value)}
-                                    />
-                                    <Button variant="outline-secondary" onClick={() => handleUpdateSanction(user)}>
-                                        저장
-                                    </Button>
-                                </InputGroup>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </Table>
+        <div className="admin-page-wrapper">
+            <Sidebar />
+            <Container className="admin-content-container">
+                <h2 className="mb-4">사용자 관리</h2>
 
-            {totalPages > 1 && (
-                <Pagination className="justify-content-center">
-                    {Array.from({ length: totalPages }, (_, index) => (
-                        <Pagination.Item
-                            key={index + 1}
-                            active={index + 1 === currentPage}
-                            onClick={() => handlePageChange(index + 1)}
-                        >
-                            {index + 1}
-                        </Pagination.Item>
-                    ))}
-                </Pagination>
-            )}
-        </Container>
+                {/* 검색 폼 UI */}
+                <Form onSubmit={handleSearch} className="mb-4">
+                    <Row className="justify-content-center">
+                        <Col xs={12} md={8} lg={6}>
+                            <InputGroup>
+                                <Form.Control
+                                    type="text"
+                                    placeholder="ID 또는 닉네임으로 검색"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                                <Button type="submit" variant="primary">검색</Button>
+                                <Button variant="outline-secondary" onClick={handleShowAll}>전체 보기</Button>
+                            </InputGroup>
+                        </Col>
+                    </Row>
+                </Form>
+
+                <Table striped bordered hover responsive>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Nickname</th>
+                            <th>Email</th>
+                            <th>관리자 권한</th>
+                            <th>제재 만료일</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {users.map(user => (
+                            <tr key={user.id}>
+                                <td>{user.id}</td>
+                                <td>{user.username}</td>
+                                <td>{user.nickname}</td>
+                                <td>{user.email}</td>
+                                <td>
+                                    <Form.Check 
+                                        type="switch"
+                                        id={`admin-switch-${user.id}`}
+                                        checked={user.is_staff}
+                                        onChange={() => handleAdminToggle(user)}
+                                        disabled={currentUser && currentUser.username === user.username}
+                                        label={user.is_staff ? 'Admin' : 'User'}
+                                    />
+                                </td>
+                                <td>
+                                    {user.is_sanctioned && <Badge bg="danger" className="me-2">제재 중</Badge>}
+                                    <InputGroup size="sm">
+                                        <Form.Control
+                                            type="datetime-local"
+                                            value={sanctionDates[user.id] || ''}
+                                            onChange={(e) => handleDateChange(user.id, e.target.value)}
+                                        />
+                                        <Button variant="outline-secondary" onClick={() => handleUpdateSanction(user)}>
+                                            저장
+                                        </Button>
+                                    </InputGroup>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </Table>
+
+                {totalPages > 1 && (
+                    <Pagination className="justify-content-center">
+                        {Array.from({ length: totalPages }, (_, index) => (
+                            <Pagination.Item
+                                key={index + 1}
+                                active={index + 1 === currentPage}
+                                onClick={() => handlePageChange(index + 1)}
+                            >
+                                {index + 1}
+                            </Pagination.Item>
+                        ))}
+                    </Pagination>
+                )}
+            </Container>
+        </div>
     );
 }
 

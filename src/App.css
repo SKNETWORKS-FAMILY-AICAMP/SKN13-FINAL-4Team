@@ -35,3 +35,15 @@
     transform: rotate(360deg);
   }
 }
+
+
+/* 관리자 페이지 레이아웃 */
+.admin-page-wrapper {
+    display: flex;
+    min-height: calc(100vh - 56px); /* 전체 화면 높이에서 Navbar 높이(56px)를 뺀 값 */
+}
+
+.admin-content-container {
+    flex-grow: 1; /* 남은 공간을 모두 차지 */
+    padding: 2rem; /* 콘텐츠 영역의 여백 */
+}
