@@ -11,6 +11,8 @@ import logging
 from django.core.cache import cache
 from django_redis import get_redis_connection
 from django.utils import timezone
+from rest_framework.decorators import action
+from users.models import UserWallet, CashLog
 
 from .models import StreamerTTSSettings, ChatRoom 
 from .serializers import ChatRoomSerializer, ChatRoomCreateSerializer 
@@ -194,3 +196,56 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
 
         # 부모 클래스의 destroy를 호출하여 DB에서 객체를 실제로 삭제합니다.
         return super().destroy(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def donate(self, request, pk=None):
+        chatroom = self.get_object()
+        user = request.user
+        amount = request.data.get('amount')
+        message = request.data.get('message', '')
+        tts_enabled = request.data.get('tts_enabled', False)
+
+        if not amount or int(amount) <= 0:
+            return Response({'error': '후원 금액을 정확히 입력해주세요.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        amount = int(amount)
+
+        try:
+            wallet = user.wallet
+            if wallet.balance < amount:
+                return Response({'error': '보유 크레딧이 부족합니다.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # DB 트랜잭션 시작
+            with timezone.override(None): # For psycopg2 compatibility
+                wallet.balance -= amount
+                wallet.save()
+
+                CashLog.objects.create(
+                    wallet=wallet,
+                    log_type='use',
+                    amount=-amount,
+                    description=f"'{chatroom.name}' 방 후원"
+                )
+
+            # WebSocket으로 후원 메시지 전송
+            room_group_name = f'streaming_chat_{chatroom.id}'
+            async_to_sync(channel_layer.group_send)(
+                room_group_name,
+                {
+                    'type': 'donation_message',
+                    'data': {
+                        'username': user.nickname or user.username,
+                        'amount': amount,
+                        'message': message,
+                        'tts_enabled': tts_enabled,
+                    }
+                }
+            )
+            
+            return Response({'success': '후원이 완료되었습니다.'}, status=status.HTTP_200_OK)
+
+        except UserWallet.DoesNotExist:
+            return Response({'error': '지갑 정보를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"후원 처리 중 오류 발생: {e}")
+            return Response({'error': '후원 처리 중 오류가 발생했습니다.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

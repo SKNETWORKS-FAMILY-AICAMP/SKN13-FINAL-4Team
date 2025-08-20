@@ -356,3 +356,15 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             'timestamp': event['timestamp'],
             'message': f'{event["changed_by"]}님이 TTS 설정을 변경했습니다.'
         }))
+
+    async def donation_message(self, event):
+        """후원 메시지를 클라이언트에게 전송"""
+        donation_data = event['data']
+        await self.send(text_data=json.dumps({
+            'type': 'donation_message',
+            'username': donation_data['username'],
+            'amount': donation_data['amount'],
+            'message': donation_data['message'],
+            'tts_enabled': donation_data['tts_enabled'],
+            'timestamp': time.time()
+        }))
