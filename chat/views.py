@@ -218,7 +218,7 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         print("Cache Miss: Fetching rooms from DB and populating cache")
         response = super().list(request, *args, **kwargs)
         
-        for room_data in response.data:
+        for room_data in response.data.get('results', []):
             key = f"chatroom:{room_data['id']}"
             created_at_ts = timezone.datetime.fromisoformat(room_data['created_at']).timestamp()
             cache.set(key, room_data)
