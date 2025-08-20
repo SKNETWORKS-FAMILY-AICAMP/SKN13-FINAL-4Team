@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Container, Row, Col, Image, Button, Badge } from 'react-bootstrap';
 import StreamingChatWithTTS from './StreamingChatWithTTS';
+import DonationIsland from './DonationIsland'; // 후원 아일랜드 컴포넌트 import
 import { AITextSyncService } from '../../services/aiTextSyncService';
 import { DEFAULT_SETTINGS } from '../../config/aiChatSettings';
 import { TTSServiceManager } from '../../services/ttsServiceManager';
@@ -57,6 +58,9 @@ function StreamingPage({ isLoggedIn, username }) {
 
     const [isMuted, setIsMuted] = useState(false);
     const [volume, setVolume] = useState(0.8);
+
+    // 후원 아일랜드 상태
+    const [isDonationIslandOpen, setIsDonationIslandOpen] = useState(false);
 
     // 서버에서 TTS 설정 가져오기
     const fetchServerTtsSettings = async () => {
@@ -125,7 +129,7 @@ function StreamingPage({ isLoggedIn, username }) {
         action();
     };
 
-    const handleDonation = () => handleAction(() => alert('준비중입니다.'));
+    const handleDonation = () => handleAction(() => setIsDonationIslandOpen(true));
     const handleEmoji = () => handleAction(() => alert('준비중입니다.'));
 
     const handleMuteToggle = () => {
@@ -275,6 +279,15 @@ function StreamingPage({ isLoggedIn, username }) {
 
     return (
         <Container fluid className="streaming-container mt-4">
+            {/* 후원 아일랜드 */}
+            {isDonationIslandOpen && (
+                <DonationIsland 
+                    chatRoomId={streamerId} 
+                    streamerId={streamerId} 
+                    onClose={() => setIsDonationIslandOpen(false)} 
+                />
+            )}
+
             {/* 통합 설정 패널 - 디버그, TTS 설정, 설정 관리 통합 */}
             {(showDebug || showTtsSettings || showSettingsManager) && (
                 <div className="settings-panel-overlay">
