@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import './ProfilePage.css'; // 프로필 페이지 전용 CSS
+import api from '../../api';
+import './ProfilePage.css';
 import Sidebar from '../layout/Sidebar';
 
 function ProfilePage() {
@@ -28,33 +28,28 @@ function ProfilePage() {
     const fileInputRef = useRef(null);
 
     const navigate = useNavigate();
-
-    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-
+    
     useEffect(() => {
         const fetchUserData = async () => {
-            const accessToken = localStorage.getItem('accessToken');
-            if (!accessToken) {
-                alert('로그인이 필요합니다.');
-                navigate('/login');
-                return;
-            }
             try {
-                const response = await axios.get(`${apiBaseUrl}/api/users/me/`, {
-                    headers: { Authorization: `Bearer ${accessToken}` }
-                });
+                const response = await api.get('/api/users/me/');
                 setUser(response.data);
                 setNickname(response.data.nickname || '');
                 setBirthDate(response.data.birth_date || '');
                 setGender(response.data.gender || '');
             } catch (err) {
                 setError('사용자 정보를 불러오는 데 실패했습니다.');
+                console.error("사용자 정보 로딩 실패:", err);
+                // 토큰 만료 등으로 실패 시 로그인 페이지로 보낼 수 있습니다.
+                if (err.response && err.response.status === 401) {
+                    navigate('/login');
+                }
             } finally {
                 setLoading(false);
             }
         };
         fetchUserData();
-    }, [navigate, apiBaseUrl]); // apiBaseUrl을 의존성 배열에 추가
+    }, [navigate]);
 
     const checkNickname = useCallback(async () => {
         if (nickname.length > 0 && nickname.length < 2) {
@@ -63,9 +58,7 @@ function ProfilePage() {
         }
         setNicknameStatus({ isChecking: true, isValid: true, message: '' });
         try {
-            const response = await axios.get(`${apiBaseUrl}/api/users/check-nickname/?nickname=${nickname}`, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` }
-            });
+            const response = await api.get(`/api/users/check-nickname/?nickname=${nickname}`);
             if (response.data.is_taken) {
                 setNicknameStatus({ isChecking: false, isValid: false, message: '이미 사용 중인 닉네임입니다.' });
             } else {
@@ -74,7 +67,7 @@ function ProfilePage() {
         } catch (error) {
             setNicknameStatus({ isChecking: false, isValid: false, message: '검사 중 오류가 발생했습니다.' });
         }
-    }, [nickname, apiBaseUrl]); // apiBaseUrl을 의존성 배열에 추가
+    }, [nickname]);
 
     useEffect(() => {
         if (user && nickname !== user.nickname && nickname.trim() !== '') {
@@ -111,12 +104,8 @@ function ProfilePage() {
         const formData = new FormData();
         formData.append('profile_image', imageFile);
         try {
-            const accessToken = localStorage.getItem('accessToken');
-            const response = await axios.patch(`${apiBaseUrl}/api/users/me/`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    Authorization: `Bearer ${accessToken}`,
-                },
+            const response = await api.patch('/api/users/me/', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
             });
             setUser(response.data);
             setImagePreviewUrl('');
@@ -134,20 +123,18 @@ function ProfilePage() {
             alert('닉네임을 확인해주세요.');
             return;
         }
-
-        const accessToken = localStorage.getItem('accessToken');
+        
         let isChanged = false;
 
         const dataToUpdate = {};
-        if (nickname !== user.nickname) { dataToUpdate.nickname = nickname; isChanged = true; }
-        if (birthDate !== user.birth_date) { dataToUpdate.birth_date = birthDate; isChanged = true; }
-        if (gender !== user.gender) { dataToUpdate.gender = gender; isChanged = true; }
+        if (nickname !== user.nickname) { dataToUpdate.nickname = nickname; }
+        if (birthDate !== user.birth_date) { dataToUpdate.birth_date = birthDate; }
+        if (gender !== user.gender) { dataToUpdate.gender = gender; }
         
         if (Object.keys(dataToUpdate).length > 0) {
+            isChanged = true;
             try {
-                await axios.patch(`${apiBaseUrl}/api/users/me/`, dataToUpdate, {
-                    headers: { Authorization: `Bearer ${accessToken}` }
-                });
+                await api.patch('/api/users/me/', dataToUpdate);
             } catch (err) {
                 alert('프로필 정보 변경에 실패했습니다.');
                 return;
@@ -160,11 +147,9 @@ function ProfilePage() {
                 alert('새 비밀번호가 일치하지 않습니다.');
                 return;
             }
+            isChanged = true;
             try {
-                await axios.post(`${apiBaseUrl}/api/users/change-password/`, passwordData, {
-                    headers: { Authorization: `Bearer ${accessToken}` }
-                });
-                isChanged = true;
+                await api.post('/api/users/change-password/', passwordData);
             } catch (err) {
                 alert('비밀번호 변경에 실패했습니다. 현재 비밀번호를 확인해주세요.');
                 return;
@@ -192,19 +177,14 @@ function ProfilePage() {
                 </div>
 
                 <div className="profile-image-container">
+                    {/* api.js의 baseURL이 적용되므로 상대 경로로 수정 */}
                     <img 
-                        src={imagePreviewUrl || (user.profile_image ? `${apiBaseUrl}${user.profile_image}` : `${apiBaseUrl}/media/profile_pics/default_profile.png`)} 
+                        src={imagePreviewUrl || (user.profile_image ? user.profile_image : '/media/profile_pics/default_profile.png')} 
                         alt="Profile" 
                         className="profile-image" 
                     />
                     <button type="button" className="thumbnail-upload-btn" onClick={handleImageButtonClick}>이미지 변경</button>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        style={{ display: 'none' }}
-                        onChange={handleImageChange}
-                        accept="image/*"
-                    />
+                    <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageChange} accept="image/*" />
                 </div>
 
                 <form className="signup-form" onSubmit={handleSubmit}>

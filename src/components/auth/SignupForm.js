@@ -122,6 +122,9 @@ function SignupForm() {
             const { password_confirm, ...signupData } = formData;
             if (!signupData.gender) signupData.gender = null;
 
+                console.log("서버로 보내는 비밀번호:", signupData.password);
+                console.log("비밀번호 확인 필드:", formData.password_confirm);
+
             await axios.post(`${apiBaseUrl}/api/users/signup/`, signupData);
             alert('회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.');
             navigate('/login');

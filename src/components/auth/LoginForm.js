@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../../api'
 import { Link, useNavigate } from 'react-router-dom'; // useNavigate import
 import { Container, Form, Button, Alert, Row, Col, Card } from 'react-bootstrap';
 
@@ -25,7 +25,7 @@ function LoginForm({ onLogin }) {
 
         try {
             const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-            const response = await axios.post(`${apiBaseUrl}/api/token/`, formData);
+            const response = await api.post(`${apiBaseUrl}/api/token/`, formData);
             // App.js의 onLogin 함수를 호출하여 상태 업데이트 및 토큰 저장
             onLogin(response.data.access);
             
@@ -33,7 +33,7 @@ function LoginForm({ onLogin }) {
             localStorage.setItem('refreshToken', response.data.refresh);
             
             // axios 기본 헤더 설정
-            axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
+            api.defaults.headers.common['Authorization'] = `Bearer ${response.data.access}`;
             
             // 페이지 이동을 navigate로 처리
             navigate('/'); 
