@@ -132,7 +132,26 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         return ChatRoomSerializer
 
     def perform_create(self, serializer):
-        serializer.save(host=self.request.user)
+        # 1) DB에 저장
+        instance = serializer.save(host=self.request.user)
+
+        # 2) Redis/Cache에 저장
+        from django_redis import get_redis_connection
+        from django.core.cache import cache
+        from django.utils import timezone
+
+        redis_conn = get_redis_connection("default")
+        serialized = ChatRoomSerializer(instance).data
+
+        key = f"chatroom:{instance.id}"
+        created_at_ts = instance.created_at.timestamp()
+        
+        cache.set(key, serialized)
+        # Redis sorted set에 추가
+        redis_conn.zadd("all_chatrooms", {key: created_at_ts})
+        if instance.status == "live":
+            redis_conn.zadd("live_chatrooms", {key: created_at_ts})
+
 
     def list(self, request, *args, **kwargs):
         redis_conn = get_redis_connection("default")
@@ -146,7 +165,12 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
             # Redis 캐시 데이터는 페이지네이션이 없으므로 그대로 반환합니다.
             # (만약 페이지네이션이 필요하다면, 이 부분에 별도 로직이 필요합니다.)
             response_data = [cached_rooms[key] for key in room_keys if key in cached_rooms]
-            return Response(response_data)
+            return Response({
+                'count': len(response_data),
+                'next': None,
+                'previous': None,
+                'results': response_data
+            })
 
         print("Cache Miss: Fetching rooms from DB and populating cache")
         response = super().list(request, *args, **kwargs)
@@ -163,7 +187,6 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
                 
         return response
 
-    # --- ▼▼▼ 캐시 무효화를 위한 코드 추가 ▼▼▼ ---
     def update(self, request, *args, **kwargs):
         # 부모 클래스의 update를 먼저 호출하여 DB를 업데이트합니다.
         response = super().update(request, *args, **kwargs)

@@ -216,3 +216,17 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # 각 미디어 파일에 접근할 때 사용할 URL
 MEDIA_URL = '/media/'
+
+# ngrok 경고를 건너뛰기 위한 커스텀 헤더를 허용
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'ngrok-skip-browser-warning',
+]
