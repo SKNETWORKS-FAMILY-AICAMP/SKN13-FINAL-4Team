@@ -59,3 +59,68 @@ class User(AbstractUser):
             except User.DoesNotExist:
                 pass
         super(User, self).save(*args, **kwargs)
+
+
+class UserWallet(models.Model):
+    """
+    사용자의 현재 캐시(포인트) 잔액을 관리하는 지갑 모델
+    """
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name='wallet',
+        help_text='지갑의 소유자'
+    )
+    balance = models.IntegerField(
+        default=0,
+        help_text='현재 보유 캐시 잔액'
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        help_text='마지막 잔액 변동 시간'
+    )
+
+    def __str__(self):
+        return f"{self.user.username}'s Wallet (Balance: {self.balance})"
+
+
+
+class CashLog(models.Model):
+    """
+    사용자의 모든 캐시 충전 및 사용 내역을 기록하는 로그 모델
+    """
+    LOG_TYPE_CHOICES = (
+        ('charge', '충전'),
+        ('use', '사용'),
+    )
+
+    wallet = models.ForeignKey(
+        UserWallet,
+        on_delete=models.PROTECT, # 지갑이 삭제되어도 로그는 보존
+        related_name='logs',
+        help_text='관련된 사용자 지갑'
+    )
+    log_type = models.CharField(
+        max_length=10,
+        choices=LOG_TYPE_CHOICES,
+        help_text='로그 종류 (충전/사용)'
+    )
+    amount = models.IntegerField(
+        help_text='변동된 캐시 양 (충전: 양수, 사용: 음수)'
+    )
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text='거래에 대한 간단한 설명 (예: AI 상담, 이벤트 보상)'
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text='로그 생성 시간'
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[{self.get_log_type_display()}] {self.wallet.user.username} - Amount: {self.amount}"
