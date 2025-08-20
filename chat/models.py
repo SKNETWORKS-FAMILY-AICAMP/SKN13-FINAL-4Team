@@ -1,9 +1,23 @@
 from django.db import models
+import os
 import json
+from .storage import OverwriteStorage
 
 def chatroom_thumbnail_path(instance, filename):
-    # 예: chatrooms/1/thumbnail/my_thumbnail.jpg
-    return f'chatrooms/{instance.id}/thumbnail/{filename}'
+    """
+    썸네일 파일의 저장 경로와 파일명을 생성합니다.
+    - 경로는 'chatrooms/<스트리머_username>/'
+    - 파일명은 'thumbnail.<기존_확장자>'
+    """
+    # 스트리머(influencer)가 지정되었는지 확인하고, 없으면 호스트(host)를 사용합니다.
+    streamer_username = instance.influencer.username if instance.influencer else instance.host.username
+    
+    # 원본 파일의 확장자를 가져옵니다. (예: '.png')
+    extension = os.path.splitext(filename)[1]
+    
+    # 최종 경로와 파일명을 조합하여 반환합니다.
+    # 예: chatrooms/streamer_name/thumbnail.png
+    return f'chatrooms/{streamer_username}/thumbnail{extension}'
 
 class ChatRoom(models.Model):
     """
@@ -35,10 +49,12 @@ class ChatRoom(models.Model):
     # 썸네일 이미지 필드
     thumbnail = models.ImageField(
         upload_to=chatroom_thumbnail_path,
+        storage=OverwriteStorage(), 
         null=True,
         blank=True,
         help_text='채팅방 썸네일 이미지'
     )
+
     # 인플루언서(방송인) 필드
     influencer = models.ForeignKey(
         'users.User',
