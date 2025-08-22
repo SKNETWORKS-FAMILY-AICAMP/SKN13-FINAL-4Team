@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS } from '../../config/aiChatSettings';
 import { TTSServiceManager } from '../../services/ttsServiceManager';
 import AITTSEngineSelector from '../ai/AITTSEngineSelector';
 import TTSSettingsManager from '../ai/TTSSettingsManager';
+import { StreamingOrchestrator } from '../../services/StreamingOrchestrator';
 import './StreamingPage.css';
 
 function StreamingPage({ isLoggedIn, username }) {
@@ -63,6 +64,16 @@ function StreamingPage({ isLoggedIn, username }) {
 
     const [isMuted, setIsMuted] = useState(false);
     const [volume, setVolume] = useState(0.8);
+
+    // 스트리밍 오케스트레이터 관련 상태 추가
+    const streamingOrchestratorRef = useRef(null);
+    const [isOrchestratorEnabled, setIsOrchestratorEnabled] = useState(false);
+    const [orchestratorDebugInfo, setOrchestratorDebugInfo] = useState({
+        currentSession: null,
+        activePipelineSize: 0,
+        sessionStats: {},
+        performanceInfo: null
+    });
 
     // 서버에서 TTS 설정 가져오기
     const fetchServerTtsSettings = async () => {
@@ -122,6 +133,80 @@ function StreamingPage({ isLoggedIn, username }) {
             ttsManagerRef.current.updateSettings(ttsSettings);
         }
     }, [ttsSettings.ttsEngine]);
+
+    // 스트리밍 오케스트레이터 초기화
+    useEffect(() => {
+        if (!streamingOrchestratorRef.current && ttsManagerRef.current && videoTransitionRef.current) {
+            console.log('🎬 스트리밍 오케스트레이터 초기화');
+            
+            streamingOrchestratorRef.current = new StreamingOrchestrator(
+                ttsManagerRef.current,
+                videoTransitionRef.current,
+                {
+                    syncMode: 'realtime',
+                    enableTextStreaming: true,
+                    enableTTSQueue: true,
+                    enableVideoSync: true,
+                    enableProfiling: true,
+                    textManager: {
+                        chunkSize: 40,
+                        enableSmartChunking: true,
+                        pauseBetweenSentences: 300
+                    },
+                    ttsQueue: {
+                        maxConcurrentJobs: 2,
+                        preloadNext: true,
+                        enableCaching: true
+                    },
+                    videoSync: {
+                        enableLipSync: true,
+                        videoLoopStrategy: 'smart',
+                        emotionKeywords: {
+                            happy: ['웃음', '기쁘', '행복', '좋아', '재미', 'ㅋㅋ', '😊'],
+                            angry: ['화나', '짜증', '싫어', '아니'],
+                            nod: ['맞아', '그래', '좋아', '네', '응']
+                        }
+                    }
+                }
+            );
+
+            // 오케스트레이터 콜백 설정
+            streamingOrchestratorRef.current.setCallbacks({
+                onSessionStart: (session) => {
+                    console.log('🎬 오케스트레이터 세션 시작:', session.id);
+                    setOrchestratorDebugInfo(prev => ({
+                        ...prev,
+                        currentSession: session
+                    }));
+                },
+                onSessionComplete: (session) => {
+                    console.log('✅ 오케스트레이터 세션 완료:', session.id);
+                    setOrchestratorDebugInfo(prev => ({
+                        ...prev,
+                        currentSession: null
+                    }));
+                },
+                onChunkProgress: (progressInfo) => {
+                    // 청크 진행 상황 업데이트
+                    setOrchestratorDebugInfo(prev => ({
+                        ...prev,
+                        lastChunkProgress: progressInfo
+                    }));
+                },
+                onDebugInfo: (debugInfo) => {
+                    setOrchestratorDebugInfo(prev => ({
+                        ...prev,
+                        ...debugInfo
+                    }));
+                },
+                onError: (errorInfo) => {
+                    console.error('❌ 오케스트레이터 오류:', errorInfo);
+                }
+            });
+
+            setIsOrchestratorEnabled(true);
+        }
+    }, [ttsManagerRef.current, videoTransitionRef.current]);
 
     const handleAction = (action) => {
         if (!isLoggedIn) {
@@ -217,8 +302,64 @@ function StreamingPage({ isLoggedIn, username }) {
         }
     };
 
-    // AI 메시지와 음성 재생 시간을 받아 동기화된 자막 표시
-    const handleAIMessage = (message, audioDuration, audioElement, ttsInfo = {}) => {
+    // AI 메시지 처리 - 새로운 오케스트레이터 통합
+    const handleAIMessage = async (message, audioDuration, audioElement, ttsInfo = {}) => {
+        // 기존 동기화 시스템과 새로운 오케스트레이터 시스템 선택
+        if (isOrchestratorEnabled && streamingOrchestratorRef.current) {
+            await handleAIMessageWithOrchestrator(message, ttsInfo);
+        } else {
+            handleAIMessageLegacy(message, audioDuration, audioElement, ttsInfo);
+        }
+    };
+
+    // 새로운 오케스트레이터를 사용한 AI 메시지 처리
+    const handleAIMessageWithOrchestrator = async (message, ttsInfo = {}) => {
+        try {
+            console.log('🎬 오케스트레이터로 AI 메시지 처리:', message.substring(0, 50) + '...');
+            
+            // 고유 세션 ID 생성
+            const sessionId = `ai_message_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            // 오케스트레이터로 스트리밍 세션 시작
+            await streamingOrchestratorRef.current.startStreamingSession(
+                message,
+                sessionId,
+                {
+                    ttsOptions: {
+                        engine: ttsSettings.ttsEngine,
+                        voice: ttsSettings.elevenLabsVoice,
+                        ...ttsInfo
+                    },
+                    videoOptions: {
+                        enableEmotionDetection: true,
+                        lipSyncAccuracy: 'high'
+                    }
+                }
+            );
+
+            // 자막 표시 시작
+            setCurrentSubtitle(message);
+            setRevealedSubtitle('');
+            setShowSubtitle(true);
+
+            // 디버그 정보 업데이트
+            setDebugInfo(prev => ({
+                ...prev,
+                syncMode: 'orchestrator',
+                isPlaying: true,
+                totalChars: message.length,
+                sessionId
+            }));
+
+        } catch (error) {
+            console.error('❌ 오케스트레이터 AI 메시지 처리 실패:', error);
+            // 폴백으로 기존 시스템 사용
+            handleAIMessageLegacy(message, 0, null, { ...ttsInfo, error: error.message });
+        }
+    };
+
+    // 기존 레거시 AI 메시지 처리 (폴백용)
+    const handleAIMessageLegacy = (message, audioDuration, audioElement, ttsInfo = {}) => {
         setCurrentSubtitle(message);
         setRevealedSubtitle('');
         setShowSubtitle(true);
@@ -431,12 +572,18 @@ function StreamingPage({ isLoggedIn, username }) {
                                 <div className="col-6">
                                     <strong>동기화:</strong>
                                     <span className={`badge ms-2 ${
+                                        debugInfo.syncMode === 'orchestrator' ? 'bg-primary' :
                                         debugInfo.syncMode === 'audio-sync' ? 'bg-success' : 
                                         debugInfo.syncMode === 'delay-sync' ? 'bg-warning' :
                                         debugInfo.syncMode === 'completed' ? 'bg-info' : 'bg-secondary'
                                     }`}>
-                                        {debugInfo.syncMode}
+                                        {debugInfo.syncMode === 'orchestrator' ? '🎬 오케스트레이터' : debugInfo.syncMode}
                                     </span>
+                                    {isOrchestratorEnabled && (
+                                        <span className="badge bg-success ms-1" title="스트리밍 오케스트레이터 활성화됨">
+                                            🎬
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="col-6">
                                     <strong>상태:</strong>
@@ -480,6 +627,46 @@ function StreamingPage({ isLoggedIn, username }) {
                             <small className="text-muted d-block mt-1" style={{ fontSize: '0.7rem' }}>
                                 "{revealedSubtitle.length > 50 ? revealedSubtitle.substring(0, 50) + '...' : revealedSubtitle}"
                             </small>
+
+                            {/* 오케스트레이터 디버그 정보 */}
+                            {isOrchestratorEnabled && orchestratorDebugInfo.currentSession && (
+                                <div className="mt-3 p-2 bg-dark bg-opacity-75 rounded">
+                                    <h6 className="text-primary mb-2">🎬 오케스트레이터 상태</h6>
+                                    <div className="row g-1 small">
+                                        <div className="col-6">
+                                            <strong>세션:</strong> {orchestratorDebugInfo.currentSession.id.split('_').pop()}
+                                        </div>
+                                        <div className="col-6">
+                                            <strong>파이프라인:</strong> {orchestratorDebugInfo.activePipelineSize}개
+                                        </div>
+                                        {orchestratorDebugInfo.sessionStats.totalSessions > 0 && (
+                                            <>
+                                                <div className="col-6">
+                                                    <strong>성공률:</strong> 
+                                                    {Math.round((orchestratorDebugInfo.sessionStats.successfulSessions / orchestratorDebugInfo.sessionStats.totalSessions) * 100)}%
+                                                </div>
+                                                <div className="col-6">
+                                                    <strong>평균 처리:</strong> 
+                                                    {Math.round(orchestratorDebugInfo.sessionStats.averageProcessingTime)}ms
+                                                </div>
+                                            </>
+                                        )}
+                                        {orchestratorDebugInfo.lastChunkProgress && (
+                                            <div className="col-12 mt-1">
+                                                <div className="progress" style={{ height: '2px' }}>
+                                                    <div 
+                                                        className="progress-bar bg-primary" 
+                                                        style={{ width: `${orchestratorDebugInfo.lastChunkProgress.progress}%` }}
+                                                    />
+                                                </div>
+                                                <small className="text-muted">
+                                                    청크 {orchestratorDebugInfo.lastChunkProgress.stage}: {Math.round(orchestratorDebugInfo.lastChunkProgress.progress)}%
+                                                </small>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                                 </div>
                             )}
                         </div>
@@ -595,6 +782,20 @@ function StreamingPage({ isLoggedIn, username }) {
                             >
                                 ⚙️
                             </Button>
+                            {isOrchestratorEnabled && (
+                                <Button 
+                                    variant={isOrchestratorEnabled ? "success" : "outline-secondary"} 
+                                    size="sm" 
+                                    onClick={() => {
+                                        if (streamingOrchestratorRef.current) {
+                                            streamingOrchestratorRef.current.stopStreaming();
+                                        }
+                                    }}
+                                    title="오케스트레이터 중단"
+                                >
+                                    🎬
+                                </Button>
+                            )}
                         </div>
                         
                         {/* 비디오 제어 패널 */}
