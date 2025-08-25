@@ -20,12 +20,8 @@ export class TTSServiceManager {
    */
   initializeServices() {
     try {
-      // ElevenLabs TTS 서비스 (기본 엔진)
+      // ElevenLabs TTS 서비스 (전용)
       this.services.elevenlabs = new ElevenLabsService(this.settings);
-
-      // TODO: 필요시 다른 TTS 서비스들 추가
-      // this.services.melotts = new MeloTTSService(this.settings);
-      // this.services.coqui = new CoquiTTSService(this.settings);
 
     } catch (error) {
       console.error('❌ TTS 서비스 초기화 실패:', error);

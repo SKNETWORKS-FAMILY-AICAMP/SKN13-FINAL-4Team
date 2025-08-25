@@ -7,7 +7,7 @@ export const DEFAULT_SETTINGS = {
   chunkSize: 3,
   syncMode: 'after_complete',
   
-  // ElevenLabs 설정 (기본 엔진)
+  // ElevenLabs 설정 (전용 엔진)
   elevenLabsVoice: 'aneunjin',
   elevenLabsModel: 'eleven_multilingual_v2',
   elevenLabsStability: 0.5,
@@ -15,29 +15,12 @@ export const DEFAULT_SETTINGS = {
   elevenLabsStyle: 0.0,
   elevenLabsSpeakerBoost: true,
   elevenLabsVoiceModels: {},
-  useVoiceOptimizedModels: true,
-  
-  // MeloTTS 설정
-  meloVoice: 'default',
-  language: 'ko',
-  
-  // Coqui TTS 설정
-  coquiModel: 'tts_models/ko/css10/vits',
-  coquiSpeaker: 0
+  useVoiceOptimizedModels: true
 };
 
-// TTS 엔진 옵션
+// TTS 엔진 옵션 (ElevenLabs 전용)
 export const TTS_ENGINE_OPTIONS = [
-  { value: 'elevenlabs', label: 'ElevenLabs', description: '초고품질, 자연스러운 음성' },
-  { value: 'melotts', label: 'MeloTTS', description: '실시간 스트리밍' },
-  { value: 'coqui', label: 'Coqui TTS', description: '오픈소스, 커스터마이징' }
-];
-
-// MeloTTS 음성 옵션
-export const MELO_VOICE_OPTIONS = [
-  { value: 'default', label: 'Default Voice' },
-  { value: 'female', label: 'Female Voice' },
-  { value: 'male', label: 'Male Voice' }
+  { value: 'elevenlabs', label: 'ElevenLabs', description: '초고품질, 자연스러운 음성' }
 ];
 
 // ElevenLabs 음성 옵션 (model_id 포함)
