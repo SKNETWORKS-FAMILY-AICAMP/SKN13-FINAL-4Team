@@ -126,11 +126,11 @@ class StreamerTTSSettings(models.Model):
         help_text='스트리머 ID (예: jammin-i)'
     )
     
-    # TTS 엔진 설정
+    # TTS 엔진 설정 (ElevenLabs 통일)
     tts_engine = models.CharField(
         max_length=50,
         default='elevenlabs',
-        help_text='사용할 TTS 엔진 (elevenlabs, melotts, coqui)'
+        help_text='사용할 TTS 엔진 (elevenlabs)'
     )
     
     # ElevenLabs 설정
@@ -161,23 +161,6 @@ class StreamerTTSSettings(models.Model):
         help_text='ElevenLabs 스피커 부스트'
     )
     
-    # MeloTTS 설정
-    melo_voice = models.CharField(
-        max_length=100,
-        default='default',
-        help_text='MeloTTS 음성'
-    )
-    
-    # Coqui 설정
-    coqui_model = models.CharField(
-        max_length=200,
-        default='tts_models/ko/css10/vits',
-        help_text='Coqui TTS 모델'
-    )
-    coqui_speaker = models.IntegerField(
-        default=0,
-        help_text='Coqui TTS 스피커 ID'
-    )
     
     # 기타 설정
     auto_play = models.BooleanField(
@@ -232,9 +215,6 @@ class StreamerTTSSettings(models.Model):
             'elevenLabsSimilarity': self.elevenlabs_similarity,
             'elevenLabsStyle': self.elevenlabs_style,
             'elevenLabsSpeakerBoost': self.elevenlabs_speaker_boost,
-            'meloVoice': self.melo_voice,
-            'coquiModel': self.coqui_model,
-            'coquiSpeaker': self.coqui_speaker,
             'autoPlay': self.auto_play,
             'streamingDelay': self.streaming_delay,
             'ttsDelay': self.tts_delay,
@@ -257,9 +237,6 @@ class StreamerTTSSettings(models.Model):
                 'elevenlabs_similarity': 0.8,
                 'elevenlabs_style': 0.0,
                 'elevenlabs_speaker_boost': True,
-                'melo_voice': 'default',
-                'coqui_model': 'tts_models/ko/css10/vits',
-                'coqui_speaker': 0,
                 'auto_play': True,
                 'streaming_delay': 50,
                 'tts_delay': 500,
