@@ -44,7 +44,7 @@ class APIClient {
      */
     async healthCheck(url) {
         try {
-            const response = await axios.get(`${url}/api/ai/tts/status/`, {
+            const response = await axios.get(`${url}/api/chat/ai/tts/status/`, {
                 timeout: 3000
             });
             return response.status === 200;

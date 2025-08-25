@@ -10,7 +10,7 @@ import UserListPage from './components/user/UserListPage';
 import ProfilePage from './components/user/ProfilePage';
 import StreamingPage from './components/streaming/StreamingPage';
 import HomeTemporary from './components/pages/HomeTemporary';
-import TTSDebugTool from './components/ai/TTSDebugTool';
+import TTSDebugTool from './components/tts/TTSDebugTool';
 import './App.css';
 
 function App() {
