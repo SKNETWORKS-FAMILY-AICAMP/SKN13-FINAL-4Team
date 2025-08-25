@@ -17,4 +17,4 @@ ELASTICACHE_USER="student"
 ELASTICACHE_PASSWORD="influencer1!2@3#"
 
 OPENAI_API_KEY="your-openai-key"
-ELEVENLABS_API_KEY="your-elevenlabs-key"
+ELEVENLABS_API_KEY="sk_dbe4938985375341980f82cbfebffa5d25df09f966ae2c06"

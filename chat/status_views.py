@@ -6,7 +6,7 @@ import logging
 
 # ElevenLabs import
 try:
-    from .elevenlabs_service import elevenlabs_service
+    from .tts_elevenlabs_service import elevenlabs_service
     ELEVENLABS_AVAILABLE = True
 except ImportError:
     elevenlabs_service = None

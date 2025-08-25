@@ -5,11 +5,11 @@ import asyncio
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from .ai_service import ai_service
+from .llm_text_service import ai_service
 
 # ElevenLabs TTS 서비스 (기본 엔진)
 try:
-    from .elevenlabs_service import elevenlabs_service
+    from .tts_elevenlabs_service import elevenlabs_service
     ELEVENLABS_AVAILABLE = True
 except ImportError:
     elevenlabs_service = None
@@ -64,8 +64,16 @@ def tts_api(request):
     """TTS API 엔드포인트 - ElevenLabs, MeloTTS, Coqui 지원"""
     async def async_handler():
         try:
-            # UTF-8 인코딩 처리
-            body_unicode = request.body.decode('utf-8')
+            # UTF-8 인코딩 처리 (오류 처리 강화)
+            try:
+                body_unicode = request.body.decode('utf-8')
+            except UnicodeDecodeError:
+                # UTF-8 디코딩 실패 시 다른 인코딩 시도
+                try:
+                    body_unicode = request.body.decode('utf-8', errors='replace')
+                except Exception:
+                    body_unicode = request.body.decode('latin1')
+            
             data = json.loads(body_unicode)
             text = data.get('text', '')
             engine = data.get('engine', 'elevenlabs')  # ElevenLabs 전용

@@ -1,0 +1,142 @@
+{
+  "characters": {
+    "jammin-i": {
+      "name": "잼민이",
+      "description": "활발하고 에너제틱한 AI 스트리머",
+      "videoBasePath": "/videos/jammin-i/",
+      "videoCategories": {
+        "idle": {
+          "files": ["a_idle_0.mp4", "a_idle_1.mp4", "a_idle_2.mp4"],
+          "defaultFile": "a_idle_0.mp4"
+        },
+        "talk": {
+          "files": ["a_talk_0.mp4", "a_talk_1.mp4", "a_talk_2.mp4", "a_talk_3.mp4", "a_talk_4.mp4", "a_talk_5.mp4"],
+          "defaultFile": "a_talk_0.mp4"
+        }
+      },
+      "emotionMapping": {
+        "happy": {
+          "idle": ["a_idle_0.mp4", "a_idle_1.mp4"],
+          "talk": ["a_talk_1.mp4", "a_talk_0.mp4"],
+          "weight": 1.2
+        },
+        "sad": {
+          "idle": ["a_idle_1.mp4", "a_idle_2.mp4"],
+          "talk": ["a_talk_2.mp4", "a_talk_3.mp4"],
+          "weight": 1.1
+        },
+        "angry": {
+          "idle": ["a_idle_2.mp4", "a_idle_0.mp4"],
+          "talk": ["a_talk_4.mp4", "a_talk_0.mp4"],
+          "weight": 1.0
+        },
+        "surprised": {
+          "idle": ["a_idle_0.mp4", "a_idle_2.mp4"],
+          "talk": ["a_talk_1.mp4", "a_talk_5.mp4"],
+          "weight": 1.3
+        },
+        "neutral": {
+          "idle": ["a_idle_0.mp4", "a_idle_1.mp4"],
+          "talk": ["a_talk_0.mp4", "a_talk_1.mp4"],
+          "weight": 1.0
+        }
+      }
+    },
+    "mina-chan": {
+      "name": "미나챤",
+      "description": "차분하고 지적인 AI 스트리머",
+      "videoBasePath": "/videos/mina-chan/",
+      "videoCategories": {
+        "idle": {
+          "files": ["m_idle_0.mp4", "m_idle_1.mp4", "m_idle_2.mp4"],
+          "defaultFile": "m_idle_0.mp4"
+        },
+        "talk": {
+          "files": ["m_talk_0.mp4", "m_talk_1.mp4", "m_talk_2.mp4", "m_talk_3.mp4"],
+          "defaultFile": "m_talk_0.mp4"
+        }
+      },
+      "emotionMapping": {
+        "neutral": {
+          "idle": ["m_idle_0.mp4", "m_idle_1.mp4"],
+          "talk": ["m_talk_0.mp4", "m_talk_1.mp4"],
+          "weight": 1.0
+        },
+        "happy": {
+          "idle": ["m_idle_1.mp4"],
+          "talk": ["m_talk_1.mp4", "m_talk_2.mp4"],
+          "weight": 1.2
+        },
+        "sad": {
+          "idle": ["m_idle_2.mp4"],
+          "talk": ["m_talk_3.mp4"],
+          "weight": 1.1
+        }
+      }
+    },
+    "hana-bot": {
+      "name": "하나봇",
+      "description": "귀엽고 친근한 AI 스트리머",
+      "videoBasePath": "/videos/hana-bot/",
+      "videoCategories": {
+        "idle": {
+          "files": ["h_idle_0.mp4", "h_idle_1.mp4"],
+          "defaultFile": "h_idle_0.mp4"
+        },
+        "talk": {
+          "files": ["h_talk_0.mp4", "h_talk_1.mp4", "h_talk_2.mp4"],
+          "defaultFile": "h_talk_0.mp4"
+        }
+      },
+      "emotionMapping": {
+        "neutral": {
+          "idle": ["h_idle_0.mp4"],
+          "talk": ["h_talk_0.mp4"],
+          "weight": 1.0
+        },
+        "happy": {
+          "idle": ["h_idle_1.mp4"],
+          "talk": ["h_talk_1.mp4", "h_talk_2.mp4"],
+          "weight": 1.3
+        }
+      }
+    },
+    "neo-kun": {
+      "name": "네오쿤",
+      "description": "쿨하고 미래적인 AI 스트리머",
+      "videoBasePath": "/videos/neo-kun/",
+      "videoCategories": {
+        "idle": {
+          "files": ["n_idle_0.mp4", "n_idle_1.mp4"],
+          "defaultFile": "n_idle_0.mp4"
+        },
+        "talk": {
+          "files": ["n_talk_0.mp4", "n_talk_1.mp4"],
+          "defaultFile": "n_talk_0.mp4"
+        }
+      },
+      "emotionMapping": {
+        "neutral": {
+          "idle": ["n_idle_0.mp4"],
+          "talk": ["n_talk_0.mp4"],
+          "weight": 1.0
+        },
+        "surprised": {
+          "idle": ["n_idle_1.mp4"],
+          "talk": ["n_talk_1.mp4"],
+          "weight": 1.2
+        }
+      }
+    }
+  },
+  "systemSettings": {
+    "defaultCharacter": "jammin-i",
+    "fallbackVideo": "a_idle_0.mp4",
+    "defaultEmotion": "neutral",
+    "randomSelection": true,
+    "cacheSettings": {
+      "enabled": true,
+      "ttlMinutes": 60
+    }
+  }
+}
