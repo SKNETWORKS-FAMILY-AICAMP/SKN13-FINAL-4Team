@@ -4,11 +4,21 @@ import { Container, Row, Col, Image, Button, Badge } from 'react-bootstrap';
 import StreamingChatClient from './StreamingChatClient';
 import VideoControlPanel from './VideoControlPanel';
 import VideoPlayer from './VideoPlayer';
-// AITextSyncService는 Broadcasting 시스템에서 Backend로 이동됨
-import { DEFAULT_SETTINGS } from '../../config/aiChatSettings';
-import TTSConfigManager from '../tts/TTSConfigManager';
+import SettingsPanel from './SettingsPanel';
 import { MediaSyncController } from '../../services/MediaSyncController';
+import { processTextForDisplay, debugVoiceTags } from '../../utils/textUtils';
+// Hot Reload 테스트 주석 - 2025.08.26 - 최종 수정!
 import './StreamingPage.css';
+
+// Backend에서 TTS 설정 관리, fallback 기본값만 정의
+const DEFAULT_SETTINGS = {
+    streamingDelay: 50,
+    ttsDelay: 500,
+    chunkSize: 3,
+    syncMode: 'after_complete',
+    autoPlay: true,
+    ttsEngine: 'elevenlabs'
+};
 
 function StreamingPage({ isLoggedIn, username }) {
     const { streamerId } = useParams();
@@ -20,11 +30,11 @@ function StreamingPage({ isLoggedIn, username }) {
     const [currentVideo, setCurrentVideo] = useState('a_idle_0.mp4');
     
     // 자막 상태 추가
-    const [currentSubtitle, setCurrentSubtitle] = useState('');
+    // const [currentSubtitle, setCurrentSubtitle] = useState(''); // Broadcasting 시스템에서 관리
     const [revealedSubtitle, setRevealedSubtitle] = useState('');
     const [showSubtitle, setShowSubtitle] = useState(false);
     const subtitleTimeoutRef = useRef(null);
-    // textSyncService는 Broadcasting 시스템에서 Backend로 이동됨
+    // 텍스트 동기화는 Broadcasting 시스템에서 Backend로 이동됨
     
     // 디버그 정보 상태
     const [debugInfo, setDebugInfo] = useState({
@@ -52,7 +62,6 @@ function StreamingPage({ isLoggedIn, username }) {
         ttsEngine: 'elevenlabs',
         elevenLabsVoice: 'aneunjin'
     });
-    const [showTtsSettings, setShowTtsSettings] = useState(false);
     const [showSettingsManager, setShowSettingsManager] = useState(false);
     
     // 서버 TTS 설정 상태 추가
@@ -64,7 +73,7 @@ function StreamingPage({ isLoggedIn, username }) {
 
     // 새로운 Broadcasting 시스템 관련 상태 추가
     const syncMediaPlayerRef = useRef(null);
-    const [isBroadcastingEnabled, setIsBroadcastingEnabled] = useState(true); // 기본적으로 활성화
+    const [isBroadcastingEnabled] = useState(true); // 기본적으로 활성화 (변경하지 않음)
     const [syncDebugInfo, setSyncDebugInfo] = useState({
         isPlaying: false,
         sync_id: null,
@@ -106,12 +115,8 @@ function StreamingPage({ isLoggedIn, username }) {
         }
     };
 
-    // TTS 설정 업데이트 함수
-    const handleTtsSettingChange = (key, value) => {
-        const newSettings = { ...ttsSettings, [key]: value };
-        setTtsSettings(newSettings);
-        // Broadcasting 시스템에서는 Backend에서 TTS 설정 관리
-    };
+    // Broadcasting 시스템에서 TTS 설정 관리됨
+    // const handleTtsSettingChange = (key, value) => { ... }
 
     // 서버 TTS 설정 로드
     useEffect(() => {
@@ -120,7 +125,17 @@ function StreamingPage({ isLoggedIn, username }) {
         }
     }, [isLoggedIn, streamerId]);
 
-    // Legacy TTS Manager와 Orchestrator는 Broadcasting 시스템으로 대체됨
+    // 컴포넌트 언마운트 시 타이머 정리
+    useEffect(() => {
+        return () => {
+            if (subtitleTimeoutRef.current) {
+                clearTimeout(subtitleTimeoutRef.current);
+                console.log('🧹 자막 타이머 cleanup 완료');
+            }
+        };
+    }, []);
+
+    // TTS 관리는 Broadcasting 시스템으로 대체됨
 
     const handleAction = (action) => {
         if (!isLoggedIn) {
@@ -229,6 +244,230 @@ function StreamingPage({ isLoggedIn, username }) {
         }
     };
 
+    // 동기화 모드별 자막 처리 함수
+    const handleSubtitleSync = (streamText, syncMode, data) => {
+        const chunkSize = Math.max(1, ttsSettings.chunkSize || 3);
+        const streamingDelay = Math.max(10, ttsSettings.streamingDelay || 50);
+        const audioDuration = data.content?.audio_duration || 0;
+
+        switch (syncMode) {
+            case 'real_time':
+                handleRealTimeSync(streamText, chunkSize, streamingDelay, audioDuration);
+                break;
+            case 'chunked':
+                handleChunkedSync(streamText, chunkSize, streamingDelay, audioDuration);
+                break;
+            case 'after_complete':
+            default:
+                handleAfterCompleteSync(streamText, chunkSize, streamingDelay, audioDuration);
+                break;
+        }
+    };
+
+    // After Complete 모드: 텍스트 스트리밍 완료 후 오디오 재생
+    const handleAfterCompleteSync = (streamText, chunkSize, streamingDelay, audioDuration) => {
+        console.log('📋 After Complete 모드 실행');
+        
+        let currentIndex = 0;
+        const streamInterval = setInterval(() => {
+            if (currentIndex < streamText.length) {
+                const nextChunk = streamText.slice(0, currentIndex + chunkSize);
+                setRevealedSubtitle(nextChunk);
+                
+                // 텍스트 진행률 업데이트
+                const textProgress = (nextChunk.length / streamText.length) * 100;
+                setDebugInfo(prev => ({
+                    ...prev,
+                    revealedChars: nextChunk.length,
+                    textProgress: textProgress
+                }));
+                
+                currentIndex += chunkSize;
+            } else {
+                clearInterval(streamInterval);
+                console.log('✅ 텍스트 스트리밍 완료 (After Complete 모드)');
+                
+                // 텍스트 완료 상태 업데이트
+                setDebugInfo(prev => ({
+                    ...prev,
+                    revealedChars: streamText.length,
+                    textProgress: 100
+                }));
+                
+                // 수정된 타이밍 계산: 더 안전한 지연시간 사용
+                const textStreamingTime = (streamText.length / chunkSize) * streamingDelay;
+                
+                // 오디오 재생 시간을 더 여유있게 계산 (최소 3초 보장)
+                const totalAudioTime = Math.max(audioDuration * 1000, 3000); // 최소 3초
+                const safeHideDelay = Math.max(totalAudioTime - textStreamingTime, 2000) + 2000; // 최소 2초 대기 + 2초 여유
+                
+                console.log('📊 After Complete 개선된 타이밍:', {
+                    audioDuration: audioDuration + 's',
+                    textStreamingTime: textStreamingTime + 'ms',
+                    totalAudioTime: totalAudioTime + 'ms',
+                    safeHideDelay: safeHideDelay + 'ms'
+                });
+                
+                // 자막을 오디오 재생 완료 후 충분히 유지
+                subtitleTimeoutRef.current = setTimeout(() => {
+                    setShowSubtitle(false);
+                    setRevealedSubtitle('');
+                    // setCurrentSubtitle(''); // Broadcasting 시스템에서 관리
+                    
+                    // 디버그 정보 초기화
+                    setDebugInfo(prev => ({
+                        ...prev,
+                        isPlaying: false,
+                        currentTime: 0,
+                        textProgress: 0,
+                        revealedChars: 0
+                    }));
+                    
+                    console.log('🙈 자막 숨김 (After Complete 안전 완료)');
+                }, safeHideDelay);
+            }
+        }, streamingDelay);
+    };
+
+    // Real Time 모드: 텍스트와 오디오 동시 시작
+    const handleRealTimeSync = (streamText, chunkSize, streamingDelay, audioDuration) => {
+        console.log('⚡ Real Time 모드 실행');
+        
+        // 텍스트 스트리밍과 오디오가 거의 동시에 완료되도록 조정
+        const totalTextTime = (streamText.length / chunkSize) * streamingDelay;
+        const audioTimeMs = audioDuration * 1000;
+        
+        // 오디오 길이에 맞춰 텍스트 스트리밍 속도 조정
+        const adjustedDelay = audioTimeMs > totalTextTime 
+            ? Math.floor(audioTimeMs / (streamText.length / chunkSize)) 
+            : streamingDelay;
+            
+        console.log('📊 Real Time 속도 조정:', {
+            originalDelay: streamingDelay + 'ms',
+            adjustedDelay: adjustedDelay + 'ms',
+            audioTime: audioTimeMs + 'ms',
+            estimatedTextTime: (streamText.length / chunkSize) * adjustedDelay + 'ms'
+        });
+        
+        let currentIndex = 0;
+        const streamInterval = setInterval(() => {
+            if (currentIndex < streamText.length) {
+                const nextChunk = streamText.slice(0, currentIndex + chunkSize);
+                setRevealedSubtitle(nextChunk);
+                
+                // 텍스트 진행률 업데이트
+                const textProgress = (nextChunk.length / streamText.length) * 100;
+                setDebugInfo(prev => ({
+                    ...prev,
+                    revealedChars: nextChunk.length,
+                    textProgress: textProgress
+                }));
+                
+                currentIndex += chunkSize;
+            } else {
+                clearInterval(streamInterval);
+                console.log('✅ 텍스트 스트리밍 완료 (Real Time 모드)');
+                
+                // 텍스트 완료 상태 업데이트
+                setDebugInfo(prev => ({
+                    ...prev,
+                    revealedChars: streamText.length,
+                    textProgress: 100
+                }));
+                
+                // 오디오 완료 1초 후 자막 숨김
+                subtitleTimeoutRef.current = setTimeout(() => {
+                    setShowSubtitle(false);
+                    setRevealedSubtitle('');
+                    // setCurrentSubtitle(''); // Broadcasting 시스템에서 관리
+                    
+                    // 디버그 정보 초기화
+                    setDebugInfo(prev => ({
+                        ...prev,
+                        isPlaying: false,
+                        currentTime: 0,
+                        textProgress: 0,
+                        revealedChars: 0
+                    }));
+                    
+                    console.log('🙈 자막 숨김 (Real Time 완료)');
+                }, 1000);
+            }
+        }, adjustedDelay);
+    };
+
+    // Chunked 모드: 텍스트를 문장별로 나누어 순차 처리
+    const handleChunkedSync = (streamText, chunkSize, streamingDelay, audioDuration) => {
+        console.log('📦 Chunked 모드 실행');
+        
+        // 문장 단위로 텍스트 분할 (.!? 기준)
+        const sentences = streamText.split(/(?<=[.!?])\s+/).filter(s => s.trim());
+        const audioPerChunk = audioDuration / sentences.length; // 각 문장당 할당 시간
+        
+        console.log('📊 Chunked 분할:', {
+            totalSentences: sentences.length,
+            audioPerChunk: audioPerChunk + 's/문장',
+            sentences: sentences.map(s => s.substring(0, 30) + '...')
+        });
+        
+        let sentenceIndex = 0;
+        
+        const processSentence = () => {
+            if (sentenceIndex >= sentences.length) {
+                console.log('✅ 모든 청크 처리 완료 (Chunked 모드)');
+                
+                // 텍스트 완료 상태 업데이트
+                setDebugInfo(prev => ({
+                    ...prev,
+                    revealedChars: streamText.length,
+                    textProgress: 100
+                }));
+                
+                // 마지막 문장 후 1초 뒤 자막 숨김
+                subtitleTimeoutRef.current = setTimeout(() => {
+                    setShowSubtitle(false);
+                    setRevealedSubtitle('');
+                    // setCurrentSubtitle(''); // Broadcasting 시스템에서 관리
+                    
+                    // 디버그 정보 초기화
+                    setDebugInfo(prev => ({
+                        ...prev,
+                        isPlaying: false,
+                        currentTime: 0,
+                        textProgress: 0,
+                        revealedChars: 0
+                    }));
+                    
+                    console.log('🙈 자막 숨김 (Chunked 완료)');
+                }, 1000);
+                return;
+            }
+            
+            const sentence = sentences[sentenceIndex];
+            console.log(`📦 청크 ${sentenceIndex + 1}/${sentences.length}: ${sentence.substring(0, 30)}...`);
+            
+            // 현재 문장까지의 누적 텍스트 표시
+            const accumulatedText = sentences.slice(0, sentenceIndex + 1).join(' ');
+            setRevealedSubtitle(accumulatedText);
+            
+            // 텍스트 진행률 업데이트
+            const textProgress = (accumulatedText.length / streamText.length) * 100;
+            setDebugInfo(prev => ({
+                ...prev,
+                revealedChars: accumulatedText.length,
+                textProgress: textProgress
+            }));
+            
+            sentenceIndex++;
+            
+            // 다음 문장 처리를 위해 대기 (문장당 할당된 시간)
+            setTimeout(processSentence, audioPerChunk * 1000);
+        };
+        
+        // 첫 번째 문장부터 시작
+        processSentence();
+    };
+
     // 동기화된 미디어 브로드캐스트 처리
     const handleSynchronizedMediaBroadcast = (data) => {
         try {
@@ -255,39 +494,48 @@ function StreamingPage({ isLoggedIn, username }) {
                 console.warn('⚠️ MediaSyncController가 초기화되지 않음');
             }
 
-            // 스트리밍 텍스트 표시 (자막)
+            // 스트리밍 텍스트 표시 (자막) - 동기화 모드별 처리
             if (data.content?.text) {
-                console.log('📝 스트리밍 텍스트 표시 시작:', data.content.text.substring(0, 50) + '...');
+                const originalText = data.content.text;
+                const currentTtsModel = data.metadata?.voice_settings?.elevenLabsModel || serverTtsSettings?.elevenLabsModel || '';
+                const syncMode = data.metadata?.sync_mode || serverTtsSettings?.syncMode || 'after_complete';
                 
-                // 자막 표시
-                setCurrentSubtitle(data.content.text);
+                // 음성 태그 처리: 표시용 텍스트는 태그 제거
+                const streamText = processTextForDisplay(originalText, currentTtsModel, false);
+                
+                // 디버그 로깅
+                if (originalText !== streamText) {
+                    debugVoiceTags(originalText);
+                }
+                
+                console.log('📝 스트리밍 텍스트 표시 시작:', {
+                    originalText: originalText.substring(0, 50) + '...',
+                    displayText: streamText.substring(0, 50) + '...',
+                    ttsModel: currentTtsModel,
+                    syncMode: syncMode,
+                    audioDuration: data.content.audio_duration + 's'
+                });
+                
+                // 자막 표시 기본 설정 (음성 태그가 제거된 텍스트 사용)
+                // setCurrentSubtitle(streamText); // Broadcasting 시스템에서 관리
                 setRevealedSubtitle('');
                 setShowSubtitle(true);
                 
-                // 스트리밍 효과로 자막 표시
-                const streamText = data.content.text;
-                const chunkSize = Math.max(1, ttsSettings.chunkSize || 3);
-                const streamingDelay = Math.max(10, ttsSettings.streamingDelay || 50);
-                
-                let currentIndex = 0;
-                const streamInterval = setInterval(() => {
-                    if (currentIndex < streamText.length) {
-                        const nextChunk = streamText.slice(0, currentIndex + chunkSize);
-                        setRevealedSubtitle(nextChunk);
-                        currentIndex += chunkSize;
-                    } else {
-                        clearInterval(streamInterval);
-                        console.log('✅ 스트리밍 텍스트 표시 완료');
-                    }
-                }, streamingDelay);
+                // 기존 자막 타이머가 있으면 정리
+                if (subtitleTimeoutRef.current) {
+                    clearTimeout(subtitleTimeoutRef.current);
+                }
+
+                // 동기화 모드별 처리
+                handleSubtitleSync(streamText, syncMode, data);
 
                 // 채팅에 AI 메시지 표시 (디버그 정보)
                 setDebugInfo(prev => ({
                     ...prev,
-                    syncMode: 'broadcasting',
+                    syncMode: syncMode,
                     ttsEngine: data.content?.tts_info?.engine || 'elevenlabs',
                     audioDuration: data.content.audio_duration || 0,
-                    totalChars: data.content.text.length,
+                    totalChars: streamText.length,
                     isPlaying: true,
                     voiceSettings: data.metadata?.voice_settings || {},
                     requestedEngine: data.metadata?.voice_settings?.ttsEngine || 'elevenlabs'
@@ -299,46 +547,21 @@ function StreamingPage({ isLoggedIn, username }) {
         }
     };
 
-    // AI 메시지 처리 - Broadcasting 시스템에서 자동 처리됨
-    const handleAIMessage = async (message, audioDuration, audioElement, ttsInfo = {}) => {
-        // 새로운 Broadcasting 시스템에서는 WebSocket을 통해 자동으로 처리되므로
-        // 별도 처리 불필요. 로그만 기록
-        console.log('📝 AI 메시지 (Broadcasting 시스템에서 처리됨):', message.substring(0, 50) + '...');
-        
-        // 기존 호환성을 위한 최소한의 처리
-        if (!isBroadcastingEnabled) {
-            console.warn('⚠️ Broadcasting 비활성화 - Legacy 처리로 폴백');
-            handleAIMessageLegacy(message, audioDuration, audioElement, ttsInfo);
-        }
-    };
-
-    // Legacy 폴백 처리 (Broadcasting 비활성화 시만 사용)
-    const handleAIMessageLegacy = (message, audioDuration, audioElement, ttsInfo = {}) => {
-        console.warn('🔄 Legacy AI 처리 시스템 사용 (Broadcasting 비활성화됨)');
-        
-        setCurrentSubtitle(message);
-        setRevealedSubtitle('');
-        setShowSubtitle(true);
-        
-        // 간단한 디버그 정보만 설정
+    // 오디오 재생 진행률 업데이트 핸들러
+    const handleAudioProgressUpdate = (currentTime, duration, textProgress) => {
         setDebugInfo(prev => ({
             ...prev,
-            isPlaying: true,
-            totalChars: message.length,
-            syncMode: 'legacy_fallback',
-            ttsEngine: 'legacy'
+            currentTime: currentTime,
+            audioDuration: duration,
+            textProgress: textProgress,
+            revealedChars: Math.floor((textProgress / 100) * prev.totalChars)
         }));
-        
-        // 기본 텍스트 표시 - Broadcasting 시스템에서 Backend로 이동됨
-        // if (textSyncServiceRef.current) {
-        //     textSyncServiceRef.current.startDelayedReveal(message, () => {
-        //         setTimeout(() => {
-        //             setShowSubtitle(false);
-        //             setRevealedSubtitle('');
-        //             setDebugInfo(prev => ({ ...prev, syncMode: 'none', isPlaying: false }));
-        //         }, 3000);
-        //     });
-        // }
+    };
+
+    // AI 메시지 처리 - Broadcasting 시스템에서 자동 처리됨
+    const handleAIMessage = async (message, audioDuration, audioElement, ttsInfo = {}) => {
+        // Broadcasting 시스템에서 WebSocket을 통해 자동으로 처리됨
+        console.log('📝 AI 메시지 (Broadcasting 시스템에서 처리됨):', message.substring(0, 50) + '...');
     };
 
 
@@ -355,318 +578,67 @@ function StreamingPage({ isLoggedIn, username }) {
 
     return (
         <Container fluid className="streaming-container mt-4">
-            {/* 통합 설정 패널 - 디버그, TTS 설정, 설정 관리 통합 */}
-            {(showDebug || showTtsSettings || showSettingsManager) && (
-                <div className="settings-panel-overlay">
-                    <div className="settings-panel-floating">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                            <div className="d-flex gap-2">
-                                <Button 
-                                    variant={showDebug ? "info" : "outline-info"}
-                                    size="sm" 
-                                    onClick={() => {
-                                        setShowDebug(!showDebug);
-                                        if (!showDebug) setShowTtsSettings(false);
-                                    }}
-                                >
-                                    🔧 디버그
-                                </Button>
-                                <Button 
-                                    variant={showTtsSettings ? "primary" : "outline-primary"}
-                                    size="sm" 
-                                    onClick={() => {
-                                        setShowTtsSettings(!showTtsSettings);
-                                        if (!showTtsSettings) {
-                                            setShowDebug(false);
-                                            setShowSettingsManager(false);
-                                        }
-                                    }}
-                                >
-                                    🎵 TTS 설정
-                                </Button>
-                                <Button 
-                                    variant={showSettingsManager ? "warning" : "outline-warning"}
-                                    size="sm" 
-                                    onClick={() => {
-                                        setShowSettingsManager(!showSettingsManager);
-                                        if (!showSettingsManager) {
-                                            setShowDebug(false);
-                                            setShowTtsSettings(false);
-                                        }
-                                    }}
-                                >
-                                    ⚙️ 설정 관리
-                                </Button>
-                            </div>
-                            <Button 
-                                variant="outline-secondary" 
-                                size="sm" 
-                                onClick={() => {
-                                    setShowDebug(false);
-                                    setShowTtsSettings(false);
-                                    setShowSettingsManager(false);
-                                }}
-                            >
-                                ✕
-                            </Button>
-                        </div>
-                        
-                        <div>
-                            {/* 설정 관리 패널 내용 */}
-                            {showSettingsManager && (
-                                <div className="settings-content">
-                                    <TTSConfigManager 
-                                        streamerId={streamerId}
-                                        isLoggedIn={isLoggedIn}
-                                        username={username}
-                                    />
-                                </div>
-                            )}
-                            
-                            {/* TTS 설정 패널 내용 */}
-                            {showTtsSettings && (
-                                <div className="settings-content">
-                                    <div className="mb-3">
-                                        {/* AITTSEngineSelector는 Broadcasting 시스템에서 Backend로 이동됨 */}
-                                        {/* <AITTSEngineSelector
-                                            currentEngine={ttsSettings.ttsEngine}
-                                            settings={ttsSettings}
-                                            onEngineChange={(engine) => handleTtsSettingChange('ttsEngine', engine)}
-                                            onSettingChange={handleTtsSettingChange}
-                                            ttsManager={ttsManagerRef.current}
-                                        /> */}
-                                    </div>
-                                    
-                                    <div className="mb-2">
-                                        <div className="form-check">
-                                            <input
-                                                className="form-check-input"
-                                                type="checkbox"
-                                                id="autoPlayCheckFloat"
-                                                checked={ttsSettings.autoPlay}
-                                                onChange={(e) => handleTtsSettingChange('autoPlay', e.target.checked)}
-                                            />
-                                            <label className="form-check-label text-light" htmlFor="autoPlayCheckFloat">
-                                                🎵 AI 메시지 자동 음성 재생
-                                            </label>
-                                        </div>
-                                        <small className="text-muted">AI가 응답할 때 자동으로 음성을 재생합니다</small>
-                                    </div>
-                                </div>
-                            )}
-                            
-                            {/* 디버그 패널 내용 */}
-                            {showDebug && (
-                                <div className="debug-content">
-                                <div className="row g-2">
-                                    <div className="col-12 mb-2">
-                                        <strong>🎵 TTS 엔진:</strong>
-                                        <span className={`badge ms-2 ${
-                                            debugInfo.ttsEngine === 'openai' ? 'bg-success' :
-                                            debugInfo.ttsEngine === 'elevenlabs' ? 'bg-primary' :
-                                            debugInfo.ttsEngine === 'melotts' ? 'bg-warning' :
-                                            debugInfo.ttsEngine === 'coqui' ? 'bg-info' : 'bg-secondary'
-                                        }`}>
-                                        {debugInfo.ttsEngine === 'elevenlabs' ? 'ElevenLabs TTS' :
-                                         debugInfo.ttsEngine === 'elevenlabs' ? 'ElevenLabs' :
-                                         debugInfo.ttsEngine === 'melotts' ? 'MeloTTS' :
-                                         debugInfo.ttsEngine === 'coqui' ? 'Coqui TTS' :
-                                         debugInfo.ttsEngine.toUpperCase()}
-                                    </span>
-                                    {debugInfo.fallbackUsed && (
-                                        <span className="badge bg-warning ms-2" title={`요청: ${debugInfo.requestedEngine}, 실제사용: ${debugInfo.ttsEngine}`}>
-                                            ⚠️ 폴백됨 ({debugInfo.requestedEngine} → {debugInfo.ttsEngine})
-                                        </span>
-                                    )}
-                                    {debugInfo.requestedEngine !== debugInfo.ttsEngine && !debugInfo.fallbackUsed && (
-                                        <span className="badge bg-info ms-2" title="설정과 실제 사용 엔진이 다름">
-                                            ℹ️ 엔진불일치 (설정:{debugInfo.requestedEngine} / 사용:{debugInfo.ttsEngine})
-                                        </span>
-                                    )}
-                                    {debugInfo.voiceSettings && typeof debugInfo.voiceSettings === 'string' && (
-                                        <small className="ms-2 text-muted">({debugInfo.voiceSettings})</small>
-                                    )}
-                                </div>
-                                <div className="col-6">
-                                    <strong>동기화:</strong>
-                                    <span className={`badge ms-2 ${
-                                        debugInfo.syncMode === 'broadcasting' ? 'bg-primary' :
-                                        debugInfo.syncMode === 'audio-sync' ? 'bg-success' : 
-                                        debugInfo.syncMode === 'delay-sync' ? 'bg-warning' :
-                                        debugInfo.syncMode === 'completed' ? 'bg-info' :
-                                        debugInfo.syncMode === 'legacy_fallback' ? 'bg-warning' : 'bg-secondary'
-                                    }`}>
-                                        {debugInfo.syncMode === 'broadcasting' ? '📡 Broadcasting' : 
-                                         debugInfo.syncMode === 'legacy_fallback' ? '🔄 Legacy' : 
-                                         debugInfo.syncMode}
-                                    </span>
-                                    {isBroadcastingEnabled && (
-                                        <span className="badge bg-success ms-1" title="Broadcasting 시스템 활성화됨">
-                                            📡
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="col-6">
-                                    <strong>상태:</strong>
-                                    <span className={`badge ms-2 ${debugInfo.isPlaying ? 'bg-success' : 'bg-secondary'}`}>
-                                        {debugInfo.isPlaying ? '재생 중' : '정지'}
-                                    </span>
-                                </div>
-                                <div className="col-6">
-                                    <strong>시간:</strong>
-                                    <span className="ms-2 small">{debugInfo.currentTime.toFixed(1)}s / {debugInfo.audioDuration.toFixed(1)}s</span>
-                                </div>
-                                <div className="col-6">
-                                    <strong>텍스트:</strong>
-                                    <span className="ms-2 small">{debugInfo.revealedChars} / {debugInfo.totalChars}자</span>
-                                </div>
-                                {debugInfo.audioFileSize > 0 && (
-                                    <div className="col-6">
-                                        <strong>파일:</strong>
-                                        <span className="ms-2 small">{(debugInfo.audioFileSize / 1024).toFixed(1)}KB</span>
-                                    </div>
-                                )}
-                                {debugInfo.generationTime > 0 && (
-                                    <div className="col-6">
-                                        <strong>생성:</strong>
-                                        <span className="ms-2 small">{debugInfo.generationTime.toFixed(2)}초</span>
-                                    </div>
-                                )}
-                                {debugInfo.error && (
-                                    <div className="col-12 mt-2">
-                                        <span className="badge bg-danger me-2">⚠️ 오류</span>
-                                        <small className="text-danger">{debugInfo.error}</small>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="progress mt-2" style={{ height: '3px' }}>
-                                <div 
-                                    className="progress-bar bg-success" 
-                                    style={{ width: `${debugInfo.textProgress}%` }}
-                                ></div>
-                            </div>
-                            <small className="text-muted d-block mt-1" style={{ fontSize: '0.7rem' }}>
-                                "{revealedSubtitle.length > 50 ? revealedSubtitle.substring(0, 50) + '...' : revealedSubtitle}"
-                            </small>
-
-                            {/* 비디오 디버그 정보 */}
-                            <div className="mt-3 p-2 bg-dark bg-opacity-75 rounded">
-                                <h6 className="text-warning mb-2">🎥 비디오 상태</h6>
-                                <div className="row g-1 small">
-                                    <div className="col-12">
-                                        <strong>현재 비디오:</strong> 
-                                        <span className="badge bg-warning text-dark ms-2">{currentVideo}</span>
-                                    </div>
-                                    <div className="col-6">
-                                        <strong>비디오 전환:</strong> 
-                                        <span className={`badge ms-2 ${videoTransitionRef.current ? 'bg-success' : 'bg-secondary'}`}>
-                                            {videoTransitionRef.current ? '활성' : '비활성'}
-                                        </span>
-                                    </div>
-                                    <div className="col-6">
-                                        <strong>자막 표시:</strong> 
-                                        <span className={`badge ms-2 ${showSubtitle ? 'bg-success' : 'bg-secondary'}`}>
-                                            {showSubtitle ? '표시 중' : '숨김'}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Broadcasting 시스템 디버그 정보 */}
-                            {isBroadcastingEnabled && (
-                                <div className="mt-3 p-2 bg-primary bg-opacity-10 rounded">
-                                    <h6 className="text-primary mb-2">📡 Broadcasting 상태</h6>
-                                    <div className="row g-1 small">
-                                        <div className="col-6">
-                                            <strong>Sync ID:</strong>
-                                            <span className="ms-2 font-monospace" style={{ fontSize: '0.7rem' }}>
-                                                {syncDebugInfo.sync_id ? syncDebugInfo.sync_id.substring(0, 8) + '...' : 'N/A'}
-                                            </span>
-                                        </div>
-                                        <div className="col-6">
-                                            <strong>네트워크 지연:</strong>
-                                            <span className={`badge ms-2 ${
-                                                syncDebugInfo.network_latency < 0.1 ? 'bg-success' :
-                                                syncDebugInfo.network_latency < 0.3 ? 'bg-warning' : 'bg-danger'
-                                            }`}>
-                                                {(syncDebugInfo.network_latency * 1000).toFixed(0)}ms
-                                            </span>
-                                        </div>
-                                        <div className="col-6">
-                                            <strong>Sync 상태:</strong>
-                                            <span className={`badge ms-2 ${
-                                                syncDebugInfo.sync_status === 'broadcasting' ? 'bg-primary' :
-                                                syncDebugInfo.sync_status === 'idle' ? 'bg-secondary' :
-                                                syncDebugInfo.sync_status === 'error' ? 'bg-danger' : 'bg-info'
-                                            }`}>
-                                                {syncDebugInfo.sync_status}
-                                            </span>
-                                        </div>
-                                        <div className="col-6">
-                                            <strong>활성 브로드캐스트:</strong>
-                                            <span className="badge bg-info ms-2">{syncDebugInfo.active_broadcasts}</span>
-                                        </div>
-                                        <div className="col-12">
-                                            <strong>캐릭터:</strong>
-                                            <span className="badge bg-warning text-dark ms-2">{streamerId}</span>
-                                            <small className="ms-2 text-muted">
-                                                (JSON 기반 비디오 관리)
-                                            </small>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Legacy 오케스트레이터 디버그 정보 */}
-                            {/* 오케스트레이터 상태는 Broadcasting 시스템에서 제거됨 */}
-                            {/* {!isBroadcastingEnabled && (
-                                <div className="mt-3 p-2 bg-dark bg-opacity-75 rounded">
-                                    <h6 className="text-primary mb-2">🎬 오케스트레이터 상태</h6>
-                                    <div className="row g-1 small">
-                                        <div className="col-6">
-                                            <strong>세션:</strong> {orchestratorDebugInfo.currentSession.id.split('_').pop()}
-                                        </div>
-                                        <div className="col-6">
-                                            <strong>파이프라인:</strong> {orchestratorDebugInfo.activePipelineSize}개
-                                        </div>
-                                        {orchestratorDebugInfo.sessionStats.totalSessions > 0 && (
-                                            <>
-                                                <div className="col-6">
-                                                    <strong>성공률:</strong> 
-                                                    {Math.round((orchestratorDebugInfo.sessionStats.successfulSessions / orchestratorDebugInfo.sessionStats.totalSessions) * 100)}%
-                                                </div>
-                                                <div className="col-6">
-                                                    <strong>평균 처리:</strong> 
-                                                    {Math.round(orchestratorDebugInfo.sessionStats.averageProcessingTime)}ms
-                                                </div>
-                                            </>
-                                        )}
-                                        {orchestratorDebugInfo.lastChunkProgress && (
-                                            <div className="col-12 mt-1">
-                                                <div className="progress" style={{ height: '2px' }}>
-                                                    <div 
-                                                        className="progress-bar bg-primary" 
-                                                        style={{ width: `${orchestratorDebugInfo.lastChunkProgress.progress}%` }}
-                                                    />
-                                                </div>
-                                                <small className="text-muted">
-                                                    청크 {orchestratorDebugInfo.lastChunkProgress.stage}: {Math.round(orchestratorDebugInfo.lastChunkProgress.progress)}%
-                                                </small>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )} */}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* 통합 설정 패널 - 리팩토링된 SettingsPanel 컴포넌트 */}
+            <SettingsPanel 
+                showDebug={showDebug}
+                showSettingsManager={showSettingsManager}
+                setShowDebug={setShowDebug}
+                setShowSettingsManager={setShowSettingsManager}
+                debugInfo={debugInfo}
+                syncDebugInfo={syncDebugInfo}
+                revealedSubtitle={revealedSubtitle}
+                currentVideo={currentVideo}
+                videoTransitionRef={videoTransitionRef}
+                showSubtitle={showSubtitle}
+                streamerId={streamerId}
+                isBroadcastingEnabled={isBroadcastingEnabled}
+                isLoggedIn={isLoggedIn}
+                username={username}
+            />
 
             <Row>
                 <Col md={8}>
-                    <div className="video-player-wrapper" ref={videoContainerRef}>
+                    <div className="video-player-wrapper" ref={videoContainerRef} style={{ position: 'relative' }}>
+                        {/* 패널 토글 버튼 - 좌측 상단 고정 */}
+                        <div 
+                            className="panel-toggle-buttons"
+                            style={{
+                                position: 'absolute',
+                                top: '10px',
+                                left: '10px',
+                                zIndex: 100,
+                                display: 'flex',
+                                gap: '8px'
+                            }}
+                        >
+                            <Button 
+                                variant={showDebug ? "info" : "outline-light"}
+                                size="sm" 
+                                onClick={() => setShowDebug(!showDebug)}
+                                title="디버그 패널 토글"
+                                style={{
+                                    backgroundColor: showDebug ? '#0dcaf0' : 'rgba(0,0,0,0.6)',
+                                    border: showDebug ? '1px solid #0dcaf0' : '1px solid rgba(255,255,255,0.3)',
+                                    color: 'white'
+                                }}
+                            >
+                                🔧
+                            </Button>
+                            <Button 
+                                variant={showSettingsManager ? "warning" : "outline-light"}
+                                size="sm" 
+                                onClick={() => setShowSettingsManager(!showSettingsManager)}
+                                title="TTS 설정 패널 토글"
+                                style={{
+                                    backgroundColor: showSettingsManager ? '#ffc107' : 'rgba(0,0,0,0.6)',
+                                    border: showSettingsManager ? '1px solid #ffc107' : '1px solid rgba(255,255,255,0.3)',
+                                    color: showSettingsManager ? 'black' : 'white'
+                                }}
+                            >
+                                ⚙️
+                            </Button>
+                        </div>
+
                         {/* 비디오 플레이어 (간단한 전환) */}
                         <VideoPlayer
                             ref={videoTransitionRef}
@@ -748,45 +720,6 @@ function StreamingPage({ isLoggedIn, username }) {
                                 className="volume-slider" 
                             />
                             <Button variant="secondary" size="sm" onClick={handleFullscreen}>Fullscreen</Button>
-                            <Button 
-                                variant="outline-info" 
-                                size="sm" 
-                                onClick={() => setShowDebug(!showDebug)}
-                                title="디버그 패널 토글"
-                            >
-                                🔧
-                            </Button>
-                            <Button 
-                                variant="outline-primary" 
-                                size="sm" 
-                                onClick={() => setShowTtsSettings(!showTtsSettings)}
-                                title="TTS 설정 패널 토글"
-                            >
-                                🎵
-                            </Button>
-                            <Button 
-                                variant="outline-warning" 
-                                size="sm" 
-                                onClick={() => setShowSettingsManager(!showSettingsManager)}
-                                title="TTS 관리 패널 토글"
-                            >
-                                ⚙️
-                            </Button>
-                            {/* 오케스트레이터 관련 기능은 Broadcasting 시스템에서 제거됨 */}
-                            {/* {isOrchestratorEnabled && (
-                                <Button 
-                                    variant={isOrchestratorEnabled ? "success" : "outline-secondary"} 
-                                    size="sm" 
-                                    onClick={() => {
-                                        if (streamingOrchestratorRef.current) {
-                                            streamingOrchestratorRef.current.stopStreaming();
-                                        }
-                                    }}
-                                    title="오케스트레이터 중단"
-                                >
-                                    🎬
-                                </Button>
-                            )} */}
                         </div>
                         
                         {/* 비디오 제어 패널 */}
@@ -822,10 +755,7 @@ function StreamingPage({ isLoggedIn, username }) {
                                     username={username}
                                     onAIMessage={handleAIMessage}
                                     onWebSocketMessage={handleWebSocketMessage}
-                                    externalSettings={ttsSettings}
-                                    onSettingsChange={handleTtsSettingChange}
-                                    externalShowSettings={showTtsSettings}
-                                    onShowSettingsChange={setShowTtsSettings}
+                                    onAudioProgress={handleAudioProgressUpdate}
                                 />
                             ) : (
                                 <div className="text-center text-muted p-4">

@@ -11,10 +11,15 @@ const VideoPlayer = React.forwardRef(({
 
     // 비디오 경로 정리 함수
     const cleanVideoPath = (videoPath) => {
-        if (!videoPath) return 'a_idle_0.mp4';
+        if (!videoPath) return 'jammin-i/a_idle_0.mp4';
         
-        // Backend에서 온 경로 정리: /videos/jammin-i/a_talk_0.mp4 -> a_talk_0.mp4
-        let cleanPath = videoPath.replace(/^\/videos\//, '').replace(/^jammin-i\//, '');
+        // Backend에서 온 경로 정리: /videos/jammin-i/a_talk_0.mp4 -> jammin-i/a_talk_0.mp4
+        let cleanPath = videoPath.replace(/^\/videos\//, '');
+        
+        // jammin-i/ 경로가 없으면 추가
+        if (!cleanPath.startsWith('jammin-i/')) {
+            cleanPath = `jammin-i/${cleanPath}`;
+        }
         
         console.log('🔧 비디오 경로 정리:', {
             original: videoPath,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
 import Navbar from './components/layout/Navbar';
@@ -10,7 +10,6 @@ import UserListPage from './components/user/UserListPage';
 import ProfilePage from './components/user/ProfilePage';
 import StreamingPage from './components/streaming/StreamingPage';
 import HomeTemporary from './components/pages/HomeTemporary';
-import TTSDebugTool from './components/tts/TTSDebugTool';
 import './App.css';
 
 function App() {
@@ -79,7 +78,6 @@ function App() {
           {/* 개인 프로필 페이지 */}
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/stream/:streamerId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} />
-          <Route path="/debug/tts" element={<TTSDebugTool />} />
         </Routes>
       </div>
     </Router>
