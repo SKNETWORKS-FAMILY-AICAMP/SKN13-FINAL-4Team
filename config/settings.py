@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'channels',
     'users',  # 커스텀 User 모델을 사용하므로 django.contrib.admin보다 먼저 와야 함
     'chat',
+    'payments',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

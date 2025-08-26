@@ -26,4 +26,9 @@ urlpatterns = [
         'patch': 'partial_update',
         'delete': 'destroy'
     }), name='chatroom-detail'),
+
+    # 3. 특정 채팅방에 후원하기(POST)를 위한 URL
+    path('rooms/<int:pk>/donate/', views.ChatRoomViewSet.as_view({
+        'post': 'donate'
+    }), name='chatroom-donate'),
 ]
