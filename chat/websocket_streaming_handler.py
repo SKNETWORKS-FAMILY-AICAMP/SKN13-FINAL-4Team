@@ -42,13 +42,14 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
     스트리밍 페이지 전용 채팅 컨슈머
     """
     
+    # 🆕 클래스 변수로 변경: 모든 연결이 StreamSession을 공유
+    stream_sessions = {}  # 룸별 StreamSession 관리
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.ai_response_queue = []
-        self.last_ai_response_time = 0
-        self.AI_RESPONSE_COOLDOWN = 3
-        # 새로운 미디어 처리 허브 초기화
+        # 🆕 StreamSession 기반 Queue 시스템 (기존 쿨다운 시스템 제거)
         self.media_processor = MediaProcessingHub()
+        self.queue_processor_task = None  # Queue 처리 태스크
 
     @database_sync_to_async
     def get_streamer_tts_settings(self, streamer_id):
@@ -65,7 +66,10 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         self.streamer_id = self.scope['url_route']['kwargs']['streamer_id']
         self.room_group_name = f'streaming_chat_{self.streamer_id}'
         
-        logger.info(f"스트리밍 채팅 연결 시도: {self.streamer_id}")
+        logger.info(f"🔗 스트리밍 채팅 연결 시도: {self.streamer_id}")
+        logger.info(f"📍 클라이언트 IP: {self.scope.get('client', ['unknown'])[0]}")
+        logger.info(f"🔍 스코프 정보: {self.scope.get('query_string', b'').decode()}")
+        logger.info(f"🎬 StreamSession 상태: {hasattr(self, 'session') and self.session is not None}")
         
         # --- ▼▼▼ 수정된 부분 시작 ▼▼▼ ---
         # 쿼리 문자열에서 토큰을 추출합니다.
@@ -83,6 +87,37 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             return
         
         self.user = user
+        logger.info(f"🔐 사용자 인증 완료: {user.username}")
+        
+        # 🆕 StreamSession 초기화 (룸별 독립적 관리) - 강화된 디버깅
+        try:
+            logger.info(f"🔍 StreamSession 초기화 시작: {self.room_group_name}")
+            logger.info(f"📊 현재 활성 세션 개수: {len(StreamingChatConsumer.stream_sessions)}")
+            
+            if self.room_group_name not in StreamingChatConsumer.stream_sessions:
+                logger.info(f"💡 새로운 StreamSession 생성 중...")
+                from .streaming.domain.stream_session import StreamSession
+                logger.info(f"✅ StreamSession 클래스 import 성공")
+                
+                StreamingChatConsumer.stream_sessions[self.room_group_name] = StreamSession(session_id=self.room_group_name)
+                logger.info(f"📡 새로운 StreamSession 생성 완료: {self.room_group_name}")
+            else:
+                logger.info(f"📡 기존 StreamSession 사용: {self.room_group_name}")
+            
+            self.session = StreamingChatConsumer.stream_sessions[self.room_group_name]
+            logger.info(f"✅ StreamSession 설정 완료: {self.session.session_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ StreamSession 초기화 실패: {e}")
+            import traceback
+            logger.error(f"❌ 스택 트레이스: {traceback.format_exc()}")
+            # StreamSession 초기화가 실패해도 연결은 유지하되, 세션은 None으로 설정
+            self.session = None
+        
+        # Queue Processor 시작 (중복 시작 방지)
+        if not self.queue_processor_task or self.queue_processor_task.done():
+            self.queue_processor_task = asyncio.create_task(self.process_session_queue())
+            logger.info(f"🎬 Queue Processor 시작: {self.room_group_name}")
         
         await self.channel_layer.group_add(
             self.room_group_name,
@@ -100,6 +135,92 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
                 'settings': tts_settings,
             }))
         
+        # 🆕 초기 Queue 상태 전송 (안전한 처리)
+        try:
+            if hasattr(self, 'session') and self.session:
+                session_info = self.session.get_session_info()
+                detailed_queue_info = self.session.get_detailed_queue_info()
+                
+                # 기본 queue 상태 (JSON 직렬화 가능한 데이터만)
+                safe_session_info = {
+                    'session_id': session_info.get('session_id', ''),
+                    'queue_length': session_info.get('queue_length', 0),
+                    'is_processing': session_info.get('is_processing', False),
+                    'current_seq': session_info.get('current_seq', 0),
+                    'uptime_ms': session_info.get('uptime_ms', 0),
+                    'recent_hashes_count': session_info.get('recent_hashes_count', 0)
+                }
+                
+                await self.send(text_data=json.dumps({
+                    'type': 'queue_status_update',
+                    'session_info': safe_session_info,
+                    'timestamp': time.time(),
+                    'message_type': 'system_queue_status'
+                }))
+                
+                # 상세 queue 정보는 간단한 형태로만
+                safe_detailed_info = {
+                    'session_id': detailed_queue_info.get('session_id', ''),
+                    'queue_length': detailed_queue_info.get('queue_length', 0),
+                    'is_processing': detailed_queue_info.get('is_processing', False),
+                    'metrics': {
+                        'total_processed': detailed_queue_info.get('metrics', {}).get('total_processed', 0),
+                        'cancelled_requests': detailed_queue_info.get('metrics', {}).get('cancelled_requests', 0)
+                    }
+                }
+                
+                await self.send(text_data=json.dumps({
+                    'type': 'queue_debug_update',
+                    'detailed_queue_info': safe_detailed_info,
+                    'timestamp': time.time(),
+                    'message_type': 'debug_queue_info'
+                }))
+                
+                logger.info(f"✅ 초기 Queue 상태 전송 완료: {user.username}")
+            else:
+                logger.warning(f"⚠️ StreamSession이 초기화되지 않음: {user.username}")
+                
+        except Exception as e:
+            logger.error(f"❌ 초기 Queue 상태 전송 실패: {e}")
+            # Queue 전송 실패해도 연결은 유지
+        
+        # 🆕 무조건 테스트용 Queue 메시지 강제 전송 (디버깅용)
+        try:
+            logger.info(f"🧪 테스트 Queue 메시지 전송 시작...")
+            await self.send(text_data=json.dumps({
+                'type': 'queue_status_update',
+                'session_info': {
+                    'session_id': 'test_session',
+                    'queue_length': 0,
+                    'is_processing': False,
+                    'current_seq': 0
+                },
+                'timestamp': time.time(),
+                'message_type': 'system_queue_status'
+            }))
+            logger.info(f"🧪 테스트 queue_status_update 메시지 전송 완료")
+            
+            await self.send(text_data=json.dumps({
+                'type': 'queue_debug_update',
+                'detailed_queue_info': {
+                    'session_id': 'test_session',
+                    'queue_length': 0,
+                    'is_processing': False,
+                    'metrics': {
+                        'total_processed': 0,
+                        'cancelled_requests': 0
+                    }
+                },
+                'timestamp': time.time(),
+                'message_type': 'debug_queue_info'
+            }))
+            logger.info(f"🧪 테스트 queue_debug_update 메시지 전송 완료")
+            
+        except Exception as e:
+            logger.error(f"❌ 테스트 Queue 메시지 전송 실패: {e}")
+            import traceback
+            logger.error(f"❌ 스택 트레이스: {traceback.format_exc()}")
+
         # 입장 알림 메시지
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -110,6 +231,11 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         )
 
     async def disconnect(self, close_code):
+        # Queue Processor 정리
+        if self.queue_processor_task and not self.queue_processor_task.done():
+            self.queue_processor_task.cancel()
+            logger.info(f"🚫 Queue Processor 취소: {self.room_group_name}")
+        
         if hasattr(self, 'room_group_name'):
             await self.channel_layer.group_discard(
                 self.room_group_name,
@@ -159,52 +285,114 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             logger.error(f"메시지 처리 오류: {e}")
 
     async def process_ai_response(self, clean_message):
-        """AI 응답 처리 - 새로운 Broadcasting 시스템 사용"""
-        current_time = time.time()
-        if current_time - self.last_ai_response_time < self.AI_RESPONSE_COOLDOWN:
-            logger.info("AI 응답 쿨다운")
-            return
-            
+        """AI 요청을 StreamSession Queue에 추가 (기존 쿨다운 시스템 제거)"""
         try:
-            logger.info(f"🎬 Broadcasting AI 응답 시작: {clean_message[:30]}...")
+            logger.info(f"📝 Queue에 AI 요청 추가: {clean_message[:30]}...")
             
-            # 1. AI 응답 생성
-            system_prompt = f"당신은 '{self.streamer_id}' 스트리밍의 AI 어시스턴트입니다. 시청자의 질문에 2-3줄로 간결하고 친근하게 답하세요. 응답 끝에 감정을 [emotion:happy], [emotion:sad], [emotion:neutral] 등의 형태로 추가하세요."
-            conversation_history = [{"role": "system", "content": system_prompt}]
-            
-            ai_response = await ai_service.generate_response(clean_message, conversation_history)
-            
-            if not ai_response:
-                return
-            
-            # 2. 감정 추출 (간단한 파싱)
-            emotion = self._extract_emotion_from_response(ai_response)
-            clean_response = self._clean_emotion_tags(ai_response)
-            
-            # 3. 스트리머 설정 조회
+            # 스트리머 설정 조회
             current_tts_settings = await self.get_streamer_tts_settings(self.streamer_id)
-            streamer_config = {
-                'streamer_id': self.streamer_id,
-                'character_id': self.streamer_id,  # streamer_id를 character_id로 사용
-                'voice_settings': current_tts_settings or {}
+            
+            # 요청 데이터 구성
+            request_data = {
+                'message': clean_message,
+                'user_id': self.user.id,
+                'username': self.user.username,
+                'room_group': self.room_group_name,
+                'streamer_config': {
+                    'streamer_id': self.streamer_id,
+                    'character_id': self.streamer_id,
+                    'voice_settings': current_tts_settings or {}
+                },
+                'timestamp': time.time()
             }
             
-            # 4. 미디어 패킷 생성 (통합 처리)
-            sync_packet = await self.media_processor.process_ai_response(
-                clean_response, 
-                streamer_config, 
-                self.room_group_name,
-                emotion
-            )
+            # StreamSession Queue에 요청 추가
+            await self.session.enqueue_request(request_data)
             
-            # 5. 동기화된 미디어 브로드캐스팅
-            await self.broadcast_synchronized_media(sync_packet)
-            
-            self.last_ai_response_time = time.time()
-            logger.info(f"✅ Broadcasting AI 응답 완료: {len(clean_response)} 문자, 감정: {emotion}")
+            logger.info(f"✅ Queue에 요청 추가 완료: {clean_message[:30]}... (큐 크기: {self.session.request_queue.qsize()})")
             
         except Exception as e:
-            logger.error(f"❌ Broadcasting AI 응답 오류: {e}")
+            logger.error(f"❌ AI 요청 Queue 추가 실패: {e}")
+    
+    async def process_session_queue(self):
+        """StreamSession Queue를 처리하여 MediaPacket 브로드캐스트"""
+        try:
+            logger.info(f"🎬 Queue Processor 시작: {self.room_group_name}")
+            
+            # StreamSession의 process_queue 제너레이터 사용
+            async for media_packet in self.session.process_queue(self.media_processor):
+                if media_packet:
+                    # MediaPacket 브로드캐스트
+                    await self.broadcast_mediapacket(media_packet)
+                    
+                    # Queue 상태 업데이트 브로드캐스트
+                    await self.broadcast_queue_status()
+                    
+        except asyncio.CancelledError:
+            logger.info(f"🚫 Queue Processor 취소됨: {self.room_group_name}")
+        except Exception as e:
+            logger.error(f"❌ Queue Processor 오류: {e}")
+    
+    async def broadcast_mediapacket(self, media_packet):
+        """MediaPacket을 WebSocket으로 브로드캐스트"""
+        try:
+            packet_dict = media_packet.to_dict()
+            session_info = self.session.get_session_info()
+            
+            # 트랙 상세 정보 로깅
+            track_info = []
+            for track in media_packet.tracks:
+                track_info.append(f"{track.kind}:{track.payload_ref[:30]}...")
+            
+            logger.info(f"📡 MediaPacket 브로드캐스트: seq={media_packet.seq}, hash={media_packet.hash[:8]}")
+            logger.info(f"📡 MediaPacket 트랙들: [{', '.join(track_info)}]")
+            logger.info(f"📡 직렬화된 패킷: {len(packet_dict.get('tracks', []))}개 트랙")
+            
+            # 모든 클라이언트에게 전송
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'mediapacket_broadcast',
+                    'packet': packet_dict,
+                    'session_info': session_info,
+                    'server_timestamp': time.time()
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ MediaPacket 브로드캐스트 실패: {e}")
+    
+    async def broadcast_queue_status(self):
+        """Queue 상태를 클라이언트에 브로드캐스트"""
+        try:
+            # 기본 세션 정보
+            session_info = self.session.get_session_info()
+            
+            # 상세 큐 정보 (Debug Panel용)
+            detailed_queue_info = self.session.get_detailed_queue_info()
+            
+            # 기본 상태 업데이트 전송
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'queue_status_update',
+                    'session_info': session_info,
+                    'timestamp': time.time()
+                }
+            )
+            
+            # 상세 큐 정보 전송 (Debug Panel용)
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'queue_debug_update',
+                    'detailed_queue_info': detailed_queue_info,
+                    'timestamp': time.time()
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ Queue 상태 브로드캐스트 실패: {e}")
     
     def _extract_emotion_from_response(self, response: str) -> str:
         """AI 응답에서 감정 태그 추출"""
@@ -219,23 +407,8 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         import re
         return re.sub(r'\[emotion:\w+\]', '', response).strip()
     
-    async def broadcast_synchronized_media(self, sync_packet: dict):
-        """동기화된 미디어 브로드캐스팅"""
-        try:
-            logger.info(f"📡 동기화된 미디어 브로드캐스팅: {sync_packet['sync_id'][:8]}")
-            
-            # 모든 시청자에게 동기화된 미디어 패킷 전송
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'synchronized_media_broadcast',
-                    'sync_packet': sync_packet,
-                    'server_timestamp': time.time(),
-                }
-            )
-            
-        except Exception as e:
-            logger.error(f"❌ 미디어 브로드캐스팅 실패: {e}")
+    # 🚫 기존 broadcast_synchronized_media 제거 (MediaPacket 시스템으로 대체)
+    # → broadcast_mediapacket으로 대체됨
 
     # WebSocket 메시지 핸들러들
     async def chat_message(self, event):
@@ -273,25 +446,61 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             'timestamp': event['timestamp'],
         }))
     
-    async def synchronized_media_broadcast(self, event):
-        """동기화된 미디어 브로드캐스팅 핸들러"""
+    async def mediapacket_broadcast(self, event):
+        """MediaPacket 브로드캐스트 핸들러"""
         try:
-            sync_packet = event['sync_packet']
+            packet = event['packet']
+            session_info = event['session_info']
             server_timestamp = event['server_timestamp']
             
-            # 클라이언트에 동기화된 미디어 패킷 전송
+            # 클라이언트에 MediaPacket 전송
             await self.send(text_data=json.dumps({
-                'type': 'synchronized_media',
-                'sync_id': sync_packet['sync_id'],
-                'content': sync_packet['content'],
-                'sync_timing': sync_packet['sync_timing'],
-                'metadata': sync_packet['metadata'],
+                'type': 'media_packet',
+                'packet': packet,
+                'session_info': session_info,
                 'server_timestamp': server_timestamp,
-                'message_type': 'ai_broadcast',
+                'message_type': 'ai_mediapacket',
                 'timestamp': time.time()
             }))
             
-            logger.debug(f"📤 동기화 미디어 전송됨: {sync_packet['sync_id'][:8]}")
+            logger.debug(f"📤 MediaPacket 전송됨: seq={packet['seq']}, hash={packet['hash'][:8]}")
             
         except Exception as e:
-            logger.error(f"❌ 동기화 미디어 전송 실패: {e}")
+            logger.error(f"❌ MediaPacket 전송 실패: {e}")
+    
+    async def queue_status_update(self, event):
+        """Queue 상태 업데이트 핸들러"""
+        try:
+            session_info = event['session_info']
+            
+            await self.send(text_data=json.dumps({
+                'type': 'queue_status_update',
+                'session_info': session_info,
+                'timestamp': event['timestamp'],
+                'message_type': 'system_queue_status'
+            }))
+            
+            logger.debug(f"📊 Queue 상태 전송됨: 큐={session_info.get('queue_length', 0)}, 처리중={session_info.get('is_processing', False)}")
+            
+        except Exception as e:
+            logger.error(f"❌ Queue 상태 전송 실패: {e}")
+    
+    async def queue_debug_update(self, event):
+        """상세 Queue 디버그 정보 업데이트 핸들러"""
+        try:
+            detailed_queue_info = event['detailed_queue_info']
+            
+            await self.send(text_data=json.dumps({
+                'type': 'queue_debug_update',
+                'detailed_queue_info': detailed_queue_info,
+                'timestamp': event['timestamp'],
+                'message_type': 'debug_queue_info'
+            }))
+            
+            logger.debug(f"🔍 Queue 디버그 정보 전송됨: 큐={detailed_queue_info.get('queue_length', 0)}, 처리량={detailed_queue_info.get('metrics', {}).get('total_processed', 0)}")
+            
+        except Exception as e:
+            logger.error(f"❌ Queue 디버그 정보 전송 실패: {e}")
+    
+    # 🚫 기존 synchronized_media_broadcast 제거 (MediaPacket으로 대체)
+    # async def synchronized_media_broadcast(self, event): → mediapacket_broadcast로 대체

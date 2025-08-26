@@ -8,7 +8,8 @@ import uuid
 import asyncio
 import logging
 import base64
-from typing import Dict, Any, Optional, Tuple
+import json
+from typing import Dict, Any, Optional, Tuple, List
 from datetime import datetime
 from django.conf import settings
 from django.core.cache import cache
@@ -110,6 +111,225 @@ class MediaProcessingHub:
         except Exception as e:
             logger.error(f"❌ 미디어 처리 실패: {str(e)}")
             return self._create_error_packet(text, str(e), room_name)
+    
+    async def generate_tracks_with_cancellation(self, request_data: Dict, cancel_event: 'asyncio.Event') -> Optional[List]:
+        """
+        취소 가능한 MediaTrack 생성 (StreamSession Queue 시스템 용)
+        
+        Args:
+            request_data: 요청 데이터 (message, streamer_config 등)
+            cancel_event: 취소 이벤트 (set되면 작업 중단)
+            
+        Returns:
+            List[MediaTrack] or None: 생성된 트랙들 또는 취소 시 None
+        """
+        try:
+            text = request_data.get('message', '')
+            streamer_config = request_data.get('streamer_config', {})
+            emotion = self._extract_emotion_from_text(text)
+            
+            logger.info(f"🎬 취소 가능한 MediaTrack 생성 시작: {text[:30]}... (감정: {emotion})")
+            
+            # AI 응답 생성 (최우선)
+            from .llm_text_service import ai_service
+            system_prompt = f"당신은 '{streamer_config.get('streamer_id', 'AI')}' 스트리밍의 AI 어시스턴트입니다. 시청자의 질문에 2-3줄로 간결하고 친근하게 답하세요. 응답 끝에 감정을 [emotion:happy], [emotion:sad], [emotion:neutral] 등의 형태로 추가하세요."
+            conversation_history = [{"role": "system", "content": system_prompt}]
+            
+            ai_response = await ai_service.generate_response(text, conversation_history)
+            if not ai_response or cancel_event.is_set():
+                logger.info("🚫 AI 응답 생성 중 취소됨")
+                return None
+                
+            # 감정 재추출 (AI 응답 기반)
+            emotion = self._extract_emotion_from_response(ai_response)
+            clean_response = self._clean_emotion_tags(ai_response)
+            
+            # 병렬 MediaTrack 생성 (취소 가능) - 코루틴을 Task로 변환
+            tasks = [
+                asyncio.create_task(self._create_audio_track_cancellable(clean_response, streamer_config, cancel_event)),
+                asyncio.create_task(self._create_video_track_cancellable(emotion, streamer_config, cancel_event)),
+                asyncio.create_task(self._create_subtitle_track_cancellable(clean_response, cancel_event))
+            ]
+            
+            # 모든 MediaTrack 작업 완료 대기 (취소 체크와 함께)
+            cancel_task = asyncio.create_task(cancel_event.wait())
+            all_tasks = tasks + [cancel_task]
+            
+            done, pending = await asyncio.wait(all_tasks, return_when=asyncio.FIRST_COMPLETED)
+            
+            # 취소 이벤트가 먼저 완료된 경우
+            if cancel_event.is_set():
+                # 취소됨 - 모든 대기 중인 작업들 정리
+                for task in tasks:
+                    if not task.done():
+                        task.cancel()
+                logger.info("🚫 MediaTrack 생성이 취소되었습니다")
+                return None
+            
+            # 취소되지 않았다면 모든 MediaTrack 작업 완료까지 대기
+            cancel_task.cancel()  # 취소 태스크 정리
+            
+            # 남은 MediaTrack 작업들 완료 대기
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
+            
+            # 추가 취소 체크
+            if cancel_event.is_set():
+                logger.info("🚫 MediaTrack 생성 중 취소됨")
+                return None
+                
+            # 완료된 트랙들 수집
+            tracks = []
+            for i, task in enumerate(tasks):
+                task_name = ['audio', 'video', 'subtitle'][i]  # 순서대로 이름 매핑
+                
+                if task.done() and not task.cancelled():
+                    try:
+                        track = await task
+                        if track:
+                            tracks.append(track)
+                            logger.info(f"✅ {task_name} 트랙 생성 성공: {track.kind}, {track.payload_ref[:50]}...")
+                        else:
+                            logger.warning(f"⚠️ {task_name} 트랙 생성 결과 None")
+                    except Exception as e:
+                        logger.warning(f"⚠️ {task_name} 트랙 생성 실패: {e}")
+                else:
+                    if task.cancelled():
+                        logger.info(f"🚫 {task_name} 트랙 작업 취소됨")
+                    else:
+                        logger.warning(f"⚠️ {task_name} 트랙 작업 미완료")
+                        
+            if tracks:
+                track_kinds = [t.kind for t in tracks]
+                logger.info(f"✅ MediaTrack 생성 완료: {len(tracks)}개 트랙 ({', '.join(track_kinds)})")
+                return tracks
+            else:
+                logger.warning("⚠️ 생성된 MediaTrack가 없습니다")
+                return None
+                
+        except asyncio.CancelledError:
+            logger.info("🚫 MediaTrack 생성 작업이 취소됨")
+            return None
+        except Exception as e:
+            logger.error(f"❌ MediaTrack 생성 실패: {str(e)}")
+            return None
+    
+    async def _create_audio_track_cancellable(self, text: str, streamer_config: Dict, cancel_event: 'asyncio.Event'):
+        """취소 가능한 오디오 트랙 생성"""
+        try:
+            if cancel_event.is_set():
+                logger.info("🚫 오디오 트랙 생성 시작 전 취소됨")
+                return None
+                
+            logger.info(f"🎵 오디오 트랙 생성 시작: {text[:30]}...")
+            
+            # TTS 생성 (기존 로직 활용)
+            tts_result = await self._generate_tts_async(text, streamer_config)
+            logger.info(f"🔊 TTS 결과: {tts_result.get('audio_url', 'NO_URL')[:50]}..., 길이: {tts_result.get('duration', 0)}초")
+            
+            if cancel_event.is_set():
+                logger.info("🚫 오디오 트랙 TTS 생성 후 취소됨")
+                return None
+                
+            # StreamSession.MediaTrack 임포트
+            from .streaming.domain.stream_session import MediaTrack
+            
+            duration_ms = int(tts_result['duration'] * 1000)
+            
+            audio_track = MediaTrack(
+                kind="audio",
+                pts_ms=0,  # 즉시 시작
+                dur_ms=duration_ms,
+                payload_ref=tts_result['audio_url'],
+                codec="audio/mpeg",
+                meta={
+                    'engine': tts_result['tts_info']['engine'],
+                    'voice': tts_result['tts_info'].get('voice'),
+                    'file_size': tts_result['tts_info'].get('file_size', 0),
+                    'emotion': streamer_config.get('emotion', 'neutral')
+                }
+            )
+            
+            logger.info(f"✅ 오디오 MediaTrack 생성 성공: {audio_track.payload_ref[:50]}...")
+            return audio_track
+            
+        except Exception as e:
+            if not cancel_event.is_set():
+                logger.error(f"❌ 오디오 트랙 생성 실패: {e}")
+            return None
+    
+    async def _create_video_track_cancellable(self, emotion: str, streamer_config: Dict, cancel_event: 'asyncio.Event'):
+        """취소 가능한 비디오 트랙 생성"""
+        try:
+            if cancel_event.is_set():
+                return None
+                
+            character_id = streamer_config.get('streamer_id', 'jammin-i')
+            talk_video = self.video_selector.get_talk_video(emotion, character_id)
+            
+            if cancel_event.is_set():
+                return None
+                
+            from .streaming.domain.stream_session import MediaTrack
+            
+            return MediaTrack(
+                kind="video",
+                pts_ms=0,  # 즉시 시작
+                dur_ms=5000,  # 기본 5초 (TTS 길이에 맞춤)
+                payload_ref=talk_video,
+                codec="video/mp4",
+                meta={
+                    'emotion': emotion,
+                    'character_id': character_id,
+                    'clip_type': 'talk'
+                }
+            )
+            
+        except Exception as e:
+            if not cancel_event.is_set():
+                logger.error(f"❌ 비디오 트랙 생성 실패: {e}")
+            return None
+    
+    async def _create_subtitle_track_cancellable(self, text: str, cancel_event: 'asyncio.Event'):
+        """취소 가능한 자막 트랙 생성"""
+        try:
+            if cancel_event.is_set():
+                return None
+                
+            # 자막 타이밍 생성 (빠른 작업)
+            subtitle_data = self._generate_subtitle_timing(text, 3.0)  # 기본 3초
+            
+            if cancel_event.is_set():
+                return None
+                
+            from .streaming.domain.stream_session import MediaTrack
+            
+            return MediaTrack(
+                kind="subtitle",
+                pts_ms=0,  # 즉시 시작
+                dur_ms=int(subtitle_data['total_duration'] * 1000),
+                payload_ref=json.dumps(subtitle_data),  # JSON 문자열로 저장
+                codec="text/json",
+                meta=subtitle_data
+            )
+            
+        except Exception as e:
+            if not cancel_event.is_set():
+                logger.error(f"❌ 자막 트랙 생성 실패: {e}")
+            return None
+    
+    def _extract_emotion_from_text(self, text: str) -> str:
+        """텍스트에서 간단한 감정 추출"""
+        text_lower = text.lower()
+        if any(word in text_lower for word in ['행복', 'happy', '좋아', '기뻐', '웃음', '😊', '😄']):
+            return 'happy'
+        elif any(word in text_lower for word in ['슬퍼', 'sad', '우울', '😢', '😭']):
+            return 'sad'
+        elif any(word in text_lower for word in ['화나', 'angry', '짜증', '😠', '😡']):
+            return 'angry'
+        elif any(word in text_lower for word in ['놀라', 'surprised', '깜짝', '😱', '😲']):
+            return 'surprised'
+        else:
+            return 'neutral'
     
     
     async def _generate_tts_async(self, text: str, streamer_config: Dict) -> Dict[str, Any]:
@@ -311,3 +531,19 @@ class MediaProcessingHub:
                 'fallback_failed': True
             }
         }
+    
+    def _extract_emotion_from_response(self, response: str) -> str:
+        """AI 응답에서 감정 태그 추출"""
+        import re
+        emotion_match = re.search(r'\[emotion:(\w+)\]', response)
+        if emotion_match:
+            return emotion_match.group(1).lower()
+        return 'neutral'  # 기본값
+    
+    def _clean_emotion_tags(self, text: str) -> str:
+        """텍스트에서 감정 태그 제거"""
+        import re
+        # [emotion:감정] 형태의 태그 제거
+        cleaned = re.sub(r'\[emotion:\w+\]', '', text)
+        # 앞뒤 공백 제거
+        return cleaned.strip()
