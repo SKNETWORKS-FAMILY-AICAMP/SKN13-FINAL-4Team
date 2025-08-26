@@ -20,15 +20,10 @@ urlpatterns = [
     }), name='chatroom-list'),
 
     # 2. 특정 채팅방 상세 조회(GET), 수정(PUT/PATCH), 삭제(DELETE)를 위한 URL
-    path('rooms/<int:pk>/', views.ChatRoomViewSet.as_view({
+    path('rooms/<str:room_id>/', views.ChatRoomViewSet.as_view({
         'get': 'retrieve',
         'put': 'update',
         'patch': 'partial_update',
         'delete': 'destroy'
     }), name='chatroom-detail'),
-
-    # 3. 특정 채팅방에 후원하기(POST)를 위한 URL
-    path('rooms/<int:pk>/donate/', views.ChatRoomViewSet.as_view({
-        'post': 'donate'
-    }), name='chatroom-donate'),
 ]

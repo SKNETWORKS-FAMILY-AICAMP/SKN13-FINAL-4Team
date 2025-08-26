@@ -15,6 +15,83 @@ from .serializers import (
     PaymentDetailSerializer,
 )
 from users.models import UserWallet, CashLog
+from chat.models import ChatRoom
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+import logging
+
+logger = logging.getLogger(__name__)
+channel_layer = get_channel_layer()
+
+
+class DonationAPIView(APIView):
+    """
+    채팅방에 크레딧을 후원하는 API
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        room_id = request.data.get('roomId')
+        amount = request.data.get('amount')
+        message = request.data.get('message', '')
+        tts_enabled = request.data.get('tts_enabled', False)
+
+        if not all([room_id, amount]):
+            return Response({'error': 'roomId와 amount는 필수입니다.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            amount = int(amount)
+            if amount <= 0:
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response({'error': 'amount는 0보다 큰 정수여야 합니다.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            chatroom = get_object_or_404(ChatRoom, id=room_id)
+            user = request.user
+            wallet = user.wallet
+
+            if wallet.balance < amount:
+                return Response({'error': '보유 크레딧이 부족합니다.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # DB 트랜잭션 시작
+            with transaction.atomic():
+                wallet.balance -= amount
+                wallet.save()
+
+                CashLog.objects.create(
+                    wallet=wallet,
+                    log_type='use',
+                    amount=-amount,
+                    description=f"'{chatroom.name}' 방 후원"
+                )
+
+            # WebSocket으로 후원 메시지 전송
+            # 여기서 room_id는 채팅방의 pk(id)를 사용합니다.
+            room_group_name = f'streaming_chat_{chatroom.influencer.username}'
+            async_to_sync(channel_layer.group_send)(
+                room_group_name,
+                {
+                    'type': 'donation_message',
+                    'data': {
+                        'username': user.nickname or user.username,
+                        'amount': amount,
+                        'message': message,
+                        'tts_enabled': tts_enabled,
+                    }
+                }
+            )
+            
+            return Response({'success': '후원이 완료되었습니다.'}, status=status.HTTP_200_OK)
+
+        except UserWallet.DoesNotExist:
+            return Response({'error': '지갑 정보를 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+        except ChatRoom.DoesNotExist:
+            return Response({'error': '채팅방을 찾을 수 없습니다.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"후원 처리 중 오류 발생: {e}")
+            return Response({'error': '후원 처리 중 오류가 발생했습니다.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class PaymentPrepareAPIView(APIView):
     """
