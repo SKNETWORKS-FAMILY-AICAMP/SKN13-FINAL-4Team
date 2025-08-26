@@ -9,9 +9,11 @@ import { TTSServiceManager } from '../../services/ttsServiceManager';
 import AITTSEngineSelector from '../ai/AITTSEngineSelector';
 import TTSSettingsManager from '../ai/TTSSettingsManager';
 import './StreamingPage.css';
+import apiClient from '../../utils/apiClient';
 
 function StreamingPage({ isLoggedIn, username }) {
     const { streamerId } = useParams();
+    const [chatRoom, setChatRoom] = useState(null);
     const audioRef = useRef(null);
     const videoContainerRef = useRef(null);
     
@@ -61,6 +63,22 @@ function StreamingPage({ isLoggedIn, username }) {
 
     // 후원 아일랜드 상태
     const [isDonationIslandOpen, setIsDonationIslandOpen] = useState(false);
+
+    // 채팅방 정보 가져오기
+    useEffect(() => {
+        const fetchChatRoom = async () => {
+            try {
+                const response = await apiClient.get(`/api/chat/rooms/${streamerId}/`);
+                setChatRoom(response.data);
+            } catch (error) {
+                console.error('Error fetching chat room:', error);
+            }
+        };
+
+        if (streamerId) {
+            fetchChatRoom();
+        }
+    }, [streamerId]);
 
     // 서버에서 TTS 설정 가져오기
     const fetchServerTtsSettings = async () => {
@@ -272,7 +290,7 @@ function StreamingPage({ isLoggedIn, username }) {
         keywords: ['AI', '코딩', '라이브', '스트리밍'],
         streamer: { 
             name: '잼민이', 
-            profilePic: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyNSIgY3k9IjI1IiByPSIyNSIgZmlsbD0iIzAwNzNlNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+QUk8L3RleHQ+PC9zdmc+', 
+            profilePic: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyNSIgY3k9IjI1IiByPSIyNSIgZmlsbD0iIzAwNzNlNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ-weight="bold" fill="#fff" text-anchor="middle" dy=".3em">AI</text></svg>', 
             bio: 'sLLM 기반 AI 스트리머입니다. 여러분과 소통하고 싶어요!' 
         }
     };
@@ -280,9 +298,9 @@ function StreamingPage({ isLoggedIn, username }) {
     return (
         <Container fluid className="streaming-container mt-4">
             {/* 후원 아일랜드 */}
-            {isDonationIslandOpen && (
+            {isDonationIslandOpen && chatRoom && (
                 <DonationIsland 
-                    chatRoomId={streamerId} 
+                    roomId={chatRoom.id} 
                     streamerId={streamerId} 
                     onClose={() => setIsDonationIslandOpen(false)} 
                 />

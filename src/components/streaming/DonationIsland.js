@@ -3,7 +3,7 @@ import './DonationIsland.css';
 import apiClient from '../../utils/apiClient';
 import CreditChargeModal from '../payments/CreditChargeModal';
 
-const DonationIsland = ({ chatRoomId, streamerId, onClose }) => {
+const DonationIsland = ({ roomId, streamerId, onClose }) => {
     const [donationMessage, setDonationMessage] = useState('');
     const [ttsEnabled, setTtsEnabled] = useState(true);
     const [creditAmount, setCreditAmount] = useState(0);
@@ -46,7 +46,8 @@ const DonationIsland = ({ chatRoomId, streamerId, onClose }) => {
         }
 
         try {
-            await apiClient.post(`/api/chat/rooms/${chatRoomId}/donate/`, {
+            await apiClient.post('/api/payments/donate/', {
+                roomId: roomId,
                 amount: creditAmount,
                 message: donationMessage,
                 tts_enabled: ttsEnabled,
