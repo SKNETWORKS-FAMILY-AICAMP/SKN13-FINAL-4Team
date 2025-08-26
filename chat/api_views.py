@@ -107,14 +107,10 @@ def tts_api(request):
             style = float(data.get('style', 0.0))
             use_speaker_boost = data.get('use_speaker_boost', True)
             
-            # ElevenLabs 음성 옵션 검증 (한국 배우 음성 포함)
+            # ElevenLabs 음성 옵션 검증 (유효한 음성만 포함)
             valid_elevenlabs_voices = [
-                # 한국 배우 음성
-                'kimtaeri', 'kimminjeong', 'jinseonkyu', 'parkchangwook', 'aneunjin',
-                # 다국어 음성
-                'charlie', 'liam', 'charlotte', 'daniel', 'james', 'joseph', 'jeremy',
-                # 영어 음성 (기본)
-                'rachel', 'domi', 'bella', 'antoni', 'elli', 'josh', 'arnold', 'adam', 'sam'
+                # 한국 배우 음성 (검증된 음성)
+                'kimtaeri', 'kimminjeong', 'jinseonkyu', 'parkchangwook', 'aneunjin', 'jiyoung'
             ]
             if voice not in valid_elevenlabs_voices:
                 voice = 'aneunjin'  # 기본값을 안은진 배우 음성으로 변경

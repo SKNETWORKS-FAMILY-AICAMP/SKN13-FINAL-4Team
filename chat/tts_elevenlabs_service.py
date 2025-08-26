@@ -2,7 +2,7 @@
 import httpx
 import json
 import logging
-from typing import Optional
+from typing import Optional, Dict, List, Any
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -17,35 +17,24 @@ class ElevenLabsService:
         self.api_key = getattr(settings, 'ELEVENLABS_API_KEY', None)
         self.base_url = "https://api.elevenlabs.io/v1"
         self.voice_map = {
-            # 한국 배우 음성
+            # 한국 배우 음성 (검증된 유효한 음성만)
             'kimtaeri': '6ZND2SlfJqI0OOEHe2by',    # 김태리 (한국 여성 배우)
             'kimminjeong': 'eTiuJAsb9mqCyH5gFsS9', # 김민정 (한국 여성 배우)  
             'jinseonkyu': 'pWPHfY5KntyWbx2FxSb7', # 진선규 (한국 남성 배우)
             'parkchangwook': 'RQVmMEdMMcmOuv6Fz268', # 박창욱 (한국 남성 배우)
             'aneunjin': 'pRxVZ0v1oH2CqQJWHAty',  # 안은진 (한국 여성 배우)
             
-            # 다국어 지원 음성 (공식 premade voices)
+            # 다국어 지원 음성 (검증된 유효한 음성만)
             'charlie': 'IKne3meq5aSn9XLyUdCD',  # Charlie (호주 남성, 다국어)
             'liam': 'TX3LPaxmHKxFdv7VOQHJ',     # Liam (미국 남성, 다국어) 
-            'charlotte': 'XB0fDUnXU5powFXDhCwa', # Charlotte (영국 여성, 다국어)
             'daniel': 'onwK4e9ZLuTAKqWW03F9',   # Daniel (영국 남성, 다국어)
-            
-            # 추가 남성 음성들 (다국어 모델 지원)
             'matilda': 'XrExE9yKIg1WjnnlVkGX',  # Matilda (여성, 따뜻함)
-            'james': 'ZQe5CZNOzWyzPSCn5a3c',    # James (남성, 호주 악센트)
-            'joseph': 'Zlb1dXrM653N07WRdFW3',   # Joseph (남성, 영국)
             'jeremy': '2EiwWnXFnvU5JabPnv8n',   # Jeremy (남성, 미국)
-            
-            # 기본 영어 음성 (ElevenLabs 공식 premade voices)
             'rachel': '21m00Tcm4TlvDq8ikWAM',   # Rachel (미국 여성)
-            'domi': 'AZnzlk1XvdvUeBnXmlld',     # Domi (미국 여성) 
             'bella': 'EXAVITQu4vr4xnSDxMaL',   # Bella (미국 여성)
-            'antoni': 'ErXwobaYiN019PkySvjV',   # Antoni (미국 남성)
-            'elli': 'MF3mGyEYCl7XYWbV9V6O',    # Elli (미국 여성)
-            'josh': 'TxGEqnHWrfWFTfGW9XjX',     # Josh (미국 남성)
-            'arnold': 'VR6AewLTigWG4xSOukaG',   # Arnold (미국 남성)
-            'adam': 'pNInz6obpgDQGcFmaJgB',     # Adam (미국 남성, 깊은 목소리)
-            'sam': 'yoZ06aMxZJJ28mfd3POQ'      # Sam (미국 남성)
+            
+            # JiYoung 음성 - 올바른 여성 Voice ID
+            'jiyoung': 'AW5wrnG1jVizOYY7R1Oo',     # JiYoung (활기찬 젊은 여성 음성)
         }
         self._initialized = False
     
@@ -64,8 +53,44 @@ class ElevenLabsService:
         self._initialized = True
     
     def _get_voice_id(self, voice_name: str) -> str:
-        """음성 이름을 ElevenLabs 음성 ID로 변환"""
-        return self.voice_map.get(voice_name.lower(), self.voice_map['aneunjin'])
+        """
+        음성 이름을 ElevenLabs 음성 ID로 변환
+        폴백 메커니즘 포함
+        """
+        voice_id = self.voice_map.get(voice_name.lower())
+        
+        if voice_id:
+            return voice_id
+        else:
+            # 요청된 음성을 찾을 수 없는 경우 기본 음성으로 폴백
+            logger.warning(f"요청된 음성 '{voice_name}'를 찾을 수 없어 기본 음성 'aneunjin'으로 폴백")
+            return self.voice_map['aneunjin']
+    
+    async def validate_single_voice_id(self, voice_id: str) -> bool:
+        """
+        단일 Voice ID가 유효한지 검증
+        
+        Args:
+            voice_id (str): 검증할 Voice ID
+            
+        Returns:
+            bool: 유효 여부
+        """
+        if not self.is_available():
+            return False
+        
+        try:
+            # 특정 음성 정보 API 호출
+            url = f"{self.base_url}/voices/{voice_id}"
+            headers = {"xi-api-key": self.api_key}
+            
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url, headers=headers)
+                return response.status_code == 200
+                
+        except Exception as e:
+            logger.error(f"Voice ID {voice_id} 검증 실패: {e}")
+            return False
     
     def _detect_korean_text(self, text: str) -> bool:
         """텍스트에 한국어가 포함되어 있는지 감지"""
@@ -89,6 +114,94 @@ class ElevenLabsService:
         else:
             # 영어 텍스트는 기본 모델 사용 (더 나은 품질)
             return 'eleven_multilingual_v2'  # 호환성을 위해 다국어 모델 사용
+    
+    async def validate_voice_ids(self) -> Dict[str, bool]:
+        """
+        현재 매핑된 모든 Voice ID들이 ElevenLabs API에서 유효한지 검증
+        
+        Returns:
+            Dict[str, bool]: 음성명 -> 유효성 매핑
+        """
+        if not self.is_available():
+            logger.error("ElevenLabs API를 사용할 수 없습니다")
+            return {}
+        
+        validation_results = {}
+        
+        try:
+            # ElevenLabs 음성 목록 API 호출
+            url = f"{self.base_url}/voices"
+            headers = {"xi-api-key": self.api_key}
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(url, headers=headers)
+                
+                if response.status_code == 200:
+                    voices_data = response.json()
+                    valid_voice_ids = {voice['voice_id'] for voice in voices_data.get('voices', [])}
+                    
+                    # 현재 매핑된 모든 Voice ID 검증
+                    for voice_name, voice_id in self.voice_map.items():
+                        is_valid = voice_id in valid_voice_ids
+                        validation_results[voice_name] = is_valid
+                        
+                        if is_valid:
+                            logger.info(f"✅ Voice ID 유효: {voice_name} -> {voice_id}")
+                        else:
+                            logger.error(f"❌ Voice ID 무효: {voice_name} -> {voice_id}")
+                    
+                    return validation_results
+                else:
+                    logger.error(f"ElevenLabs voices API 오류: {response.status_code}")
+                    return {}
+                    
+        except Exception as e:
+            logger.error(f"Voice ID 검증 실패: {e}")
+            return {}
+    
+    async def get_available_voices_from_api(self) -> List[Dict[str, Any]]:
+        """
+        ElevenLabs API에서 실제 사용 가능한 음성 목록을 가져옴
+        
+        Returns:
+            List[Dict]: 음성 정보 리스트
+        """
+        if not self.is_available():
+            logger.error("ElevenLabs API를 사용할 수 없습니다")
+            return []
+        
+        try:
+            url = f"{self.base_url}/voices"
+            headers = {"xi-api-key": self.api_key}
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(url, headers=headers)
+                
+                if response.status_code == 200:
+                    voices_data = response.json()
+                    voices = []
+                    
+                    for voice in voices_data.get('voices', []):
+                        voices.append({
+                            'voice_id': voice['voice_id'],
+                            'name': voice['name'],
+                            'description': voice.get('description', ''),
+                            'category': voice.get('category', 'general'),
+                            'language': voice.get('language', 'en'),
+                            'gender': voice.get('labels', {}).get('gender', 'unknown'),
+                            'accent': voice.get('labels', {}).get('accent', 'unknown'),
+                            'use_case': voice.get('labels', {}).get('use case', 'general')
+                        })
+                    
+                    logger.info(f"ElevenLabs API에서 {len(voices)}개 음성 로드 완료")
+                    return voices
+                else:
+                    logger.error(f"ElevenLabs voices API 오류: {response.status_code}")
+                    return []
+                    
+        except Exception as e:
+            logger.error(f"API 음성 목록 가져오기 실패: {e}")
+            return []
     
     async def generate_speech(
         self, 
@@ -148,13 +261,15 @@ class ElevenLabsService:
             'kimtaeri': 'Korean Female Actress (Kim Tae-ri)',
             'kimminjeong': 'Korean Female Actress (Kim Min-jeong)',
             'aneunjin': 'Korean Female Actress (Ahn Eun-jin)',
-            # 다국어 남성 음성
+            'jiyoung': 'JiYoung (활기찬 젊은 여성 음성)',
+            # 다국어 음성
             'charlie': 'Australian Male',
             'liam': 'American Male',
             'daniel': 'British Male',
-            'james': 'Australian Male',
-            'joseph': 'British Male',
-            'jeremy': 'American Male'
+            'matilda': 'Female (Warm)',
+            'jeremy': 'American Male',
+            'rachel': 'American Female',
+            'bella': 'American Female'
         }
         
         if voice.lower() in voice_gender_info:
@@ -201,7 +316,7 @@ class ElevenLabsService:
             return None
     
     def get_available_voices(self) -> list:
-        """사용 가능한 음성 목록 반환"""
+        """사용 가능한 음성 목록 반환 (검증된 음성만)"""
         return [
             # 한국 배우 음성
             {"id": "kimtaeri", "name": "김태리", "gender": "female", "accent": "Korean"},
@@ -209,24 +324,15 @@ class ElevenLabsService:
             {"id": "jinseonkyu", "name": "진선규", "gender": "male", "accent": "Korean"},
             {"id": "parkchangwook", "name": "박창욱", "gender": "male", "accent": "Korean"},
             {"id": "aneunjin", "name": "안은진", "gender": "female", "accent": "Korean"},
-            # 다국어 음성
+            {"id": "jiyoung", "name": "JiYoung", "gender": "female", "accent": "Korean"},
+            # 다국어 음성 (검증된 것만)
             {"id": "charlie", "name": "Charlie", "gender": "male", "accent": "Australian"},
             {"id": "liam", "name": "Liam", "gender": "male", "accent": "American"},
-            {"id": "charlotte", "name": "Charlotte", "gender": "female", "accent": "British"},
             {"id": "daniel", "name": "Daniel", "gender": "male", "accent": "British"},
-            {"id": "james", "name": "James", "gender": "male", "accent": "Australian"},
-            {"id": "joseph", "name": "Joseph", "gender": "male", "accent": "British"},
+            {"id": "matilda", "name": "Matilda", "gender": "female", "accent": "English"},
             {"id": "jeremy", "name": "Jeremy", "gender": "male", "accent": "American"},
-            # 영어 음성 (기본)
             {"id": "rachel", "name": "Rachel", "gender": "female", "accent": "American"},
-            {"id": "domi", "name": "Domi", "gender": "female", "accent": "American"},
-            {"id": "bella", "name": "Bella", "gender": "female", "accent": "American"},
-            {"id": "antoni", "name": "Antoni", "gender": "male", "accent": "American"},
-            {"id": "elli", "name": "Elli", "gender": "female", "accent": "American"},
-            {"id": "josh", "name": "Josh", "gender": "male", "accent": "American"},
-            {"id": "arnold", "name": "Arnold", "gender": "male", "accent": "American"},
-            {"id": "adam", "name": "Adam", "gender": "male", "accent": "American"},
-            {"id": "sam", "name": "Sam", "gender": "male", "accent": "American"}
+            {"id": "bella", "name": "Bella", "gender": "female", "accent": "American"}
         ]
     
     def get_available_models(self) -> list:

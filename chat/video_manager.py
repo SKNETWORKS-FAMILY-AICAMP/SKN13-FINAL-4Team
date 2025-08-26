@@ -104,7 +104,7 @@ class VideoSelector:
             
             # 3. 최종 폴백
             logger.warning(f"⚠️ Talk 비디오 없음, 폴백 사용: {character_id}")
-            return character_config['videoBasePath'] + talk_category.get('defaultFile', 'talk_0.mp4')
+            return character_config['videoBasePath'] + talk_category.get('defaultFile', 'a_talk_0.mp4')
                 
         except Exception as e:
             logger.error(f"❌ Talk 비디오 선택 실패: {str(e)}")

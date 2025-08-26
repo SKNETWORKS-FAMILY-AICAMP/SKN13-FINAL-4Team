@@ -1,7 +1,7 @@
 # chat/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from . import api_views, status_views, views
+from . import api_views, status_views, views, voice_validation_views
 
 app_name = 'chat'
 
@@ -21,4 +21,11 @@ urlpatterns = [
     path('streamer/<str:streamer_id>/tts/settings/', views.get_streamer_tts_settings, name='get_tts_settings'),
     path('streamer/<str:streamer_id>/tts/settings/update/', views.update_streamer_tts_settings, name='update_tts_settings'),
     path('admin/tts/settings/', views.list_all_tts_settings, name='list_all_tts_settings'),
+    
+    # Voice ID 검증 및 관리 API
+    path('voices/validate/', voice_validation_views.validate_voice_ids, name='validate_voice_ids'),
+    path('voices/available/', voice_validation_views.get_available_voices, name='get_available_voices'),
+    path('voices/validate/single/', voice_validation_views.validate_single_voice, name='validate_single_voice'),
+    path('voices/mapping/status/', voice_validation_views.get_voice_mapping_status, name='get_voice_mapping_status'),
+    path('voices/debug/', voice_validation_views.debug_voice_service, name='debug_voice_service'),
 ]

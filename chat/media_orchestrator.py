@@ -1,7 +1,7 @@
 """
 AI 인플루언서 미디어 처리 허브
 텍스트, TTS, 비디오를 통합 처리하여 동기화된 브로드캐스팅 패킷을 생성
-Basic idle → talk → idle 시스템
+DDD 아키텍처 기반 StreamSession 사용
 """
 import time
 import uuid
@@ -15,15 +15,17 @@ from django.core.cache import cache
 import openai
 import requests
 from .video_manager import VideoSelector
+from .streaming.domain.stream_session import StreamSession, MediaTrack, MediaPacket
 
 logger = logging.getLogger(__name__)
 
 class MediaProcessingHub:
-    """미디어 처리 허브 - TTS, 비디오, 자막을 통합 처리 (단순화된 idle→talk→idle 시스템)"""
+    """미디어 처리 허브 - TTS, 비디오, 자막을 통합 처리 (DDD 기반 StreamSession 사용)"""
     
     def __init__(self):
         self.video_selector = VideoSelector()
         self.processing_cache = {}  # 중복 처리 방지용 캐시
+        self.sessions: Dict[str, StreamSession] = {}  # 룸별 세션 관리
         
     async def process_ai_response(self, text: str, streamer_config: Dict, room_name: str, emotion: str = 'neutral') -> Dict[str, Any]:
         """
@@ -138,13 +140,14 @@ class MediaProcessingHub:
             voice_id = voice_settings.get('voice_id') or voice_settings.get('elevenLabsVoice', 'aneunjin')
             logger.info(f"🎵 선택된 음성: {voice_id}")
             
-            # 음성 설정 매핑
+            # 음성 설정 매핑 (tts_elevenlabs_service.py와 동일하게 통일)
             voice_map = {
-                'kimtaeri': '21m00Tcm4TlvDq8ikWAM',
-                'kimminjeong': 'AZnzlk1XvdvUeBnXmlld', 
-                'jinseongyu': 'EXAVITQu4vr4xnSDxMaL',
-                'parkchangwook': 'ErXwobaYiN019PkySvjV',
-                'aneunjin': 'VR6AewLTigWG4xSOukaG'
+                'kimtaeri': '6ZND2SlfJqI0OOEHe2by',    # 김태리 (한국 여성 배우)
+                'kimminjeong': 'eTiuJAsb9mqCyH5gFsS9', # 김민정 (한국 여성 배우)  
+                'jinseonkyu': 'pWPHfY5KntyWbx2FxSb7', # 진선규 (한국 남성 배우)
+                'parkchangwook': 'RQVmMEdMMcmOuv6Fz268', # 박창욱 (한국 남성 배우)
+                'aneunjin': 'pRxVZ0v1oH2CqQJWHAty',  # 안은진 (한국 여성 배우)
+                'jiyoung': 'AW5wrnG1jVizOYY7R1Oo'     # JiYoung (활기찬 젊은 여성 음성) - 올바른 여성 Voice ID
             }
             
             actual_voice_id = voice_map.get(voice_id, voice_map['aneunjin'])
