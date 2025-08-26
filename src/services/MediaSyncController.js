@@ -1,6 +1,7 @@
 /**
- * 간단한 미디어 동기화 시스템
- * idle -> talk -> idle 순서로 즉시 실행
+ * MediaPacket 기반 동기화 컨트롤러
+ * 지터버퍼 300ms 적용 + seq 기반 순차 재생
+ * DDD StreamSession과 연계된 큐 시스템
  */
 
 export class MediaSyncController {
@@ -30,8 +31,8 @@ export class MediaSyncController {
             
             if (this.options.debugLogging) {
                 console.log('📡 간단한 미디어 수신:', {
-                    sync_id: sync_id.substring(0, 8),
-                    text_length: content.text.length,
+                    sync_id: sync_id ? sync_id.substring(0, 8) : 'undefined',
+                    text_length: content.text?.length || 0,
                     audio_duration: content.audio_duration,
                     talk_video: content.talk_video,
                     idle_video: content.idle_video
@@ -54,7 +55,7 @@ export class MediaSyncController {
      */
     async _executeSimplePlay(sync_id, content) {
         try {
-            console.log(`🎬 간단한 재생 시작: ${sync_id.substring(0, 8)}`);
+            console.log(`🎬 간단한 재생 시작: ${sync_id ? sync_id.substring(0, 8) : 'undefined'}`);
             
             this.currentPlayback = {
                 sync_id,
@@ -108,7 +109,7 @@ export class MediaSyncController {
                 }
             }
             
-            console.log(`✅ 간단한 재생 설정 완료: ${sync_id.substring(0, 8)}`);
+            console.log(`✅ 간단한 재생 설정 완료: ${sync_id ? sync_id.substring(0, 8) : 'undefined'}`);
             
         } catch (error) {
             console.error('❌ 간단한 재생 실행 실패:', error);
@@ -181,7 +182,7 @@ export class MediaSyncController {
         }
         
         if (this.currentPlayback) {
-            console.log(`🛑 간단한 재생 정리: ${this.currentPlayback.sync_id.substring(0, 8)}`);
+            console.log(`🛑 간단한 재생 정리: ${this.currentPlayback.sync_id ? this.currentPlayback.sync_id.substring(0, 8) : 'undefined'}`);
             this.currentPlayback = null;
         }
     }
@@ -209,6 +210,31 @@ export class MediaSyncController {
             start_time: this.currentPlayback?.start_time,
             active_timeouts: this.syncTimeouts.size
         };
+    }
+    
+    /**
+     * 오디오 재생 (누락된 메서드 구현)
+     */
+    async _playAudio(audioUrl) {
+        try {
+            if (!this.audioRef?.current) {
+                console.warn('⚠️ audioRef가 없어 오디오 재생 불가');
+                return;
+            }
+
+            console.log('🎵 오디오 재생 시작:', audioUrl.substring(0, 50) + '...');
+            
+            // 오디오 소스 설정 및 재생
+            this.audioRef.current.src = audioUrl;
+            this.audioRef.current.currentTime = 0;
+            
+            // 재생 시도
+            await this.audioRef.current.play();
+            console.log('✅ 오디오 재생 시작됨');
+            
+        } catch (error) {
+            console.error('❌ 오디오 재생 실패:', error);
+        }
     }
     
     /**

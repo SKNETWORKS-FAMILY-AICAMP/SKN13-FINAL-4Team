@@ -5,6 +5,7 @@ import StreamingChatClient from './StreamingChatClient';
 import VideoControlPanel from './VideoControlPanel';
 import VideoPlayer from './VideoPlayer';
 import SettingsPanel from './SettingsPanel';
+import QueueSystemPanel from './QueueSystemPanel';
 import { MediaSyncController } from '../../services/MediaSyncController';
 import { processTextForDisplay, debugVoiceTags } from '../../utils/textUtils';
 // Hot Reload 테스트 주석 - 2025.08.26 - 최종 수정!
@@ -81,6 +82,12 @@ function StreamingPage({ isLoggedIn, username }) {
         sync_status: 'idle',
         active_broadcasts: 0
     });
+
+    // 🆕 Queue 시스템 상태 관리
+    const [showQueuePanel, setShowQueuePanel] = useState(true);
+    const [queueStatus, setQueueStatus] = useState(null);
+    const [sessionInfo, setSessionInfo] = useState(null);
+    const [detailedQueueInfo, setDetailedQueueInfo] = useState(null);
 
     // 서버에서 TTS 설정 가져오기
     const fetchServerTtsSettings = async () => {
@@ -238,9 +245,99 @@ function StreamingPage({ isLoggedIn, username }) {
                 ...data.settings
             }));
         } 
+        // 🆕 Queue 상태 업데이트 처리
+        else if (data.type === 'queue_status_update' && data.session_info) {
+            console.log('📊 Queue 상태 업데이트 수신:', data.session_info);
+            setSessionInfo(data.session_info);
+        }
+        // 🆕 상세 Queue 디버그 정보 처리
+        else if (data.type === 'queue_debug_update' && data.detailed_queue_info) {
+            console.log('🔍 상세 Queue 정보 수신:', data.detailed_queue_info);
+            setDetailedQueueInfo(data.detailed_queue_info);
+        }
         // 새로운 동기화된 미디어 브로드캐스트 처리
         else if (data.type === 'synchronized_media' && isBroadcastingEnabled) {
             handleSynchronizedMediaBroadcast(data);
+        }
+        // 🆕 MediaPacket 처리
+        else if (data.type === 'media_packet' && data.packet) {
+            console.log('📦 MediaPacket 수신:', data.packet);
+            
+            // MediaPacket을 synchronized_media 형태로 변환하여 처리
+            const packet = data.packet;
+            
+            // 텍스트 트랙 찾기 (kind 필드 사용)
+            const textTrack = packet.tracks?.find(track => track.kind === 'subtitle');
+            
+            // 오디오 트랙 찾기  
+            const audioTrack = packet.tracks?.find(track => track.kind === 'audio');
+            
+            // 비디오 트랙 찾기
+            const videoTrack = packet.tracks?.find(track => track.kind === 'video');
+            
+            if (textTrack && isBroadcastingEnabled) {
+                console.log('📦 MediaPacket에서 텍스트 처리:', textTrack);
+                
+                // textTrack의 payload_ref에서 자막 데이터 추출
+                let subtitleData;
+                try {
+                    subtitleData = JSON.parse(textTrack.payload_ref);
+                } catch (e) {
+                    console.error('❌ 자막 데이터 파싱 실패:', e);
+                    subtitleData = { text: textTrack.payload_ref }; // fallback
+                }
+                
+                console.log('📝 추출된 자막 데이터:', subtitleData);
+                
+                // 자막 데이터에서 실제 텍스트 추출
+                let displayText = '';
+                if (subtitleData.segments && Array.isArray(subtitleData.segments)) {
+                    displayText = subtitleData.segments.map(segment => segment.word || segment.text || '').join(' ');
+                } else if (subtitleData.text) {
+                    displayText = subtitleData.text;
+                } else if (subtitleData.full_text) {
+                    displayText = subtitleData.full_text;
+                } else {
+                    displayText = textTrack.payload_ref; // fallback
+                }
+                
+                console.log('🔤 최종 추출된 텍스트:', displayText);
+                console.log('🎵 오디오 트랙 정보:', audioTrack);
+                console.log('🎵 오디오 duration 계산:', {
+                    dur: audioTrack?.dur,
+                    dur_ms: audioTrack?.dur_ms,
+                    calculated: audioTrack ? (audioTrack.dur || audioTrack.dur_ms || 0) / 1000 : 0
+                });
+                console.log('🎬 비디오 트랙 정보:', videoTrack);
+                
+                // synchronized_media 형태로 변환
+                const convertedData = {
+                    type: 'synchronized_media',
+                    content: {
+                        text: displayText,
+                        emotion: videoTrack?.meta?.emotion || 'happy', // 기본값 설정
+                        audio_url: audioTrack?.payload_ref,
+                        audio_duration: audioTrack ? (audioTrack.dur || audioTrack.dur_ms || 0) / 1000 : 0,
+                        tts_info: audioTrack?.meta || { provider: 'queue_system' },
+                        talk_video: videoTrack?.payload_ref ? `/videos/${videoTrack.payload_ref}` : null,
+                        idle_video: `/videos/jammin-i/a_idle_0.mp4` // 기본 idle 비디오
+                    },
+                    sync_id: packet.sync_id,
+                    sequence_number: packet.sequence_number,
+                    timestamp: packet.timestamp
+                };
+                
+                console.log('🔄 MediaPacket → synchronized_media 변환:', convertedData);
+                
+                // 기존 동기화된 미디어 브로드캐스트 핸들러로 처리
+                handleSynchronizedMediaBroadcast(convertedData);
+            } else {
+                console.log('⚠️  MediaPacket 처리 건너뜀:', {
+                    hasTextTrack: !!textTrack,
+                    isBroadcastingEnabled: isBroadcastingEnabled,
+                    tracks: packet.tracks?.map(t => ({ kind: t.kind, codec: t.codec, pts: t.pts, dur: t.dur }))
+                });
+            }
         }
     };
 
@@ -594,6 +691,19 @@ function StreamingPage({ isLoggedIn, username }) {
                 isBroadcastingEnabled={isBroadcastingEnabled}
                 isLoggedIn={isLoggedIn}
                 username={username}
+                // 🆕 Queue 상태 정보 전달
+                queueStatus={queueStatus}
+                sessionInfo={sessionInfo}
+                detailedQueueInfo={detailedQueueInfo}
+            />
+
+            {/* 🆕 Queue System Panel - 화면 우측 고정 */}
+            <QueueSystemPanel 
+                detailedQueueInfo={detailedQueueInfo}
+                queueStatus={queueStatus}
+                sessionInfo={sessionInfo}
+                isVisible={showQueuePanel}
+                onToggle={() => setShowQueuePanel(false)}
             />
 
             <Row>
@@ -636,6 +746,19 @@ function StreamingPage({ isLoggedIn, username }) {
                                 }}
                             >
                                 ⚙️
+                            </Button>
+                            <Button 
+                                variant={showQueuePanel ? "success" : "outline-light"}
+                                size="sm" 
+                                onClick={() => setShowQueuePanel(!showQueuePanel)}
+                                title="Queue 시스템 패널 토글"
+                                style={{
+                                    backgroundColor: showQueuePanel ? '#198754' : 'rgba(0,0,0,0.6)',
+                                    border: showQueuePanel ? '1px solid #198754' : '1px solid rgba(255,255,255,0.3)',
+                                    color: 'white'
+                                }}
+                            >
+                                📋
                             </Button>
                         </div>
 
@@ -781,6 +904,14 @@ function StreamingPage({ isLoggedIn, username }) {
                     </div>
                 </Col>
             </Row>
+            
+            {/* 숨겨진 오디오 요소 - TTS 재생용 */}
+            <audio
+                ref={audioRef}
+                style={{ display: 'none' }}
+                controls={false}
+                preload="auto"
+            />
         </Container>
     );
 }

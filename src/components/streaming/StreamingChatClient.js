@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Form, Button, Badge } from 'react-bootstrap';
+import { getValidToken } from '../../utils/tokenUtils';
 // Broadcasting 시스템: Backend에서 TTS 설정 및 오디오 처리 관리
 const DEFAULT_SETTINGS = {
     streamingDelay: 50,
@@ -140,10 +141,20 @@ const StreamingChatWithTTS = ({
                 const wsBaseUrl = apiBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
                 let wsUrl = `${wsBaseUrl}/ws/stream/${streamerId}/`;
                 
-                const token = localStorage.getItem('accessToken');
+                // 🆕 유효한 토큰 자동 갱신
+                const token = await getValidToken();
                 if (token) {
                     wsUrl += `?token=${token}`;
+                } else if (isLoggedIn) {
+                    console.warn('⚠️ 로그인 상태이지만 유효한 토큰을 가져올 수 없습니다. 다시 로그인해주세요.');
+                    setConnectionStatus('토큰 만료 - 다시 로그인 필요');
+                    return;
                 }
+                
+                console.log('🔗 WebSocket 연결 시도:', wsUrl);
+                console.log('📝 토큰 존재:', !!token);
+                console.log('👤 로그인 상태:', isLoggedIn);
+                console.log('🎯 스트리머 ID:', streamerId);
                 
                 websocketRef.current = new WebSocket(wsUrl);
                 
@@ -158,6 +169,26 @@ const StreamingChatWithTTS = ({
                     try {
                         const data = JSON.parse(event.data);
                         console.log('📥 WebSocket 메시지 수신:', data);
+                        console.log('📋 메시지 타입:', data.type);
+                        
+                        // 🔍 모든 메시지 타입 상세 로깅
+                        if (data.type === 'media_packet') {
+                            console.log('🎯 MEDIA_PACKET 수신!', data.packet);
+                        } else if (data.type === 'synchronized_media') {
+                            console.log('🎯 SYNCHRONIZED_MEDIA 수신!', data.content);
+                        } else {
+                            console.log('🔍 기타 메시지 타입:', data.type, data);
+                        }
+                        
+                        // 🆕 Queue 메시지 전용 로깅
+                        if (data.type === 'queue_status_update' || data.type === 'queue_debug_update') {
+                            console.log('🎯 Queue 메시지 수신!', {
+                                type: data.type,
+                                session_info: data.session_info,
+                                detailed_queue_info: data.detailed_queue_info,
+                                timestamp: data.timestamp
+                            });
+                        }
                         
                         // WebSocket 메시지 타입별 처리
                         if (data.type === 'initial_tts_settings') {
@@ -207,6 +238,17 @@ const StreamingChatWithTTS = ({
                                     timestamp: Date.now()
                                 };
                                 addMessage(alertMessage);
+                            }
+                            return;
+                        }
+                        
+                        // 🆕 Queue 시스템 메시지 처리
+                        if (data.type === 'queue_status_update' || data.type === 'queue_debug_update' || data.type === 'media_packet') {
+                            console.log(`📊 Queue 시스템 메시지 수신 (${data.type}):`, data);
+                            
+                            // 부모 컴포넌트로 전달 (StreamingPage에서 처리)
+                            if (onWebSocketMessage) {
+                                onWebSocketMessage(data);
                             }
                             return;
                         }
@@ -396,6 +438,10 @@ const StreamingChatWithTTS = ({
                 };
                 
                 websocketRef.current.onerror = (error) => {
+                    console.error('❌ WebSocket 연결 오류:', error);
+                    console.error('❌ WebSocket URL:', wsUrl);
+                    console.error('❌ 로그인 상태:', isLoggedIn);
+                    console.error('❌ 토큰:', token ? 'exists' : 'missing');
                     setConnectionStatus('연결 오류');
                     isConnectingRef.current = false;
                 };
