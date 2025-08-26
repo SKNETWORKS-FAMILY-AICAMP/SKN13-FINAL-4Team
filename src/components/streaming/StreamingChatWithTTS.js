@@ -101,7 +101,7 @@ const StreamingChatWithTTS = ({
             const token = localStorage.getItem('accessToken');
             const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
             
-            const response = await fetch(`${apiBaseUrl}/api/streamer/${streamerId}/tts/settings/update/`, {
+            const response = await fetch(`${apiBaseUrl}/api/chat/streamer/${streamerId}/tts/settings/update/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

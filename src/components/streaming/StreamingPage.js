@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Container, Row, Col, Image, Button, Badge } from 'react-bootstrap';
 import StreamingChatWithTTS from './StreamingChatWithTTS';
-import DonationIsland from './DonationIsland'; // 후원 아일랜드 컴포넌트 import
+import DonationIsland from './DonationIsland';
 import { AITextSyncService } from '../../services/aiTextSyncService';
 import { DEFAULT_SETTINGS } from '../../config/aiChatSettings';
 import { TTSServiceManager } from '../../services/ttsServiceManager';
@@ -70,7 +70,7 @@ function StreamingPage({ isLoggedIn, username }) {
             const token = localStorage.getItem('accessToken');
             const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
             
-            const response = await fetch(`${apiBaseUrl}/api/streamer/${streamerId}/tts/settings/`, {
+            const response = await fetch(`${apiBaseUrl}/api/chat/streamer/${streamerId}/tts/settings/`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

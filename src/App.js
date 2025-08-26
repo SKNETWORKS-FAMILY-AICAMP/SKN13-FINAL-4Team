@@ -11,11 +11,14 @@ import ProfilePage from './components/user/ProfilePage';
 import StreamingPage from './components/streaming/StreamingPage';
 import HomeTemporary from './components/pages/HomeTemporary';
 import TTSDebugTool from './components/ai/TTSDebugTool';
+import SuccessPage from './components/pages/SuccessPage';
+import FailPage from './components/pages/FailPage';
 import './App.css';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
+  const [userBalance, setUserBalance] = useState(0);
 
   // 사용자 정보를 가져와 상태를 설정하는 함수
   const fetchAndSetUser = async (token) => {
@@ -26,18 +29,25 @@ function App() {
       }
       
       const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-      const response = await axios.get(`${apiBaseUrl}/api/users/me/`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const headers = { headers: { Authorization: `Bearer ${token}` } };
+
+      // 1. 사용자 기본 정보 가져오기
+      const userResponse = await axios.get(`${apiBaseUrl}/api/users/me/`, headers);
       
+      // 2. 사용자 지갑 정보 가져오기
+      const walletResponse = await axios.get(`${apiBaseUrl}/api/users/wallet/`, headers);
+
       setIsLoggedIn(true);
-      setUsername(response.data.username); 
+      setUsername(userResponse.data.username);
+      setUserBalance(walletResponse.data.balance);
+
     } catch (error) {
       console.error('Failed to fetch user data or token is invalid:', error);
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       setIsLoggedIn(false);
       setUsername('');
+      setUserBalance(0);
     }
   };
 
@@ -58,13 +68,14 @@ function App() {
     localStorage.removeItem('refreshToken');
     setIsLoggedIn(false);
     setUsername('');
+    setUserBalance(0);
     window.location.href = '/';
   };
 
   return (
     <Router>
       <div className="App">
-        <Navbar isLoggedIn={isLoggedIn} onLogout={handleLogout} />
+        <Navbar isLoggedIn={isLoggedIn} onLogout={handleLogout} userBalance={userBalance} />
         <Routes>
           <Route path="/" element={<HomeTemporary />} />
           <Route path="/signup/terms" element={<TermsPage />} />
@@ -80,6 +91,10 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/stream/:streamerId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} />
           <Route path="/debug/tts" element={<TTSDebugTool />} />
+
+          {/* 토스페이먼츠 결제 콜백 페이지 */}
+          <Route path="/success" element={<SuccessPage />} />
+          <Route path="/fail" element={<FailPage />} />
         </Routes>
       </div>
     </Router>

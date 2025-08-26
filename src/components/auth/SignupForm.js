@@ -123,7 +123,7 @@ function SignupForm() {
         
         // 모든 검증 통과 후 서버에 데이터 전송
         try {
-            const { password_confirm, ...signupData } = formData;
+            const signupData  = { ...formData };
             if (!signupData.gender) signupData.gender = null;
 
             await axios.post('http://localhost:8000/api/users/signup/', signupData);
