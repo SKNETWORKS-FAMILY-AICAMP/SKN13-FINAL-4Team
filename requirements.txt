@@ -7,7 +7,7 @@ djangorestframework-simplejwt
 
 # Channels
 channels
-channels_redis
+channels-redis>=4.0.0
 daphne
 django-redis
 
