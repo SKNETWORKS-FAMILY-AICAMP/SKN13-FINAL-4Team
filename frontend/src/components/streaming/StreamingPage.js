@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react'; 
-import api from '../../api';
+import React, { useState, useRef, useEffect } from 'react';
+import axios from 'axios'; 
 import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Image, Button, Badge, Spinner, Alert } from 'react-bootstrap';
 import StreamingChatWithTTS from './StreamingChatWithTTS';
@@ -61,14 +61,11 @@ function StreamingPage({ isLoggedIn, username }) {
 
     // 채팅방 정보 가져오기 (방 기준)
     useEffect(() => {
-        const fetchChatRoomData = async () => {
-            if (!roomId) {
-                setError('잘못된 접근입니다.');
-                setLoading(false);
-                return;
-            }
+        const fetchChatRoom = async () => {
             try {
-                const response = await api.get(`/api/chat/rooms/${roomId}/`);
+                // 변경점: 기존에는 streamerId로 방을 조회했으나,
+                // 방 기준 변경안에 따라 roomId(pk)로 조회합니다.
+                const response = await apiClient.get(`/api/chat/rooms/${roomId}/`);
                 setChatRoom(response.data);
 
                 // 중요: streamerId를 방 정보에서 파생(influencer.username)하여 설정
@@ -508,6 +505,207 @@ function StreamingPage({ isLoggedIn, username }) {
                                 onOpenDonation={() => setIsDonationIslandOpen(true)}
                                 onDonation={(d)=> setDonationOverlay({ visible: true, data: d })}
                             />
+                        </div>
+                    </div>
+                </Col>
+            </Row>
+        </Container>
+    );
+}
+
+export default StreamingPage;
+import React, { useState, useRef, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Container, Row, Col, Image, Button, Spinner, Alert } from 'react-bootstrap';
+import api from '../../api';
+import StreamingChatWithTTS from './StreamingChatWithTTS';
+import { AITextSyncService } from '../../services/aiTextSyncService';
+import { DEFAULT_SETTINGS } from '../../config/aiChatSettings';
+import { TTSServiceManager } from '../../services/ttsServiceManager';
+import AITTSEngineSelector from '../ai/AITTSEngineSelector';
+import TTSSettingsManager from '../ai/TTSSettingsManager';
+import './StreamingPage.css';
+
+function StreamingPage({ isLoggedIn, username }) {
+    const { roomId } = useParams();
+    const navigate = useNavigate();
+
+    const [chatRoom, setChatRoom] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    // --- (다른 useState, useRef 선언은 기존과 동일하게 유지합니다) ---
+    const audioRef = useRef(null);
+    const videoContainerRef = useRef(null);
+    const [currentSubtitle, setCurrentSubtitle] = useState('');
+    const [revealedSubtitle, setRevealedSubtitle] = useState('');
+    const [showSubtitle, setShowSubtitle] = useState(false);
+    const subtitleTimeoutRef = useRef(null);
+    const textSyncServiceRef = useRef(null);
+    const [ttsSettings, setTtsSettings] = useState({
+        ...DEFAULT_SETTINGS,
+        autoPlay: true,
+        ttsEngine: 'elevenlabs',
+        elevenLabsVoice: 'aneunjin'
+    });
+    const ttsManagerRef = useRef(null);
+    const [serverTtsSettings, setServerTtsSettings] = useState(null);
+    const [isMuted, setIsMuted] = useState(false);
+    const [volume, setVolume] = useState(0.8);
+
+    // .env 파일의 API 기본 주소 (이미지 경로 등에 사용)
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
+    // 1. 채팅방 기본 정보 로딩
+    useEffect(() => {
+        const fetchChatRoomData = async () => {
+            if (!roomId) {
+                setError('잘못된 접근입니다.');
+                setLoading(false);
+                return;
+            }
+            try {
+                const response = await api.get(`/api/chat/rooms/${roomId}/`);
+                setChatRoom(response.data);
+            } catch (err) {
+                setError('채팅방 정보를 불러오는 데 실패했습니다.');
+                console.error("채팅방 정보 로딩 실패:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchChatRoomData();
+    }, [roomId]);
+
+    // 2. 로그인 상태 확인 (로딩이 끝난 후에 실행)
+    useEffect(() => {
+        if (!loading && !isLoggedIn) {
+            alert('로그인이 필요한 서비스입니다.');
+            navigate('/login');
+        }
+    }, [isLoggedIn, loading, navigate]);
+
+    // 3. streamerId 계산 (옵셔널 체이닝으로 안정성 확보)
+    const streamerId = chatRoom?.influencer?.username || chatRoom?.host?.username;
+
+    // 4. TTS 설정 로딩 (streamerId가 확정된 후에만 실행)
+    useEffect(() => {
+        if (isLoggedIn && streamerId) {
+            const fetchServerTtsSettings = async () => {
+                try {
+                    const response = await api.get(`/api/streamer/${streamerId}/tts/settings/`);
+                    const result = response.data;
+
+                    if (result.success) {
+                        setServerTtsSettings(result.settings);
+                        setTtsSettings(prev => ({ ...prev, ...result.settings }));
+                    }
+                } catch (error) {
+                    console.error('❌ 서버 TTS 설정 로드 오류:', error);
+                }
+            };
+            fetchServerTtsSettings();
+        }
+    }, [isLoggedIn, streamerId]);
+
+    // --- (이하 다른 useEffect 및 핸들러 함수들은 변경 없음) ---
+
+    useEffect(() => {
+        if (!ttsManagerRef.current) {
+            ttsManagerRef.current = new TTSServiceManager(ttsSettings);
+        } else {
+            ttsManagerRef.current.updateSettings(ttsSettings);
+        }
+    }, [ttsSettings]);
+
+    useEffect(() => {
+        if (!textSyncServiceRef.current) {
+            textSyncServiceRef.current = new AITextSyncService({});
+            textSyncServiceRef.current.setCallbacks(
+                (revealed) => setRevealedSubtitle(revealed),
+                () => {
+                    subtitleTimeoutRef.current = setTimeout(() => setShowSubtitle(false), 3000);
+                }
+            );
+        }
+    }, []);
+
+    const handleWebSocketMessage = (data) => {
+        if (data.type === 'tts_settings_changed' && data.settings) {
+            setServerTtsSettings(data.settings);
+            setTtsSettings(prev => ({ ...prev, ...data.settings }));
+        }
+    };
+
+    const handleAIMessage = (message, audioDuration) => {
+        setCurrentSubtitle(message);
+        setRevealedSubtitle('');
+        setShowSubtitle(true);
+        
+        if (subtitleTimeoutRef.current) clearTimeout(subtitleTimeoutRef.current);
+        if (textSyncServiceRef.current) textSyncServiceRef.current.stopReveal();
+        
+        if (audioDuration > 0) {
+            textSyncServiceRef.current.startSynchronizedReveal(message, audioDuration);
+        } else {
+            textSyncServiceRef.current.startDelayedReveal(message);
+        }
+    };
+
+    // 렌더링 가드: 로딩, 에러, 데이터 부재 시 조기 반환
+    if (loading) return <Container className="d-flex justify-content-center mt-5"><Spinner animation="border" /></Container>;
+    if (error) return <Container className="mt-5"><Alert variant="danger">{error}</Alert></Container>;
+    if (!chatRoom) return <Container className="mt-5"><Alert variant="warning">채팅방 정보가 없습니다.</Alert></Container>;
+
+    // 이 아래부터는 chatRoom이 유효한 객체임이 보장됩니다.
+    return (
+        <Container fluid className="streaming-container mt-4">
+            <Row>
+                <Col md={8}>
+                    <div className="video-player-wrapper" ref={videoContainerRef}>
+                        <video className="streaming-video" autoPlay loop muted playsInline>
+                            <source src="/videos/a_idle.mp4" type="video/mp4" />
+                            Your browser does not support the video tag.
+                        </video>
+                        {showSubtitle && revealedSubtitle && (
+                            <div className="ai-subtitle">
+                                <div className="subtitle-background">
+                                    <span className="subtitle-text">{revealedSubtitle}</span>
+                                </div>
+                            </div>
+                        )}
+                        {/* ... Video Controls ... */}
+                    </div>
+                    <div className="stream-info mt-3">
+                        <h3>{chatRoom.name}</h3>
+                        <div className="d-flex justify-content-between align-items-center text-muted">
+                            <span>시청자 수: 0명</span>
+                            <span>방송 시작: {new Date(chatRoom.created_at).toLocaleString('ko-KR')}</span>
+                        </div>
+                        <hr />
+                        <div className="d-flex align-items-center my-3">
+                            <Image src={chatRoom.influencer?.profile_image ? `${apiBaseUrl}${chatRoom.influencer.profile_image}` : 'http://localhost:8000'} roundedCircle />
+                            <div className="ms-3">
+                                {/* 수정된 부분: chatRoom.host?.username 으로 옵셔널 체이닝을 추가하여 안정성을 높였습니다. */}
+                                <h5 className="mb-0">{chatRoom.influencer?.nickname || chatRoom.host?.username}</h5>
+                                <p className="mb-0">{chatRoom.description}</p>
+                            </div>
+                        </div>
+                    </div>
+                </Col>
+                <Col md={4}>
+                    <div className="chat-section-wrapper d-flex flex-column h-100">
+                        <div className="chat-container-with-input flex-grow-1 d-flex flex-column">
+                            {streamerId && ( // streamerId가 확정된 후에만 챗 컴포넌트를 렌더링합니다.
+                                <StreamingChatWithTTS 
+                                    streamerId={streamerId}
+                                    roomId={roomId}
+                                    isLoggedIn={isLoggedIn}
+                                    username={username}
+                                    onAIMessage={handleAIMessage}
+                                    onWebSocketMessage={handleWebSocketMessage}
+                                />
+                            )}
                         </div>
                     </div>
                 </Col>
