@@ -1,0 +1,105 @@
+/* HomeTemporary.css */
+/* 임시 홈 화면에서 사용중인 스타일입니다 */
+
+.home-temporary-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.home-temporary-container h2 {
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 2rem;
+}
+
+.broadcast-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 25px;
+}
+
+.broadcast-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease-in-out;
+  background-color: #fff;
+}
+
+.broadcast-card:hover {
+  transform: translateY(-5px);
+}
+
+.thumbnail-container {
+  position: relative;
+}
+
+.thumbnail-container img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.status-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  color: white;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.status-badge.live {
+  background-color: #e91e63; /* Red for LIVE */
+}
+
+.status-badge.off {
+  background-color: #607d8b; /* Grey for OFF */
+}
+
+.info-container {
+  padding: 15px;
+}
+
+.streamer-name {
+  font-weight: bold;
+  font-size: 1.1rem;
+  margin: 0 0 5px 0;
+}
+
+.stream-title {
+  margin: 0 0 10px 0;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bottom-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.viewer-count {
+  margin: 0;
+}
+
+.time-info {
+  margin: 0;
+  text-align: right;
+}
+
+/* 반응형 디자인: 화면이 작아지면 1열로 변경 */
+@media (max-width: 768px) {
+  .broadcast-list {
+    grid-template-columns: 1fr;
+  }
+}
