@@ -15,6 +15,10 @@ ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')
 DEBUG = ENVIRONMENT != 'production'
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
+# 샤드 수 (실전: 4~16로 시작, 트래픽 따라 조정)
+SHARD_COUNT = int(os.getenv("CHANNEL_SHARDS", "8"))
+
+
 # --- 호스트 설정 ---
 if DEBUG:
     ALLOWED_HOSTS = ['*']
@@ -22,6 +26,11 @@ else:
     allowed_hosts_str = os.environ.get('DJANGO_ALLOWED_HOSTS', '')
     ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_str.split(',') if h.strip()]
 
+
+def make_redis_url(host):
+    return f"redis://{host}:6379/0"
+
+    
 # --- 핵심 애플리케이션 ---
 INSTALLED_APPS = [
     'daphne',
@@ -119,47 +128,63 @@ DATABASES = {
 #     },
 # }
 
-# settings.py
-
+# --- Redis / Channels / Cache 설정 ---
 if ENVIRONMENT == 'production':
-    # 실서버 환경: AWS ElastiCache 사용 (인증 없음)
+    # 실서버 환경: 단일 AWS ElastiCache를 샤드처럼 사용
     ELASTICACHE_ENDPOINT = os.environ.get('ELASTICACHE_ENDPOINT')
+    REDIS_LOCATION = f"rediss://{ELASTICACHE_ENDPOINT}" # 인증 없음, TLS 사용
+    SHARD_COUNT = int(os.environ.get("CHANNEL_SHARDS", "4"))
 
-    # ❗️ 사용자 이름과 비밀번호를 사용하지 않으므로 'redis://' 사용
-    REDIS_LOCATION = f"redis://{ELASTICACHE_ENDPOINT}"
+    # [수정] Dictionary unpacking을 사용하여 default와 샤드 설정을 올바르게 병합
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": { "hosts": [REDIS_LOCATION] },
+        },
+        **{
+            f"shard-{i}": {
+                "BACKEND": "channels_redis.core.RedisChannelLayer",
+                "CONFIG": {
+                    "hosts": [REDIS_LOCATION],
+                },
+            }
+            for i in range(SHARD_COUNT)
+        }
+    }
+
 else:
-    # 개발 환경: 로컬 Docker Redis 사용
+    # 개발 환경: 단일 로컬 Docker Redis 사용
     REDIS_LOCATION = "redis://redis:6379"
+    SHARD_COUNT = int(os.environ.get("CHANNEL_SHARDS", "4"))
 
-# settings.py
-
-if ENVIRONMENT == 'production':
-    # 실서버 환경: AWS ElastiCache 사용 (인증 없음, TLS 사용)
-    ELASTICACHE_ENDPOINT = os.environ.get('ELASTICACHE_ENDPOINT')
-
-    # ❗️ 사용자 이름과 비밀번호 없이, rediss 프로토콜만 사용
-    REDIS_LOCATION = f"rediss://{ELASTICACHE_ENDPOINT}"
-else:
-    # 개발 환경
-    REDIS_LOCATION = "redis://redis:6739"
+    # [수정] Dictionary unpacking을 사용하여 default와 샤드 설정을 올바르게 병합
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": { "hosts": [f"{REDIS_LOCATION}/0"] },
+        },
+         **{
+            f"shard-{i}": {
+                "BACKEND": "channels_redis.core.RedisChannelLayer",
+                "CONFIG": {
+                    "hosts": [f"{REDIS_LOCATION}/0"],
+                },
+            }
+            for i in range(SHARD_COUNT)
+        }
+    }
 
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"{REDIS_LOCATION}",
+        "LOCATION": REDIS_LOCATION,
         "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.herd.HerdClient",
-            "SSL_CERT_REQS": None,
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "SSL_CERT_REQS": None if ENVIRONMENT == 'production' else 'ignore',
         },
     }
 }
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": { "hosts": [f"{REDIS_LOCATION}"] },
-    },
-}
 
 # --- 인증 및 권한 ---
 AUTH_USER_MODEL = 'users.User'
@@ -179,7 +204,7 @@ USE_TZ = True
 # --- 정적 & 미디어 파일 ---
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'static'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

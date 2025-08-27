@@ -8,7 +8,8 @@ class ChatRoomSerializer(serializers.ModelSerializer):
     """
     host = UserSerializer(read_only=True)
     influencer = UserSerializer(read_only=True)
-
+    thumbnail = serializers.ImageField(use_url=True)
+    
     class Meta:
         model = ChatRoom
         fields = '__all__'
