@@ -101,7 +101,7 @@ const StreamingChatWithTTS = ({
             const token = localStorage.getItem('accessToken');
             const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
             
-            const response = await fetch(`${apiBaseUrl}/api/streamer/${streamerId}/tts/settings/update/`, {
+            const response = await fetch(`${apiBaseUrl}/api/chat/streamer/${streamerId}/tts/settings/update/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -277,6 +277,18 @@ const StreamingChatWithTTS = ({
                                 };
                                 addMessage(alertMessage);
                             }
+                            return;
+                        }
+
+                        // 후원 메시지 처리
+                        if (data.type === 'donation_message') {
+                            const newMessage = {
+                                id: Date.now() + Math.random(),
+                                ...data,
+                                message_type: 'donation',
+                                timestamp: data.timestamp || Date.now()
+                            };
+                            addMessage(newMessage);
                             return;
                         }
                         
@@ -606,6 +618,27 @@ const StreamingChatWithTTS = ({
                     <span className="message-badge">📢</span>
                     <strong className="message-sender text-info">System</strong>
                     <span className="message-text text-info">{msg.message}</span>
+                    <small className="message-time">[{messageTime}]</small>
+                </div>
+            );
+        }
+
+        // 후원 메시지
+        if (msg.message_type === 'donation') {
+            return (
+                <div key={msg.id} className="chat-message donation-message">
+                    <div className="donation-header">
+                        <span className="message-badge">💰</span>
+                        <strong className="message-sender">{msg.username}</strong>
+                        <span>님이 </span>
+                        <strong className="donation-amount">{msg.amount.toLocaleString()} 크레딧</strong>
+                        <span>을 후원하셨습니다!</span>
+                    </div>
+                    {msg.message && (
+                        <div className="donation-body">
+                            <p className="message-text">"{msg.message}"</p>
+                        </div>
+                    )}
                     <small className="message-time">[{messageTime}]</small>
                 </div>
             );

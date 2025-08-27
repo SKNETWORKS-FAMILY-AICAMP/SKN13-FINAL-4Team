@@ -119,7 +119,7 @@ function SignupForm() {
         }
         
         try {
-            const { password_confirm, ...signupData } = formData;
+            const signupData  = { ...formData };
             if (!signupData.gender) signupData.gender = null;
 
                 console.log("서버로 보내는 비밀번호:", signupData.password);

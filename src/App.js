@@ -10,6 +10,8 @@ import ProfilePage from './components/user/ProfilePage';
 import StreamingPage from './components/streaming/StreamingPage';
 import HomeTemporary from './components/pages/HomeTemporary';
 import TTSDebugTool from './components/ai/TTSDebugTool';
+import SuccessPage from './components/pages/SuccessPage';
+import FailPage from './components/pages/FailPage';
 import CreateChatRoom from './components/staff/CreateChatRoom';
 import ChatRoomManagement from './components/staff/ChatRoomManagement';
 import './App.css';
@@ -68,26 +70,37 @@ const ProtectedRoute = ({ isLoggedIn }) => {
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
+  const [userBalance, setUserBalance] = useState(0);
   const [isLoading, setIsLoading] = useState(true); // 앱의 최초 로딩 상태를 관리합니다.
 
-  // 사용자 정보를 가져와 상태를 설정하는 함수입니다.
-  const fetchAndSetUser = useCallback(async () => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      setIsLoading(false); // 토큰이 없으면 바로 로딩을 종료합니다.
-      return;
-    }
-    
+
+  // 사용자 정보를 가져와 상태를 설정하는 함수
+  const fetchAndSetUser = async (token) => {
     try {
-      // 서버에 사용자 정보를 요청합니다. 토큰이 만료되었더라도 인터셉터가 처리해줍니다.
-      const response = await api.get('/api/users/me/');
+      const decoded = jwtDecode(token);
+      if (decoded.exp * 1000 < Date.now()) {
+        throw new Error('Token expired');
+      }
+      
+      const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+      const headers = { headers: { Authorization: `Bearer ${token}` } };
+
+      // 1. 사용자 기본 정보 가져오기
+      const userResponse = await axios.get(`${apiBaseUrl}/api/users/me/`, headers);
+      
+      // 2. 사용자 지갑 정보 가져오기
+      const walletResponse = await axios.get(`${apiBaseUrl}/api/users/wallet/`, headers);
+
       setIsLoggedIn(true);
-      setUsername(response.data.username);
+      setUsername(userResponse.data.username);
+      setUserBalance(walletResponse.data.balance);
+
     } catch (error) {
       console.error('Failed to fetch user data on initial load:', error);
       // 토큰이 유효하지 않으면 상태를 확실히 로그아웃으로 설정합니다.
       setIsLoggedIn(false);
       setUsername('');
+      setUserBalance(0);
     } finally {
       setIsLoading(false); // 모든 과정이 끝나면 로딩 상태를 해제합니다.
     }
@@ -115,6 +128,8 @@ function App() {
     localStorage.removeItem('refreshToken');
     setIsLoggedIn(false);
     setUsername('');
+    setUserBalance(0);
+    window.location.href = '/';
   };
   
   // 최초 로딩 중에는 스피너 등을 보여줍니다.
@@ -125,7 +140,7 @@ function App() {
   return (
     <Router>
       <div className="App">
-        <NavbarWrapper isLoggedIn={isLoggedIn} onLogout={handleLogout} />
+        <Navbar isLoggedIn={isLoggedIn} onLogout={handleLogout} userBalance={userBalance} />
         <Routes>
           {/* 공개적으로 접근 가능한 경로들 */}
           <Route path="/" element={<HomeTemporary />} />
@@ -135,6 +150,10 @@ function App() {
           <Route path="/find-id" element={<div>아이디 찾기 페이지</div>} />
           <Route path="/find-password" element={<div>비밀번호 찾기 페이지</div>} />
           <Route path="/debug/tts" element={<TTSDebugTool />} />
+
+          {/* 토스페이먼츠 결제 콜백 페이지 */}
+          <Route path="/success" element={<SuccessPage />} />
+          <Route path="/fail" element={<FailPage />} />
 
           {/* 로그인이 필요한 보호된 경로들 */}
           <Route element={<ProtectedRoute isLoggedIn={isLoggedIn} />}>
