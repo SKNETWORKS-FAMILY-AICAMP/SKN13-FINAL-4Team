@@ -8,7 +8,7 @@ const api = axios.create({
     baseURL: apiBaseUrl,
 });
 
-// Axios 요청 인터셉터: 모든 요청에 Access Token을 헤더에 추가
+// 요청 인터셉터: Access Token 자동 추가
 api.interceptors.request.use(
     config => {
         const accessToken = localStorage.getItem('accessToken');
@@ -20,42 +20,59 @@ api.interceptors.request.use(
     error => Promise.reject(error)
 );
 
-// Axios 응답 인터셉터: 401 오류 발생 시 토큰 갱신 시도
+// 이미지 URL 보정 함수 (재귀)
+const fixImageUrlsRecursively = (data) => {
+    if (!data || typeof data !== 'object') return data;
+
+    const fixUrl = (url) => (url && url.startsWith('/media/')) ? `${apiBaseUrl}${url}` : url;
+
+    // profile_image, thumbnail 처리
+    if (data.profile_image) data.profile_image = fixUrl(data.profile_image);
+    if (data.thumbnail) data.thumbnail = fixUrl(data.thumbnail);
+
+    // 객체 안에 중첩된 배열/객체 재귀 처리
+    Object.keys(data).forEach(key => {
+        if (Array.isArray(data[key])) {
+            data[key] = data[key].map(fixImageUrlsRecursively);
+        } else if (typeof data[key] === 'object' && data[key] !== null) {
+            data[key] = fixImageUrlsRecursively(data[key]);
+        }
+    });
+
+    return data;
+};
+
+// 응답 인터셉터: 이미지 URL 보정 + 401 처리
 api.interceptors.response.use(
-    response => response, // 성공적인 응답은 그대로 반환
+    response => {
+        if (response.data) {
+            response.data = fixImageUrlsRecursively(response.data);
+        }
+        return response;
+    },
     async (error) => {
         const originalRequest = error.config;
 
-        // 401 오류이고, 재시도한 요청이 아닐 경우
-        if (error.response.status === 401 && !originalRequest._retry) {
-            originalRequest._retry = true; // 재시도 플래그 설정
+        // 401 처리
+        if (error.response && error.response.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
 
             try {
                 const refreshToken = localStorage.getItem('refreshToken');
                 if (!refreshToken) {
-                    // refreshToken이 없으면 로그인 페이지로
                     window.location.href = '/login';
                     return Promise.reject(error);
                 }
 
-                // 새로운 Access Token 발급 요청
-                const response = await axios.post(`${apiBaseUrl}/api/token/refresh/`, {
-                    refresh: refreshToken
-                });
-
+                const response = await axios.post(`${apiBaseUrl}/api/token/refresh/`, { refresh: refreshToken });
                 const newAccessToken = response.data.access;
-
-                // 새로운 토큰 저장
                 localStorage.setItem('accessToken', newAccessToken);
-                
-                // 새로 발급받은 토큰으로 원래 요청을 다시 시도
+
                 originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
                 return api(originalRequest);
 
             } catch (refreshError) {
-                // Refresh Token도 만료되었거나 유효하지 않은 경우
                 console.error('Unable to refresh token:', refreshError);
-                // 모든 토큰 삭제 및 로그아웃 처리
                 localStorage.removeItem('accessToken');
                 localStorage.removeItem('refreshToken');
                 window.location.href = '/login';

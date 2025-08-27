@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios'; 
+import React, { useState, useRef, useEffect } from 'react'; 
+import api from '../../api';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Container, Row, Col, Image, Button, Badge, Spinner, Alert } from 'react-bootstrap';
 import StreamingChatWithTTS from './StreamingChatWithTTS';
@@ -57,7 +57,7 @@ function StreamingPage({ isLoggedIn, username }) {
                 return;
             }
             try {
-                const response = await axios.get(`${apiBaseUrl}/api/chat/rooms/${roomId}/`);
+                const response = await api.get(`/api/chat/rooms/${roomId}/`);
                 setChatRoom(response.data);
             } catch (err) {
                 setError('채팅방 정보를 불러오는 데 실패했습니다.');
