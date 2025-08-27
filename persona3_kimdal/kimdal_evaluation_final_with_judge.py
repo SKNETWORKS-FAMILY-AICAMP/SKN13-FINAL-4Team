@@ -27,7 +27,6 @@
 # # pip install "transformers" "datasets" "peft" "accelerate" "langchain-openai" "python-dotenv"
 # #
 # # 또한, 프로젝트 루트 디렉터리에 .env 파일을 만들고 아래와 같이 OpenAI API 키를 추가해주세요.
-# # OPENAI_API_KEY=***REDACTED***
 # ##############################################################################
 
 
