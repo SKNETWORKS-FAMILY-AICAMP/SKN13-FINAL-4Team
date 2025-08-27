@@ -1,0 +1,20 @@
+# General
+ENVIRONMENT="development"
+DJANGO_SECRET_KEY="your-very-strong-and-secret-production-key" # 서비스용 강력한 키
+DJANGO_ALLOWED_HOSTS="your-domain.com,api.your-domain.com"
+CORS_ALLOWED_ORIGINS="https://your-frontend.com,http://your-frontend.com"
+
+# PostgreSQL Database (AWS RDS)
+DB_NAME="postgres"
+DB_USER="postgres"
+DB_PASSWORD="influencer11"
+DB_HOST="database-1.cncws8gyqmnk.ap-northeast-2.rds.amazonaws.com"
+DB_PORT="5432"
+
+# ElastiCache (AWS ElastiCache Serverless)
+ELASTICACHE_ENDPOINT="redis-0smvd.serverless.apn2.cache.amazonaws.com:6379"
+ELASTICACHE_USER="student"
+ELASTICACHE_PASSWORD="influencer1!2@3#"
+
+OPENAI_API_KEY="your-openai-key"
+ELEVENLABS_API_KEY="sk_dbe4938985375341980f82cbfebffa5d25df09f966ae2c06"

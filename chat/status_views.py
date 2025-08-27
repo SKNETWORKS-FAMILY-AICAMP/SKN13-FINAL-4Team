@@ -2,20 +2,11 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-# OpenAI TTS 서비스 제거됨
 import logging
 
-# MeloTTS는 선택적 import
+# ElevenLabs import
 try:
-    from .melotts_service import melotts_service
-    MELOTTS_AVAILABLE = True
-except ImportError:
-    melotts_service = None
-    MELOTTS_AVAILABLE = False
-
-# ElevenLabs는 선택적 import
-try:
-    from .elevenlabs_service import elevenlabs_service
+    from .tts_elevenlabs_service import elevenlabs_service
     ELEVENLABS_AVAILABLE = True
 except ImportError:
     elevenlabs_service = None
@@ -29,8 +20,6 @@ def tts_status_api(request):
     """TTS 엔진 상태 확인 API 엔드포인트"""
     try:
         status = {}
-        
-        # OpenAI TTS 제거됨
         
         # ElevenLabs TTS 상태 확인
         if ELEVENLABS_AVAILABLE and elevenlabs_service:
@@ -55,30 +44,7 @@ def tts_status_api(request):
                 'description': 'API 키가 설정되지 않음'
             }
         
-        # MeloTTS 상태 확인
-        if MELOTTS_AVAILABLE and melotts_service:
-            try:
-                melo_available = melotts_service.is_available()
-                status['melotts'] = {
-                    'available': melo_available,
-                    'name': 'MeloTTS',
-                    'description': '다국어 지원, CPU 실시간 추론'
-                }
-            except Exception as e:
-                logger.warning(f"MeloTTS 상태 확인 실패: {e}")
-                status['melotts'] = {
-                    'available': False,
-                    'name': 'MeloTTS', 
-                    'description': '라이브러리 오류'
-                }
-        else:
-            status['melotts'] = {
-                'available': False,
-                'name': 'MeloTTS',
-                'description': '설치되지 않음'
-            }
-        
-        logger.info(f"TTS 상태 확인 - ElevenLabs: {status['elevenlabs']['available']}, MeloTTS: {status['melotts']['available']}")
+        logger.info(f"TTS 상태 확인 - ElevenLabs: {status['elevenlabs']['available']}")
         
         return JsonResponse({
             'success': True,

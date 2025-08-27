@@ -1,0 +1,56 @@
+{
+  "characters": {
+    "jammin-i": {
+      "name": "잼민이",
+      "description": "활발하고 에너제틱한 AI 스트리머",
+      "videoBasePath": "/videos/jammin-i/",
+      "videoCategories": {
+        "idle": {
+          "files": ["a_idle_0.mp4", "a_idle_1.mp4", "a_idle_3.mp4", "a_idle_4.mp4"],
+          "defaultFile": "a_idle_0.mp4"
+        },
+        "talk": {
+          "files": ["a_talk_0.mp4", "a_talk_1.mp4"],
+          "defaultFile": "a_talk_0.mp4"
+        }
+      },
+      "emotionMapping": {
+        "happy": {
+          "idle": ["a_idle_0.mp4", "a_idle_1.mp4"],
+          "talk": ["a_talk_1.mp4", "a_talk_0.mp4"],
+          "weight": 1.2
+        },
+        "sad": {
+          "idle": ["a_idle_1.mp4", "a_idle_3.mp4"],
+          "talk": ["a_talk_0.mp4", "a_talk_1.mp4"],
+          "weight": 1.1
+        },
+        "angry": {
+          "idle": ["a_idle_3.mp4", "a_idle_0.mp4"],
+          "talk": ["a_talk_0.mp4", "a_talk_1.mp4"],
+          "weight": 1.0
+        },
+        "surprised": {
+          "idle": ["a_idle_0.mp4", "a_idle_4.mp4"],
+          "talk": ["a_talk_1.mp4", "a_talk_0.mp4"],
+          "weight": 1.3
+        },
+        "neutral": {
+          "idle": ["a_idle_0.mp4", "a_idle_1.mp4"],
+          "talk": ["a_talk_0.mp4", "a_talk_1.mp4"],
+          "weight": 1.0
+        }
+      }
+    }
+  },
+  "systemSettings": {
+    "defaultCharacter": "jammin-i",
+    "fallbackVideo": "a_idle_0.mp4",
+    "defaultEmotion": "neutral",
+    "randomSelection": true,
+    "cacheSettings": {
+      "enabled": true,
+      "ttlMinutes": 60
+    }
+  }
+}

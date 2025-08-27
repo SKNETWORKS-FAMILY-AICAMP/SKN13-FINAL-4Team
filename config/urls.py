@@ -30,7 +30,7 @@ urlpatterns = [
     # API 관련 URL들을 /api/ 아래로 그룹화
     path('api/users/', include('users.urls')),
     path('api/chat/', include('chat.urls')), # /api/chat/ 으로 경로를 명확히 함
-    path('api/payments/', include('payments.urls')),
+    path('api/payments/', include('payments.urls')),  # Keep payments URL from HEAD
 
     # 토큰 관련 API
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
