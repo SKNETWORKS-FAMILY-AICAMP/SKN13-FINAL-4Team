@@ -15,6 +15,10 @@ import apiClient from '../../utils/apiClient';
 function StreamingPage({ isLoggedIn, username }) {
     const { roomId } = useParams();
     const [chatRoom, setChatRoom] = useState(null);
+    // 방 기준 변경안 적용:
+    // - 라우팅은 roomId를 사용합니다.
+    // - streamerId는 방 정보를 조회한 뒤 influencer.username에서 파생합니다.
+    const [streamerId, setStreamerId] = useState(null); // 파생된 스트리머 ID 저장
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -49,31 +53,41 @@ function StreamingPage({ isLoggedIn, username }) {
 
     // 후원 아일랜드 상태
     const [isDonationIslandOpen, setIsDonationIslandOpen] = useState(false);
+    // 후원 오버레이 상태 (영상 위 표시)
+    const [donationOverlay, setDonationOverlay] = useState({ visible: false, data: null });
 
-    // 채팅방 정보 가져오기
+    // 백엔드 API 베이스 URL (이미지 등 정적 경로 조합에 사용)
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
+    // 채팅방 정보 가져오기 (방 기준)
     useEffect(() => {
         const fetchChatRoom = async () => {
             try {
-                const response = await apiClient.get(`/api/chat/rooms/${streamerId}/`);
+                // 변경점: 기존에는 streamerId로 방을 조회했으나,
+                // 방 기준 변경안에 따라 roomId(pk)로 조회합니다.
+                const response = await apiClient.get(`/api/chat/rooms/${roomId}/`);
                 setChatRoom(response.data);
+
+                // 중요: streamerId를 방 정보에서 파생(influencer.username)하여 설정
+                const derivedStreamerId = response.data?.influencer?.username || null;
+                setStreamerId(derivedStreamerId);
             } catch (error) {
                 console.error('Error fetching chat room:', error);
+                setStreamerId(null);
             }
         };
 
-        if (streamerId) {
+        if (roomId) {
             fetchChatRoom();
         }
-    }, [streamerId]);
+    }, [roomId]);
 
     // 서버에서 TTS 설정 가져오기
     const fetchServerTtsSettings = async () => {
-        if (!streamerId || !isLoggedIn) return;
+        if (!streamerId || !isLoggedIn) return; // 파생된 streamerId가 준비되어야 호출
         
         try {
             const token = localStorage.getItem('accessToken');
-            const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-            
             const response = await fetch(`${apiBaseUrl}/api/chat/streamer/${streamerId}/tts/settings/`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -111,6 +125,7 @@ function StreamingPage({ isLoggedIn, username }) {
 
     // 서버 TTS 설정 로드
     useEffect(() => {
+        // streamerId는 방 정보 조회 이후 파생되므로 의존성에 포함
         if (isLoggedIn && streamerId) {
             fetchServerTtsSettings();
         }
@@ -174,6 +189,23 @@ function StreamingPage({ isLoggedIn, username }) {
         
         if (subtitleTimeoutRef.current) clearTimeout(subtitleTimeoutRef.current);
         if (textSyncServiceRef.current) textSyncServiceRef.current.stopReveal();
+
+        // 방 기준 변경안과 직접적 관련은 없지만,
+        // 기존 코드에서 AITextSyncService 인스턴스가 생성되지 않아 호출 시 에러 가능성이 있어
+        // 최초 사용 시 안전하게 초기화합니다.
+        if (!textSyncServiceRef.current) {
+            textSyncServiceRef.current = new AITextSyncService(ttsSettings);
+            textSyncServiceRef.current.setCallbacks(
+                (text) => setRevealedSubtitle(text),
+                () => {
+                    setTimeout(() => {
+                        setShowSubtitle(false);
+                        setRevealedSubtitle('');
+                        setDebugInfo(prev => ({ ...prev, syncMode: 'completed' }));
+                    }, 3000);
+                }
+            );
+        }
         
         if (audioDuration > 0) {
             textSyncServiceRef.current.startSynchronizedReveal(message, audioDuration);
@@ -189,6 +221,15 @@ function StreamingPage({ isLoggedIn, username }) {
         }
     };
 
+    // 후원 오버레이 자동 종료 타이머
+    useEffect(() => {
+        if (!donationOverlay.visible) return;
+        const timer = setTimeout(() => {
+            setDonationOverlay({ visible: false, data: null });
+        }, 5000);
+        return () => clearTimeout(timer);
+    }, [donationOverlay.visible]);
+
     const streamInfo = {
         title: 'AI 스트리머 잼민이의 첫 방송!',
         viewers: 1234,
@@ -202,6 +243,19 @@ function StreamingPage({ isLoggedIn, username }) {
 
     return (
         <Container fluid className="streaming-container mt-4">
+            {/* 후원 오버레이: 영상 위 표시, 5초간 Fade in/out */}
+            {donationOverlay.visible && donationOverlay.data && (
+                <div className="donation-overlay show">
+                    <div className="donation-overlay-content">
+                        <div className="donation-title">
+                            <strong>{donationOverlay.data.username}</strong> 님이 <strong>{Number(donationOverlay.data.amount).toLocaleString()}</strong> 크레딧을 후원하셨습니다!!
+                        </div>
+                        {donationOverlay.data.message && (
+                            <div className="donation-message">"{donationOverlay.data.message}"</div>
+                        )}
+                    </div>
+                </div>
+            )}
             {/* 후원 아일랜드 */}
             {isDonationIslandOpen && chatRoom && (
                 <DonationIsland 
@@ -422,17 +476,18 @@ function StreamingPage({ isLoggedIn, username }) {
                         </div>
                     </div>
                     <div className="stream-info mt-3">
-                        <h3>{chatRoom.name}</h3>
+                        {/* 방 정보가 로딩되기 전에도 안전히 렌더링되도록 null guard 적용 */}
+                        <h3>{chatRoom?.name || '스트림'}</h3>
                         <div className="d-flex justify-content-between align-items-center text-muted">
                             <span>시청자 수: 0명</span>
-                            <span>방송 시작: {new Date(chatRoom.created_at).toLocaleString('ko-KR')}</span>
+                            <span>방송 시작: {chatRoom?.created_at ? new Date(chatRoom.created_at).toLocaleString('ko-KR') : '-'}</span>
                         </div>
                         <hr />
                         <div className="d-flex align-items-center my-3">
-                            <Image src={chatRoom.influencer?.profile_image ? `${apiBaseUrl}${chatRoom.influencer.profile_image}` : 'https://via.placeholder.com/50'} roundedCircle />
+                            <Image src={chatRoom?.influencer?.profile_image ? `${apiBaseUrl}${chatRoom.influencer.profile_image}` : 'https://via.placeholder.com/50'} roundedCircle />
                             <div className="ms-3">
-                                <h5 className="mb-0">{chatRoom.influencer?.nickname || chatRoom.host.username}</h5>
-                                <p className="mb-0">{chatRoom.description}</p>
+                                <h5 className="mb-0">{chatRoom?.influencer?.nickname || chatRoom?.host?.username || '-'}</h5>
+                                <p className="mb-0">{chatRoom?.description || ''}</p>
                             </div>
                         </div>
                     </div>
@@ -447,6 +502,8 @@ function StreamingPage({ isLoggedIn, username }) {
                                 username={username}
                                 onAIMessage={handleAIMessage}
                                 onWebSocketMessage={handleWebSocketMessage}
+                                onOpenDonation={() => setIsDonationIslandOpen(true)}
+                                onDonation={(d)=> setDonationOverlay({ visible: true, data: d })}
                             />
                         </div>
                     </div>

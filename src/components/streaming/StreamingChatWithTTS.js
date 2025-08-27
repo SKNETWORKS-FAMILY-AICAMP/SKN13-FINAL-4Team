@@ -13,7 +13,9 @@ const StreamingChatWithTTS = ({
     externalSettings,
     onSettingsChange,
     externalShowSettings,
-    onShowSettingsChange
+    onShowSettingsChange,
+    onOpenDonation,
+    onDonation
 }) => {
     const [messages, setMessages] = useState([]);
     const MAX_MESSAGES = 100; // 최대 메시지 개수 제한
@@ -289,6 +291,16 @@ const StreamingChatWithTTS = ({
                                 timestamp: data.timestamp || Date.now()
                             };
                             addMessage(newMessage);
+                            // 부모에 후원 이벤트 전달 (영상 위 오버레이 표시용)
+                            if (onDonation) {
+                                onDonation({
+                                    username: data.username,
+                                    amount: data.amount,
+                                    message: data.message,
+                                    tts_enabled: data.tts_enabled,
+                                    timestamp: data.timestamp || Date.now()
+                                });
+                            }
                             return;
                         }
                         
@@ -765,6 +777,23 @@ const StreamingChatWithTTS = ({
 
             {/* 채팅 입력 영역 */}
             <div className="chat-input-section bg-dark border-top border-secondary p-3">
+                {/* 후원하기 버튼: 입력창 바로 위 */}
+                <div className="d-flex justify-content-end mb-2">
+                    <Button 
+                        variant="success" 
+                        size="sm"
+                        onClick={() => {
+                            if (!isLoggedIn) {
+                                alert('로그인이 필요한 기능입니다.');
+                                return;
+                            }
+                            if (onOpenDonation) onOpenDonation();
+                        }}
+                        title="크레딧 후원하기"
+                    >
+                        후원하기
+                    </Button>
+                </div>
                 <div className="input-group">
                     <Form.Control
                         as="textarea"

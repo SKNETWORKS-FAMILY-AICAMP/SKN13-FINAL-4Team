@@ -6,6 +6,8 @@ import { ELEVENLABS_VOICE_OPTIONS } from '../config/aiChatSettings.js';
 
 export class ElevenLabsService {
   constructor(settings) {
+    // 변경점: 백엔드 실제 엔드포인트는 /api/chat/ai/tts/ 입니다.
+    // baseUrl은 호스트/포트를 나타내며, 경로는 호출 시에 결합합니다.
     this.baseUrl = window.location.protocol + '//' + window.location.hostname + ':8000';
     this.settings = settings;
     this.requestCount = 0;
@@ -64,7 +66,8 @@ export class ElevenLabsService {
 
       // Backend TTS API 호출
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${this.baseUrl}/api/ai/tts/`, {
+      // 경로 수정: /api/ai/tts/ → /api/chat/ai/tts/
+      const response = await fetch(`${this.baseUrl}/api/chat/ai/tts/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

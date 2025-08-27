@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
+import { jwtDecode } from 'jwt-decode';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate, Outlet } from 'react-router-dom';
 import api from './api'; // Axios 인스턴스 (토큰 갱신 로직이 포함된 파일)
 import Navbar from './components/layout/Navbar';
@@ -75,15 +77,24 @@ function App() {
 
 
   // 사용자 정보를 가져와 상태를 설정하는 함수
-  const fetchAndSetUser = async (token) => {
+  const fetchAndSetUser = useCallback(async (token) => {
     try {
-      const decoded = jwtDecode(token);
+      // 토큰이 인자로 없을 경우 로컬 스토리지에서 읽어옵니다.
+      const tokenToUse = token || localStorage.getItem('accessToken');
+      if (!tokenToUse) {
+        setIsLoggedIn(false);
+        setUsername('');
+        setUserBalance(0);
+        return;
+      }
+
+      const decoded = jwtDecode(tokenToUse);
       if (decoded.exp * 1000 < Date.now()) {
         throw new Error('Token expired');
       }
       
       const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-      const headers = { headers: { Authorization: `Bearer ${token}` } };
+      const headers = { headers: { Authorization: `Bearer ${tokenToUse}` } };
 
       // 1. 사용자 기본 정보 가져오기
       const userResponse = await axios.get(`${apiBaseUrl}/api/users/me/`, headers);
@@ -169,17 +180,5 @@ function App() {
     </Router>
   );
 }
-
-// Navbar 컴포넌트에서 useNavigate 훅을 사용하기 위한 Wrapper 컴포넌트입니다.
-const NavbarWrapper = ({ isLoggedIn, onLogout }) => {
-  const navigate = useNavigate();
-
-  const handleLogoutAndNavigate = () => {
-    onLogout();
-    navigate('/login'); // 로그아웃 후 로그인 페이지로
-  };
-
-  return <Navbar isLoggedIn={isLoggedIn} onLogout={handleLogoutAndNavigate} />;
-};
 
 export default App;

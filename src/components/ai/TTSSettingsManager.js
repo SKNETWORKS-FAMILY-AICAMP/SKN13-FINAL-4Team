@@ -34,7 +34,8 @@ const TTSSettingsManager = ({ streamerId, isLoggedIn, username }) => {
             const token = localStorage.getItem('accessToken');
             const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
             
-            const response = await fetch(`${apiBaseUrl}/api/streamer/${streamerId}/tts/settings/`, {
+            // 경로 수정: /api/streamer/... → /api/chat/streamer/...
+            const response = await fetch(`${apiBaseUrl}/api/chat/streamer/${streamerId}/tts/settings/`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -78,7 +79,8 @@ const TTSSettingsManager = ({ streamerId, isLoggedIn, username }) => {
             const token = localStorage.getItem('accessToken');
             const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
             
-            const response = await fetch(`${apiBaseUrl}/api/streamer/${streamerId}/tts/settings/update/`, {
+            // 경로 수정: /api/streamer/... → /api/chat/streamer/...
+            const response = await fetch(`${apiBaseUrl}/api/chat/streamer/${streamerId}/tts/settings/update/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

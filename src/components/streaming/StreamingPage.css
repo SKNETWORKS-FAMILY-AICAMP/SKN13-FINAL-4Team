@@ -1042,3 +1042,49 @@
 .settings-panel-floating::-webkit-scrollbar-thumb:hover {
     background: #adb5bd;
 }
+
+
+/* Donation overlay (영상 위 5초 페이드) */
+.donation-overlay {
+    position: fixed;
+    top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1050;
+    opacity: 0;
+    transition: opacity 0.6s ease-in-out;
+    pointer-events: none;
+}
+
+.donation-overlay.show {
+    opacity: 1;
+    animation: donationFade 5s ease-in-out forwards;
+}
+
+@keyframes donationFade {
+    0% { opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.donation-overlay-content {
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 12px;
+    padding: 12px 18px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    text-align: center;
+}
+
+.donation-title {
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.donation-message {
+    margin-top: 6px;
+    font-size: 0.95rem;
+    color: #ffd;
+}
