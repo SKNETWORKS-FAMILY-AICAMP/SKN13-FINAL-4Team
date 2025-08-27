@@ -1,28 +1,5 @@
 import axios from 'axios';
 
-// 1. Django CSRF 설정을 포함한 axios 인스턴스 생성
-const axiosInstance = axios.create({
-    timeout: 10000,
-    withCredentials: true, // 요청 시 쿠키를 포함하도록 허용
-    xsrfCookieName: 'csrftoken', // Django의 기본 CSRF 쿠키 이름
-    xsrfHeaderName: 'X-CSRFToken', // Django가 인식하는 헤더 이름
-});
-
-// 2. 요청 인터셉터 추가: 모든 요청에 JWT 토큰을 자동으로 포함
-axiosInstance.interceptors.request.use(
-    config => {
-        const token = localStorage.getItem('accessToken');
-        if (token) {
-            config.headers['Authorization'] = `Bearer ${token}`;
-        }
-        return config;
-    },
-    error => {
-        return Promise.reject(error);
-    }
-);
-
-
 /**
  * 스마트 API 클라이언트
  * IP 변경에 자동으로 대응하고 폴백 URL을 지원합니다
@@ -67,8 +44,7 @@ class APIClient {
      */
     async healthCheck(url) {
         try {
-            // 3. axios 대신 새로 만든 axiosInstance 사용
-            const response = await axiosInstance.get(`${url}/api/chat/ai/tts/status/`, {
+            const response = await axios.get(`${url}/api/chat/ai/tts/status/`, {
                 timeout: 3000
             });
             return response.status === 200;
@@ -131,10 +107,10 @@ class APIClient {
         
         // 첫 번째 시도: 현재 URL
         try {
-            // 3. axios 대신 새로 만든 axiosInstance 사용
-            const response = await axiosInstance({
+            const response = await axios({
                 ...config,
                 baseURL: this.currentUrl,
+                timeout: 10000
             });
             this.lastHealthCheck = Date.now(); // 성공 시 갱신
             return response;
@@ -148,10 +124,10 @@ class APIClient {
                 // 새로운 URL로 재시도
                 if (workingUrl !== this.currentUrl) {
                     console.log(`🔄 새로운 URL로 재시도: ${workingUrl}`);
-                    // 3. axios 대신 새로 만든 axiosInstance 사용
-                    const response = await axiosInstance({
+                    const response = await axios({
                         ...config,
                         baseURL: workingUrl,
+                        timeout: 10000
                     });
                     return response;
                 }
@@ -195,6 +171,14 @@ class APIClient {
 }
 
 // 전역 API 클라이언트 인스턴스
-const apiClient = new APIClient();
+export const apiClient = new APIClient();
+
+// 기존 axios 호환을 위한 래퍼
+export const smartAxios = {
+    get: (url, config) => apiClient.get(url, config),
+    post: (url, data, config) => apiClient.post(url, data, config),
+    put: (url, data, config) => apiClient.request({ ...config, method: 'PUT', url, data }),
+    delete: (url, config) => apiClient.request({ ...config, method: 'DELETE', url }),
+};
 
 export default apiClient;

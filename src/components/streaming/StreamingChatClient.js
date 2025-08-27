@@ -1,8 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Form, Button, Badge } from 'react-bootstrap';
-import { TTSServiceManager } from '../../services/ttsServiceManager';
-import { AIAudioService } from '../../services/aiAudioService';
-import { DEFAULT_SETTINGS } from '../../config/aiChatSettings';
+import { getValidToken } from '../../utils/tokenUtils';
+// Broadcasting 시스템: Backend에서 TTS 설정 및 오디오 처리 관리
+const DEFAULT_SETTINGS = {
+    streamingDelay: 50,
+    ttsDelay: 500,
+    chunkSize: 3,
+    syncMode: 'after_complete',
+    autoPlay: true,
+    ttsEngine: 'elevenlabs'
+};
 
 const StreamingChatWithTTS = ({ 
     streamerId, 
@@ -10,12 +17,11 @@ const StreamingChatWithTTS = ({
     username, 
     onAIMessage,
     onWebSocketMessage,
+    onAudioProgress,
     externalSettings,
     onSettingsChange,
     externalShowSettings,
-    onShowSettingsChange,
-    onOpenDonation,
-    onDonation
+    onShowSettingsChange
 }) => {
     const [messages, setMessages] = useState([]);
     const MAX_MESSAGES = 100; // 최대 메시지 개수 제한
@@ -26,12 +32,9 @@ const StreamingChatWithTTS = ({
     
     // TTS 관련 상태 - 확장된 설정
     const [audioEnabled, setAudioEnabled] = useState(true);
-    const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-    const [currentPlayingMessageId, setCurrentPlayingMessageId] = useState(null);
+    // Broadcasting 시스템에서 오디오 재생 상태 관리됨
     const [volume, setVolume] = useState(0.8);
-    // 외부에서 전달받은 설정 사용
-    const showSettings = externalShowSettings || false;
-    const setShowSettings = onShowSettingsChange || (() => {});
+    // Broadcasting 시스템에서 설정 관리됨
     const settings = externalSettings || {
         ...DEFAULT_SETTINGS,
         autoPlay: true,
@@ -50,10 +53,8 @@ const StreamingChatWithTTS = ({
     const maxReconnectAttempts = 5;
     const isConnectingRef = useRef(false);
     
-    // TTS 서비스 참조 - TTS Manager 사용
+    // 오디오 재생을 위한 참조
     const audioRef = useRef(null);
-    const ttsManagerRef = useRef(null);
-    const audioServiceRef = useRef(null);
 
     // 메시지 추가 함수 (최대 개수 제한 포함)
     const addMessage = (newMessage) => {
@@ -67,26 +68,12 @@ const StreamingChatWithTTS = ({
         });
     };
 
-    // TTS Manager 초기화
+    // 음량 설정 초기화
     useEffect(() => {
-        if (!ttsManagerRef.current) {
-            ttsManagerRef.current = new TTSServiceManager(settings);
-        } else {
-            // 이미 존재하면 설정만 업데이트
-            ttsManagerRef.current.updateSettings(settings);
+        if (audioRef.current) {
+            audioRef.current.volume = volume;
         }
-        
-        if (!audioServiceRef.current && audioRef.current) {
-            audioServiceRef.current = new AIAudioService(audioRef);
-            audioServiceRef.current.setCallbacks(
-                (playing) => setIsPlayingAudio(playing),
-                () => {
-                    setIsPlayingAudio(false);
-                    setCurrentPlayingMessageId(null);
-                }
-            );
-        }
-    }, [settings.ttsEngine]); // settings 전체가 아닌 ttsEngine만 감시
+    }, [settings.ttsEngine]);
 
     // 음량 변경 효과
     useEffect(() => {
@@ -95,61 +82,11 @@ const StreamingChatWithTTS = ({
         }
     }, [volume]);
 
-    // 서버로 TTS 설정 업데이트 요청
-    const updateServerTTSSettings = async (newSettings) => {
-        if (!streamerId || !isLoggedIn) return;
-        
-        try {
-            const token = localStorage.getItem('accessToken');
-            const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-            
-            const response = await fetch(`${apiBaseUrl}/api/chat/streamer/${streamerId}/tts/settings/update/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(newSettings)
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                // 서버 설정을 로컬에 반영 (WebSocket 브로드캐스트로도 받지만 즉시 반영)
-                setServerSettings(result.settings);
-                if (onSettingsChange) {
-                    // 외부 설정도 동기화
-                    Object.keys(result.settings).forEach(key => {
-                        if (key !== 'streamer_id' && key !== 'lastUpdatedBy' && key !== 'updatedAt') {
-                            onSettingsChange(key, result.settings[key]);
-                        }
-                    });
-                }
-            } else {
-                console.error('❌ 서버 TTS 설정 업데이트 실패:', result.error);
-                alert('TTS 설정 업데이트에 실패했습니다: ' + result.error);
-            }
-        } catch (error) {
-            console.error('❌ 서버 TTS 설정 업데이트 오류:', error);
-            alert('TTS 설정 업데이트 중 오류가 발생했습니다.');
-        }
-    };
+    // Broadcasting 시스템에서 TTS 설정 업데이트 관리됨
+    // const updateServerTTSSettings = async (newSettings) => { ... }
 
-    // TTS 설정 업데이트 함수 - 서버 우선 적용
-    const updateSetting = (key, value) => {
-        if (!onSettingsChange) {
-            return;
-        }
-        
-        // 즉시 로컬 설정 업데이트
-        onSettingsChange(key, value);
-        
-        // 서버에도 업데이트 요청 (비동기)
-        const newSettings = { [key]: value };
-        updateServerTTSSettings(newSettings).catch(error => {
-            console.error('서버 설정 업데이트 실패:', error);
-        });
-    };
+    // Broadcasting 시스템에서 TTS 설정 업데이트 처리됨
+    // const updateSetting = (key, value) => { ... }
 
     useEffect(() => {
         let connectTimeout = null;
@@ -204,10 +141,20 @@ const StreamingChatWithTTS = ({
                 const wsBaseUrl = apiBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
                 let wsUrl = `${wsBaseUrl}/ws/stream/${streamerId}/`;
                 
-                const token = localStorage.getItem('accessToken');
+                // 🆕 유효한 토큰 자동 갱신
+                const token = await getValidToken();
                 if (token) {
                     wsUrl += `?token=${token}`;
+                } else if (isLoggedIn) {
+                    console.warn('⚠️ 로그인 상태이지만 유효한 토큰을 가져올 수 없습니다. 다시 로그인해주세요.');
+                    setConnectionStatus('토큰 만료 - 다시 로그인 필요');
+                    return;
                 }
+                
+                console.log('🔗 WebSocket 연결 시도:', wsUrl);
+                console.log('📝 토큰 존재:', !!token);
+                console.log('👤 로그인 상태:', isLoggedIn);
+                console.log('🎯 스트리머 ID:', streamerId);
                 
                 websocketRef.current = new WebSocket(wsUrl);
                 
@@ -221,6 +168,27 @@ const StreamingChatWithTTS = ({
                 websocketRef.current.onmessage = async (event) => {
                     try {
                         const data = JSON.parse(event.data);
+                        console.log('📥 WebSocket 메시지 수신:', data);
+                        console.log('📋 메시지 타입:', data.type);
+                        
+                        // 🔍 모든 메시지 타입 상세 로깅
+                        if (data.type === 'media_packet') {
+                            console.log('🎯 MEDIA_PACKET 수신!', data.packet);
+                        } else if (data.type === 'synchronized_media') {
+                            console.log('🎯 SYNCHRONIZED_MEDIA 수신!', data.content);
+                        } else {
+                            console.log('🔍 기타 메시지 타입:', data.type, data);
+                        }
+                        
+                        // 🆕 Queue 메시지 전용 로깅
+                        if (data.type === 'queue_status_update' || data.type === 'queue_debug_update') {
+                            console.log('🎯 Queue 메시지 수신!', {
+                                type: data.type,
+                                session_info: data.session_info,
+                                detailed_queue_info: data.detailed_queue_info,
+                                timestamp: data.timestamp
+                            });
+                        }
                         
                         // WebSocket 메시지 타입별 처리
                         if (data.type === 'initial_tts_settings') {
@@ -237,11 +205,7 @@ const StreamingChatWithTTS = ({
                                 });
                             }
                             
-                            // TTS Manager에도 초기 설정 적용
-                            if (ttsManagerRef.current && data.settings) {
-                                    const updatedSettings = { ...settings, ...data.settings };
-                                ttsManagerRef.current.updateSettings(updatedSettings);
-                            }
+                            // Broadcasting 시스템에서 TTS 설정 자동 동기화됨
                             return;
                         }
                         
@@ -263,11 +227,7 @@ const StreamingChatWithTTS = ({
                                 });
                             }
                             
-                            // TTS Manager에도 즉시 설정 적용
-                            if (ttsManagerRef.current && data.settings) {
-                                    const updatedSettings = { ...settings, ...data.settings };
-                                ttsManagerRef.current.updateSettings(updatedSettings);
-                            }
+                            // Broadcasting 시스템에서 TTS 설정 자동 동기화됨
                             
                             // 설정 변경 알림 표시
                             if (data.changed_by && username !== data.changed_by) {
@@ -281,26 +241,129 @@ const StreamingChatWithTTS = ({
                             }
                             return;
                         }
-
-                        // 후원 메시지 처리
-                        if (data.type === 'donation_message') {
-                            const newMessage = {
+                        
+                        // 🆕 Queue 시스템 메시지 처리
+                        if (data.type === 'queue_status_update' || data.type === 'queue_debug_update' || data.type === 'media_packet') {
+                            console.log(`📊 Queue 시스템 메시지 수신 (${data.type}):`, data);
+                            
+                            // 부모 컴포넌트로 전달 (StreamingPage에서 처리)
+                            if (onWebSocketMessage) {
+                                onWebSocketMessage(data);
+                            }
+                            return;
+                        }
+                        
+                        // synchronized_media 메시지 처리 (AI 응답 + TTS + 비디오)
+                        if (data.type === 'synchronized_media') {
+                            console.log('🎬 동기화된 미디어 수신:', data);
+                            console.log('   텍스트:', data.content?.text);
+                            console.log('   오디오 URL 타입:', data.content?.audio_url?.startsWith('data:') ? 'base64 data URL' : 'file URL');
+                            console.log('   오디오 URL (처음 100자):', data.content?.audio_url?.substring(0, 100) + '...');
+                            console.log('   TTS 정보:', data.content?.tts_info);
+                            console.log('   오디오 길이:', data.content?.audio_duration);
+                            
+                            const aiMessage = {
                                 id: Date.now() + Math.random(),
-                                ...data,
-                                message_type: 'donation',
-                                timestamp: data.timestamp || Date.now()
+                                message: data.content.text,
+                                message_type: 'ai',
+                                sender: 'AI_Assistant',
+                                timestamp: data.timestamp || Date.now(),
+                                sync_id: data.sync_id,
+                                audio_url: data.content.audio_url,
+                                video_info: {
+                                    talk_video: data.content.talk_video,
+                                    idle_video: data.content.idle_video,
+                                    emotion: data.content.emotion
+                                },
+                                sync_timing: data.sync_timing
                             };
-                            addMessage(newMessage);
-                            // 부모에 후원 이벤트 전달 (영상 위 오버레이 표시용)
-                            if (onDonation) {
-                                onDonation({
-                                    username: data.username,
-                                    amount: data.amount,
-                                    message: data.message,
-                                    tts_enabled: data.tts_enabled,
-                                    timestamp: data.timestamp || Date.now()
+                            
+                            addMessage(aiMessage);
+                            
+                            // TTS 자동 재생 (서버에서 이미 생성된 오디오 사용)
+                            if (audioEnabled && settings.autoPlay && data.content.audio_url) {
+                                try {
+                                    // 서버에서 생성된 오디오 URL 직접 재생
+                                    const audioElement = new Audio(data.content.audio_url);
+                                    audioElement.volume = volume;
+                                    
+                                    // setCurrentPlayingMessageId(aiMessage.id); // Broadcasting 시스템에서 관리
+                                    // setIsPlayingAudio(true);
+                                    
+                                    // 실시간 진행률 업데이트를 위한 타이머
+                                    let progressInterval = null;
+                                    
+                                    // 오디오 메타데이터 로드 완료 시
+                                    audioElement.onloadedmetadata = () => {
+                                        const duration = audioElement.duration;
+                                        console.log('🎵 오디오 메타데이터 로드 완료:', duration + 's');
+                                        
+                                        // 진행률 업데이트 타이머 시작 (100ms 간격)
+                                        progressInterval = setInterval(() => {
+                                            if (!audioElement.paused && !audioElement.ended) {
+                                                const currentTime = audioElement.currentTime;
+                                                const progress = (currentTime / duration) * 100;
+                                                
+                                                // 부모 컴포넌트에 진행률 전달
+                                                if (onAudioProgress) {
+                                                    onAudioProgress(currentTime, duration, progress);
+                                                }
+                                            }
+                                        }, 100);
+                                    };
+                                    
+                                    audioElement.onended = () => {
+                                        // setCurrentPlayingMessageId(null); // Broadcasting 시스템에서 관리
+                                        // setIsPlayingAudio(false);
+                                        
+                                        // 진행률 업데이트 타이머 정리
+                                        if (progressInterval) {
+                                            clearInterval(progressInterval);
+                                            progressInterval = null;
+                                        }
+                                        
+                                        // 완료 상태로 마지막 업데이트
+                                        if (onAudioProgress) {
+                                            onAudioProgress(audioElement.duration, audioElement.duration, 100);
+                                        }
+                                    };
+                                    
+                                    audioElement.onerror = (error) => {
+                                        console.error('❌ 오디오 재생 실패:', error);
+                                        // setCurrentPlayingMessageId(null); // Broadcasting 시스템에서 관리
+                                        // setIsPlayingAudio(false);
+                                        
+                                        // 진행률 업데이트 타이머 정리
+                                        if (progressInterval) {
+                                            clearInterval(progressInterval);
+                                            progressInterval = null;
+                                        }
+                                    };
+                                    
+                                    await audioElement.play();
+                                    
+                                    console.log('✅ 서버 생성 오디오 재생 시작');
+                                    
+                                } catch (error) {
+                                    console.error('❌ 서버 오디오 재생 오류:', error);
+                                }
+                            }
+                            
+                            // 부모 컴포넌트에 AI 메시지 전달 (비디오 동기화 등)
+                            if (onAIMessage) {
+                                onAIMessage(data.content.text, data.content.audio_duration || 0, null, {
+                                    engine: 'elevenlabs',
+                                    sync_id: data.sync_id,
+                                    video_info: aiMessage.video_info,
+                                    server_generated: true
                                 });
                             }
+                            
+                            // 부모 컴포넌트에도 WebSocket 메시지 전달
+                            if (onWebSocketMessage) {
+                                onWebSocketMessage(data);
+                            }
+                            
                             return;
                         }
                         
@@ -316,7 +379,7 @@ const StreamingChatWithTTS = ({
                         // AI 메시지 처리
                         if (data.message_type === 'ai') {
                             // 서버에서 전송된 TTS 설정이 있으면 우선 사용
-                            let effectiveSettings = settings;
+                            // let effectiveSettings = settings; // Broadcasting 시스템에서 관리
                             if (data.tts_settings) {
                                 setServerSettings(data.tts_settings);
                                 
@@ -329,22 +392,15 @@ const StreamingChatWithTTS = ({
                                     });
                                 }
                                 
-                                effectiveSettings = { ...settings, ...data.tts_settings };
+                                // effectiveSettings = { ...settings, ...data.tts_settings }; // Broadcasting 시스템에서 관리
                                 
-                                // TTS Manager에도 즉시 서버 설정 적용
-                                if (ttsManagerRef.current) {
-                                        ttsManagerRef.current.updateSettings(effectiveSettings);
-                                }
+                                // Broadcasting 시스템에서 서버 설정 자동 적용됨
                             }
                             
-                            // TTS 자동 재생 및 자막 동기화 (서버 설정 적용)
-                            if (audioEnabled && effectiveSettings.autoPlay) {
-                                await playTTS(newMessage, onAIMessage, effectiveSettings);
-                            } else {
-                                // 음성이 꺼져있거나 자동 재생이 꺼져있을 때도 자막은 표시
-                                if (onAIMessage) {
-                                    onAIMessage(data.message, 0, null);
-                                }
+                            // TTS는 Broadcasting 시스템에서 서버가 자동 처리함
+                            // 클라이언트에서는 메시지 표시만 처리
+                            if (onAIMessage) {
+                                onAIMessage(data.message, 0, null);
                             }
                         }
                         
@@ -382,6 +438,10 @@ const StreamingChatWithTTS = ({
                 };
                 
                 websocketRef.current.onerror = (error) => {
+                    console.error('❌ WebSocket 연결 오류:', error);
+                    console.error('❌ WebSocket URL:', wsUrl);
+                    console.error('❌ 로그인 상태:', isLoggedIn);
+                    console.error('❌ 토큰:', token ? 'exists' : 'missing');
                     setConnectionStatus('연결 오류');
                     isConnectingRef.current = false;
                 };
@@ -441,154 +501,8 @@ const StreamingChatWithTTS = ({
         }
     }, [messages]);
 
-    // TTS 재생 함수 - TTS Manager 사용
-    const playTTS = async (message, onAIMessage, effectiveSettings = null) => {
-        if (!audioEnabled || !message.message || isPlayingAudio) {
-            return;
-        }
-
-        if (!ttsManagerRef.current) {
-            console.error('❌ TTS Manager가 초기화되지 않았습니다');
-            return;
-        }
-
-        // 전달받은 효과적인 설정이 있으면 사용, 없으면 현재 설정 사용
-        const currentSettings = effectiveSettings || settings;
-        
-        // TTS Manager에 최신 설정 확실히 적용
-        if (effectiveSettings) {
-            ttsManagerRef.current.updateSettings(effectiveSettings);
-        }
-
-        try {
-            setCurrentPlayingMessageId(message.id);
-            setIsPlayingAudio(true);
-            
-            // TTS Manager를 통한 TTS 생성
-            const startTime = Date.now();
-            const audioUrl = await ttsManagerRef.current.generateAudio(message.message);
-            const generationTime = (Date.now() - startTime) / 1000;
-            
-            
-            // 먼저 오디오 URL을 설정하고 충분한 버퍼링 후 재생
-            if (audioRef.current) {
-                audioRef.current.src = audioUrl;
-                
-                // 오디오 완전 로딩 완료 후 재생하는 Promise
-                const waitForAudioReady = () => {
-                    return new Promise((resolve, reject) => {
-                        const audio = audioRef.current;
-                        
-                        // 이미 로드된 경우 즉시 실행
-                        if (audio.readyState >= 4) { // HAVE_ENOUGH_DATA
-                            resolve();
-                            return;
-                        }
-                        
-                        // canplaythrough 이벤트: 충분한 데이터 버퍼링 완료
-                        const handleCanPlayThrough = () => {
-                            audio.removeEventListener('canplaythrough', handleCanPlayThrough);
-                            audio.removeEventListener('error', handleError);
-                            resolve();
-                        };
-                        
-                        const handleError = () => {
-                            audio.removeEventListener('canplaythrough', handleCanPlayThrough);
-                            audio.removeEventListener('error', handleError);
-                            reject(new Error('오디오 로딩 실패'));
-                        };
-                        
-                        audio.addEventListener('canplaythrough', handleCanPlayThrough);
-                        audio.addEventListener('error', handleError);
-                        
-                        // 로딩 시작
-                        audio.load();
-                    });
-                };
-                
-                // 메타데이터 로드 이벤트 리스너 (자막 동기화용)
-                const handleLoadedMetadata = async () => {
-                    const audioDuration = audioRef.current.duration;
-                    
-                    // 오디오 파일 크기 측정 (근사값)
-                    let audioFileSize = 0;
-                    try {
-                        const response = await fetch(audioUrl);
-                        if (response.ok) {
-                            const blob = await response.blob();
-                            audioFileSize = blob.size;
-                        }
-                    } catch (error) {
-                    }
-                    
-                    // TTS 정보 객체 생성 (실제 사용된 엔진 정보)
-                    const actualEngine = ttsManagerRef.current ? ttsManagerRef.current.currentEngine : settings.ttsEngine;
-                    
-                    
-                    const ttsInfo = {
-                        engine: actualEngine,
-                        requestedEngine: currentSettings.ttsEngine, // 사용자가 요청한 엔진
-                        voice: currentSettings.ttsEngine === 'elevenlabs' ? currentSettings.elevenLabsVoice :
-                               currentSettings.ttsEngine === 'melotts' ? currentSettings.meloVoice :
-                               currentSettings.ttsEngine === 'coqui' ? currentSettings.coquiModel : 'default',
-                        fileSize: audioFileSize,
-                        generationTime: generationTime,
-                        fallbackUsed: actualEngine !== currentSettings.ttsEngine
-                    };
-                    
-                    if (onAIMessage) {
-                        // 음성 재생 시간, 오디오 엘리먼트, TTS 정보를 함께 전달
-                        onAIMessage(message.message, audioDuration, audioRef.current, ttsInfo);
-                    }
-                    
-                    // 이벤트 리스너 정리
-                    audioRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata);
-                };
-                
-                audioRef.current.addEventListener('loadedmetadata', handleLoadedMetadata);
-                
-                // 충분한 버퍼링 후 재생 시작
-                await waitForAudioReady();
-                
-                // 100ms 추가 버퍼 시간 (앞부분 잘림 방지)
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                // 오디오 재생 시작
-                if (audioServiceRef.current) {
-                    await audioServiceRef.current.playAudio(audioUrl);
-                }
-            }
-        } catch (error) {
-            console.error('❌ TTS 재생 오류:', {
-                error: error.message,
-                stack: error.stack,
-                settings: settings,
-                ttsManager: !!ttsManagerRef.current,
-                currentEngine: ttsManagerRef.current?.currentEngine
-            });
-            
-            setIsPlayingAudio(false);
-            setCurrentPlayingMessageId(null);
-            
-            // 사용자에게 오류 알림
-            alert(`⚠️ 오류: ${error.message}`);
-            
-            // TTS 실패 시에도 자막은 표시 (동기화 없이)
-            if (onAIMessage) {
-                const actualEngine = ttsManagerRef.current ? ttsManagerRef.current.currentEngine : settings.ttsEngine;
-                const ttsInfo = {
-                    engine: actualEngine,
-                    requestedEngine: currentSettings.ttsEngine,
-                    voice: 'error',
-                    fileSize: 0,
-                    generationTime: 0,
-                    error: error.message,
-                    fallbackUsed: false
-                };
-                onAIMessage(message.message, 0, null, ttsInfo);
-            }
-        }
-    };
+    // Legacy TTS 재생 함수 - 현재 Broadcasting 시스템에서 사용하지 않음
+    // TTS는 서버에서 생성되어 WebSocket으로 전달됨
 
 
     const sendMessage = () => {
@@ -630,27 +544,6 @@ const StreamingChatWithTTS = ({
                     <span className="message-badge">📢</span>
                     <strong className="message-sender text-info">System</strong>
                     <span className="message-text text-info">{msg.message}</span>
-                    <small className="message-time">[{messageTime}]</small>
-                </div>
-            );
-        }
-
-        // 후원 메시지
-        if (msg.message_type === 'donation') {
-            return (
-                <div key={msg.id} className="chat-message donation-message">
-                    <div className="donation-header">
-                        <span className="message-badge">💰</span>
-                        <strong className="message-sender">{msg.username}</strong>
-                        <span>님이 </span>
-                        <strong className="donation-amount">{msg.amount.toLocaleString()} 크레딧</strong>
-                        <span>을 후원하셨습니다!</span>
-                    </div>
-                    {msg.message && (
-                        <div className="donation-body">
-                            <p className="message-text">"{msg.message}"</p>
-                        </div>
-                    )}
                     <small className="message-time">[{messageTime}]</small>
                 </div>
             );
@@ -777,23 +670,6 @@ const StreamingChatWithTTS = ({
 
             {/* 채팅 입력 영역 */}
             <div className="chat-input-section bg-dark border-top border-secondary p-3">
-                {/* 후원하기 버튼: 입력창 바로 위 */}
-                <div className="d-flex justify-content-end mb-2">
-                    <Button 
-                        variant="success" 
-                        size="sm"
-                        onClick={() => {
-                            if (!isLoggedIn) {
-                                alert('로그인이 필요한 기능입니다.');
-                                return;
-                            }
-                            if (onOpenDonation) onOpenDonation();
-                        }}
-                        title="크레딧 후원하기"
-                    >
-                        후원하기
-                    </Button>
-                </div>
                 <div className="input-group">
                     <Form.Control
                         as="textarea"
