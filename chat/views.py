@@ -118,8 +118,12 @@ def list_all_tts_settings(request):
 
 class ChatRoomViewSet(viewsets.ModelViewSet):
     queryset = ChatRoom.objects.all().order_by('-created_at')
-    lookup_field = 'influencer__username'
-    lookup_url_kwarg = 'room_id'
+    # 방 기준 변경안:
+    # - 프론트는 roomId(pk)로 조회합니다.
+    # - lookup_field를 기본 pk로 사용하고, lookup_url_kwarg도 기본값(id)로 둡니다.
+    #   chat/urls.py에서 생성한 detail 경로가 rooms/<pk>/로 동작하도록 맞춥니다.
+    lookup_field = 'pk'
+    lookup_url_kwarg = 'pk'
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
