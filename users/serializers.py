@@ -2,7 +2,12 @@ import re
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import User
+from .models import User, UserWallet
+
+class UserWalletSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserWallet
+        fields = ('balance', 'updated_at')
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod

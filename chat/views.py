@@ -118,9 +118,11 @@ def list_all_tts_settings(request):
 
 class ChatRoomViewSet(viewsets.ModelViewSet):
     queryset = ChatRoom.objects.all().order_by('-created_at')
+    lookup_field = 'influencer__username'
+    lookup_url_kwarg = 'room_id'
 
     def get_permissions(self):
-        if self.action == 'list':
+        if self.action in ['list', 'retrieve']:
             permission_classes = [AllowAny]
         else:
             permission_classes = [IsAdminUser]
@@ -162,8 +164,6 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
             print("Cache Hit: Fetching all rooms from Redis")
             cached_rooms = cache.get_many(room_keys)
             
-            # Redis 캐시 데이터는 페이지네이션이 없으므로 그대로 반환합니다.
-            # (만약 페이지네이션이 필요하다면, 이 부분에 별도 로직이 필요합니다.)
             response_data = [cached_rooms[key] for key in room_keys if key in cached_rooms]
             return Response({
                 'count': len(response_data),
@@ -188,18 +188,16 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         return response
 
     def update(self, request, *args, **kwargs):
-        # 부모 클래스의 update를 먼저 호출하여 DB를 업데이트합니다.
         response = super().update(request, *args, **kwargs)
         
-        # 업데이트에 성공했을 경우 (200 OK) 캐시를 삭제합니다.
         if response.status_code == 200:
             instance = self.get_object()
             key = f"chatroom:{instance.id}"
             
             redis_conn = get_redis_connection("default")
-            cache.delete(key) # 개별 채팅방 객체 캐시 삭제
-            redis_conn.zrem('all_chatrooms', key) # 'all_chatrooms' 목록에서도 해당 키 삭제
-            redis_conn.zrem('live_chatrooms', key) # 'live_chatrooms' 목록에서도 해당 키 삭제
+            cache.delete(key)
+            redis_conn.zrem('all_chatrooms', key)
+            redis_conn.zrem('live_chatrooms', key)
             print(f"✅ Cache invalidated for updated room: {key}")
 
         return response
@@ -208,12 +206,10 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         key = f"chatroom:{instance.id}"
         
-        # DB에서 객체를 삭제하기 전에 관련된 캐시를 먼저 삭제합니다.
         redis_conn = get_redis_connection("default")
         cache.delete(key)
         redis_conn.zrem('all_chatrooms', key)
         redis_conn.zrem('live_chatrooms', key)
         print(f"✅ Cache invalidated for deleted room: {key}")
 
-        # 부모 클래스의 destroy를 호출하여 DB에서 객체를 실제로 삭제합니다.
         return super().destroy(request, *args, **kwargs)

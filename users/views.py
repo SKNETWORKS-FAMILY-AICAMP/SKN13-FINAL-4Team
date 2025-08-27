@@ -9,9 +9,17 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
 from django.conf import settings 
 
-from .models import User 
-from .serializers import MyTokenObtainPairSerializer, UserRegistrationSerializer, UserSerializer,CustomTokenObtainPairSerializer, PasswordChangeSerializer, ProfileUpdateSerializer
+from .models import User, UserWallet
+from .serializers import MyTokenObtainPairSerializer, UserRegistrationSerializer, UserSerializer,CustomTokenObtainPairSerializer, PasswordChangeSerializer, ProfileUpdateSerializer, UserWalletSerializer
 
+class UserWalletAPIView(APIView):
+    """사용자 크레딧 정보 API"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        wallet, created = UserWallet.objects.get_or_create(user=request.user)
+        serializer = UserWalletSerializer(wallet)
+        return Response(serializer.data)
 
 class UserRegistrationAPIView(APIView):
     def post(self, request):

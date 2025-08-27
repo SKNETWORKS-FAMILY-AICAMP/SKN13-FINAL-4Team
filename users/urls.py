@@ -12,7 +12,8 @@ from .views import (
     NicknameCheckAPIView, 
     UsernameCheckAPIView,
     PasswordChangeAPIView,
-    MyTokenObtainPairView
+    MyTokenObtainPairView,
+    UserWalletAPIView
 )
 
 
@@ -20,6 +21,7 @@ router = DefaultRouter()
 router.register('management', UserAdminViewSet, basename='user-admin')
 
 urlpatterns = [
+    path('wallet/', UserWalletAPIView.as_view(), name='user-wallet-api'),
     path('signup/', UserRegistrationAPIView.as_view(), name='user-signup-api'),
     path('me/', MyProfileAPIView.as_view(), name='user-profile-api'),
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
