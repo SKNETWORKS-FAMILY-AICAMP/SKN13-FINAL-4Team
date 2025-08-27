@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../api';
+import api from '../../utils/unifiedApiClient';
 import './ProfilePage.css';
 import Sidebar from '../layout/Sidebar';
 

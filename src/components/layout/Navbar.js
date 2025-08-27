@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Dropdown, Button } from 'react-bootstrap';
-import apiClient from '../../utils/apiClient'; // apiClient 사용
+import api from '../../utils/unifiedApiClient';
 
 function Navbar({ isLoggedIn, onLogout, userBalance }) {
   const [user, setUser] = useState(null);
@@ -12,7 +12,7 @@ function Navbar({ isLoggedIn, onLogout, userBalance }) {
       if (isLoggedIn) {
         try {
           // App.js에서 이미 토큰 유효성 검사를 하므로 여기서는 호출만 함
-          const response = await apiClient.get('/api/users/me/');
+          const response = await api.get('/api/users/me/');
           setUser(response.data);
         } catch (err) {
           console.error("Failed to fetch user data in Navbar", err);
@@ -78,7 +78,7 @@ function Navbar({ isLoggedIn, onLogout, userBalance }) {
                     <div className="mb-3">
                       <small>보유 크레딧</small>
                       {/* App.js로부터 받은 userBalance를 표시 */}
-                      <h5>{userBalance.toLocaleString()} C</h5>
+                      <h5>{userBalance?.toLocaleString() || '0'} C</h5>
                     </div>
                     <Dropdown.Divider />
                     <Button as={Link} to="/profile" variant="outline-primary" className="w-100 mb-2">

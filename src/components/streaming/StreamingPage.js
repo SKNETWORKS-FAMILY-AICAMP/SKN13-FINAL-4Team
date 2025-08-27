@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Container, Row, Col, Image, Button, Badge } from 'react-bootstrap';
-import StreamingChatClient from './StreamingChatClient';
+import { StreamingChatClient } from './StreamingChatClient';
 import VideoControlPanel from './VideoControlPanel';
 import VideoPlayer from './VideoPlayer';
 import SettingsPanel from './SettingsPanel';
 import QueueSystemPanel from './QueueSystemPanel';
+import DonationIsland from './DonationIsland';
 import { MediaSyncController } from '../../services/MediaSyncController';
 import { processTextForDisplay, debugVoiceTags } from '../../utils/textUtils';
 // Hot Reload 테스트 주석 - 2025.08.26 - 최종 수정!
@@ -937,22 +938,19 @@ function StreamingPage({ isLoggedIn, username }) {
                         <div className="chat-container-with-input flex-grow-1 d-flex flex-column">
                             {streamerId ? (
                                 <StreamingChatClient 
-                                    streamerId={streamerId}
-                                    roomId={roomId}
-                                    isLoggedIn={isLoggedIn}
-                                    username={username}
-                                    onAIMessage={handleAIMessage}
-                                    onWebSocketMessage={handleWebSocketMessage}
-                                    onAudioProgress={handleAudioProgressUpdate}
-                                    onOpenDonation={() => setIsDonationIslandOpen(true)}
-                                    onDonation={(d) => setDonationOverlay({ visible: true, data: d })}
-                                />
+                                        streamerId={streamerId}
+                                        roomId={roomId}
+                                        isLoggedIn={isLoggedIn}
+                                        username={username}
+                                        onAIMessage={handleAIMessage}
+                                        onWebSocketMessage={handleWebSocketMessage}
+                                        onAudioProgress={handleAudioProgressUpdate}
+                                        onOpenDonation={() => setIsDonationIslandOpen(true)}
+                                        onDonation={(d) => setDonationOverlay({ visible: true, data: d })}
+                                    />
                             ) : (
                                 <div className="text-center text-muted p-4">
                                     <p>채팅을 불러오는 중...</p>
-                                    <small>streamerId: {streamerId || 'loading...'}</small><br/>
-                                    <small>isLoggedIn: {String(isLoggedIn)}</small><br/>
-                                    <small>username: {username || 'loading...'}</small>
                                 </div>
                             )}
                         </div>

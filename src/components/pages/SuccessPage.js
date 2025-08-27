@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from "react-router-dom";
-import apiClient from '../../utils/apiClient';
+import api from '../../utils/unifiedApiClient';
 
 export function SuccessPage() {
   const [searchParams] = useSearchParams();
@@ -20,7 +20,7 @@ export function SuccessPage() {
       }
 
       try {
-        const response = await apiClient.post('/api/payments/confirm/', {
+        const response = await api.post('/api/payments/confirm/', {
           paymentKey,
           orderId,
           amount: Number(amount),

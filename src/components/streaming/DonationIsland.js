@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './DonationIsland.css';
-import apiClient from '../../utils/apiClient';
+import api from '../../utils/unifiedApiClient';
 import CreditChargeModal from '../payments/CreditChargeModal';
 
 const DonationIsland = ({ roomId, streamerId, onClose }) => {
@@ -13,7 +13,7 @@ const DonationIsland = ({ roomId, streamerId, onClose }) => {
     // 보유 크레딧을 서버에서 조회하는 함수
     const fetchUserWallet = async () => {
         try {
-            const response = await apiClient.get('/api/users/wallet/');
+            const response = await api.get('/api/users/wallet/');
             setUserBalance(response.data.balance);
         } catch (error) {
             console.error('Error fetching user wallet:', error);
@@ -46,7 +46,7 @@ const DonationIsland = ({ roomId, streamerId, onClose }) => {
         }
 
         try {
-            await apiClient.post('/api/payments/donate/', {
+            await api.post('/api/payments/donate/', {
                 roomId: roomId,
                 amount: creditAmount,
                 message: donationMessage,

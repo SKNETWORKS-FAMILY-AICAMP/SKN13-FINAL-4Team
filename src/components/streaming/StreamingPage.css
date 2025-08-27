@@ -47,23 +47,25 @@
     height: calc(100vh - 100px); /* 화면 전체 높이에서 네비게이션/여백 제외 */
     max-height: calc(100vh - 100px); /* 최대 높이도 동일하게 */
     min-height: 500px; /* 최소 높이 보장 */
-    border: 1px solid #495057;
     border-radius: 8px;
     background-color: #212529;
-    overflow: hidden;
+    overflow: visible; /* 숨겨진 내용이 없도록 변경 */
     position: relative;
     display: flex;
     flex-direction: column;
+    visibility: visible; /* 명시적으로 보이게 설정 */
+    z-index: 1; /* 다른 요소에 가려지지 않도록 */
 }
 
 /* 채팅 컨테이너 with 입력창 - 대부분의 공간을 차지 */
 .chat-container-with-input {
     flex: 1 1 auto; /* 남은 공간을 모두 차지하면서 줄어들 수 있음 */
-    overflow: hidden;
-    min-height: 0; /* flex item이 줄어들 수 있도록 설정 */
+    overflow: visible; /* 숨겨진 내용이 없도록 변경 */
+    min-height: 400px; /* 최소 높이 보장 */
     display: flex;
     flex-direction: column;
     margin-bottom: 10px; /* 후원 버튼과의 간격 */
+    background-color: #1a1a1a; /* 배경색 명시 */
 }
 
 /* 기존 채팅 컨테이너 스타일 유지 (호환성) */
@@ -123,15 +125,15 @@
 .streaming-chat-container {
     height: 100%; /* 채팅 컨테이너 영역을 모두 사용 */
     max-height: 100%; /* 최대 높이 제한 */
-    border: none; /* 외부 컨테이너에서 테두리 관리 */
-    border-radius: 0; /* 외부 컨테이너에서 border-radius 관리 */
+    border-radius: 4px;
     background-color: #1a1d23;
     color: #ffffff;
     margin-bottom: 0;
     display: flex;
     flex-direction: column;
-    min-height: 0; /* flex 컨테이너가 줄어들 수 있도록 */
-    overflow: hidden; /* 컨테이너에서 넘치는 내용 숨김 */
+    min-height: 400px; /* 최소 높이 보장 */
+    overflow: visible; /* 내용이 보이도록 변경 */
+    visibility: visible; /* 명시적으로 보이게 설정 */
 }
 
 /* 채팅 헤더 고정 */
@@ -453,7 +455,9 @@
     max-height: 120px;
     padding: 15px; /* 패딩으로 공간 확보 */
     background-color: #2c3034;
-    border-top: 1px solid #495057;
+    border-top: 2px solid #495057;
+    visibility: visible; /* 명시적으로 보이게 설정 */
+    display: block; /* 명시적으로 표시 */
 }
 
 /* 입력창 textarea 스타일 개선 */

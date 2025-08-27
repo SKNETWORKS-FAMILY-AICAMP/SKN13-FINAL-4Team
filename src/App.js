@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
-import axios from 'axios';
+import api from './utils/unifiedApiClient';
+import { getValidToken } from './utils/tokenUtils';
 import Navbar from './components/layout/Navbar';
 import SignupForm from './components/auth/SignupForm';
 import LoginForm from './components/auth/LoginForm';
@@ -17,22 +18,32 @@ function App() {
   const [username, setUsername] = useState('');
 
   // 사용자 정보를 가져와 상태를 설정하는 함수
-  const fetchAndSetUser = async (token) => {
+  const fetchAndSetUser = async (providedToken = null) => {
+    console.log('🔍 fetchAndSetUser 호출됨, providedToken:', !!providedToken);
+    
     try {
-      const decoded = jwtDecode(token);
-      if (decoded.exp * 1000 < Date.now()) {
-        throw new Error('Token expired');
+      // 유효한 토큰 자동 갱신 시도
+      console.log('🔄 getValidToken 호출 시작...');
+      const token = providedToken || await getValidToken();
+      console.log('✅ getValidToken 결과:', !!token);
+      
+      if (!token) {
+        console.log('❌ 유효한 토큰이 없음');
+        throw new Error('No valid token available');
       }
       
-      const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-      const response = await axios.get(`${apiBaseUrl}/api/users/me/`, {
+      console.log('🌐 API 요청 시작: /api/users/me/');
+      
+      const response = await api.get('/api/users/me/', {
         headers: { Authorization: `Bearer ${token}` }
       });
       
+      console.log('✅ 사용자 정보 조회 성공:', response.data.username);
       setIsLoggedIn(true);
       setUsername(response.data.username); 
     } catch (error) {
-      console.error('Failed to fetch user data or token is invalid:', error);
+      console.error('❌ 사용자 정보 조회 실패:', error);
+      console.error('❌ 오류 상세:', error.response?.status, error.response?.data);
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       setIsLoggedIn(false);
@@ -41,14 +52,24 @@ function App() {
   };
 
   useEffect(() => {
+    console.log('🚀 App.js useEffect 실행됨');
     const token = localStorage.getItem('accessToken');
+    console.log('🔍 localStorage에서 토큰 확인:', !!token);
+    
     if (token) {
-      fetchAndSetUser(token);
+      console.log('📞 fetchAndSetUser 호출됨 (초기 로드)');
+      fetchAndSetUser(); // 토큰 자동 갱신 로직 사용
+    } else {
+      console.log('❌ 토큰이 없으므로 로그인 상태를 false로 설정');
+      setIsLoggedIn(false);
     }
   }, []);
 
   const handleLogin = (token) => {
+    console.log('🎯 App.js handleLogin 호출됨, token:', !!token);
     localStorage.setItem('accessToken', token);
+    console.log('💾 accessToken localStorage에 저장됨');
+    console.log('📞 fetchAndSetUser 호출 시작...');
     fetchAndSetUser(token);
   };
 
@@ -77,7 +98,7 @@ function App() {
           
           {/* 개인 프로필 페이지 */}
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/stream/:streamerId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} />
+          <Route path="/stream/:roomId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} />
         </Routes>
       </div>
     </Router>

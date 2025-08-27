@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk";
-import apiClient from '../../utils/apiClient';
+import api from '../../utils/unifiedApiClient';
 import './CreditChargeModal.css';
 
 // 클라이언트 키는 노출되어도 괜찮은 값입니다.
@@ -109,7 +109,7 @@ const CreditChargeModal = ({ show, onClose }) => {
         return;
     }
     try {
-      const response = await apiClient.post('/api/payments/prepare/', { amount: amount.value });
+      const response = await api.post('/api/payments/prepare/', { amount: amount.value });
       const { order_id } = response.data;
 
       await widgets.requestPayment({

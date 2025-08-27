@@ -713,4 +713,6 @@ const StreamingChatWithTTS = ({
     );
 };
 
+// StreamingChatClient로도 사용 가능하도록 별칭 export 추가
+export { StreamingChatWithTTS as StreamingChatClient };
 export default StreamingChatWithTTS;

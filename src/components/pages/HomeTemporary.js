@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../../api'; // 설정된 Axios 인스턴스
+import api from '../../utils/unifiedApiClient';
 import './HomeTemporary.css';
 
 function HomeTemporary() {
