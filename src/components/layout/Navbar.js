@@ -1,43 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Dropdown, Image, Button } from 'react-bootstrap';
-import axios from 'axios';
+import { Dropdown, Button } from 'react-bootstrap';
+import apiClient from '../../utils/apiClient'; // apiClient 사용
 
-function Navbar({ isLoggedIn, onLogout }) {
+function Navbar({ isLoggedIn, onLogout, userBalance }) {
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserData = async () => {
-      const accessToken = localStorage.getItem('accessToken');
-      if (isLoggedIn && accessToken) {
+      if (isLoggedIn) {
         try {
-          const response = await axios.get('http://localhost:8000/api/users/me/', {
-            headers: { Authorization: `Bearer ${accessToken}` }
-          });
+          // App.js에서 이미 토큰 유효성 검사를 하므로 여기서는 호출만 함
+          const response = await apiClient.get('/api/users/me/');
           setUser(response.data);
         } catch (err) {
-          console.error("Failed to fetch user data", err);
-          if (err.response && (err.response.status === 401 || err.response.status === 403)) {
-            onLogout();
-          }
+          console.error("Failed to fetch user data in Navbar", err);
+          // 에러 발생 시 App.js에서 처리하므로 여기서는 로그아웃만 호출
+          onLogout();
         }
-      } else if (!isLoggedIn) {
+      } else {
         setUser(null);
       }
     };
     fetchUserData();
   }, [isLoggedIn, onLogout]);
 
-  const handleLogout = () => {
-    onLogout();
-    navigate('/');
-  };
+    const handleLogout = () => {
+        onLogout();
+        navigate('/');
+    };
 
   // Custom Dropdown Toggle
   const CustomToggle = React.forwardRef(({ children, onClick }, ref) => (
     <a
-      href=""
+      href="/"
       ref={ref}
       onClick={(e) => {
         e.preventDefault();
@@ -49,16 +46,16 @@ function Navbar({ isLoggedIn, onLogout }) {
     </a>
   ));
 
-  return (
-    <nav className="navbar navbar-expand navbar-dark bg-dark">
-      <div className="container-fluid">
-        <Link className="navbar-brand" to="/">Influencer App</Link>
-        <ul className="navbar-nav ms-auto">
-          {isLoggedIn ? (
-            <Dropdown as="li" className="nav-item" align="end">
-              <Dropdown.Toggle as={CustomToggle} id="profile-dropdown-toggle">
-                프로필
-              </Dropdown.Toggle>
+    return (
+        <nav className="navbar navbar-expand navbar-dark bg-dark">
+            <div className="container-fluid">
+                <Link className="navbar-brand" to="/">Influencer App</Link>
+                <ul className="navbar-nav ms-auto">
+                    {isLoggedIn ? (
+                        <Dropdown as="li" className="nav-item" align="end">
+                            <Dropdown.Toggle as={CustomToggle} id="profile-dropdown-toggle">
+                                프로필
+                            </Dropdown.Toggle>
 
               <Dropdown.Menu 
                 className="p-3" 
@@ -80,7 +77,8 @@ function Navbar({ isLoggedIn, onLogout }) {
                     </div>
                     <div className="mb-3">
                       <small>보유 크레딧</small>
-                      <h5>1,000 C</h5>
+                      {/* App.js로부터 받은 userBalance를 표시 */}
+                      <h5>{userBalance.toLocaleString()} C</h5>
                     </div>
                     <Dropdown.Divider />
                     <Button as={Link} to="/profile" variant="outline-primary" className="w-100 mb-2">

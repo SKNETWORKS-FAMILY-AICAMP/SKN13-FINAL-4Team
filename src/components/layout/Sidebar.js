@@ -14,7 +14,16 @@ function Sidebar() {
                         사용자 관리
                     </NavLink>
                 </li>
-                {/* 다른 관리자 메뉴가 있다면 여기에 추가 */}
+                <li className="sidebar-item">
+                    <NavLink to="/staff/create" className="sidebar-link">
+                        방송 생성
+                    </NavLink>
+                </li>
+                <li className="sidebar-item">
+                    <NavLink to="/staff/management" className="sidebar-link">
+                        방송 관리
+                    </NavLink>
+                </li>
             </ul>
         </nav>
     );

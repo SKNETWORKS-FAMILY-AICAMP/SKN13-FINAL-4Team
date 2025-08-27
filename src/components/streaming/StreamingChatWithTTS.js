@@ -13,7 +13,9 @@ const StreamingChatWithTTS = ({
     externalSettings,
     onSettingsChange,
     externalShowSettings,
-    onShowSettingsChange
+    onShowSettingsChange,
+    onOpenDonation,
+    onDonation
 }) => {
     const [messages, setMessages] = useState([]);
     const MAX_MESSAGES = 100; // 최대 메시지 개수 제한
@@ -101,7 +103,7 @@ const StreamingChatWithTTS = ({
             const token = localStorage.getItem('accessToken');
             const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
             
-            const response = await fetch(`${apiBaseUrl}/api/streamer/${streamerId}/tts/settings/update/`, {
+            const response = await fetch(`${apiBaseUrl}/api/chat/streamer/${streamerId}/tts/settings/update/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -276,6 +278,28 @@ const StreamingChatWithTTS = ({
                                     timestamp: Date.now()
                                 };
                                 addMessage(alertMessage);
+                            }
+                            return;
+                        }
+
+                        // 후원 메시지 처리
+                        if (data.type === 'donation_message') {
+                            const newMessage = {
+                                id: Date.now() + Math.random(),
+                                ...data,
+                                message_type: 'donation',
+                                timestamp: data.timestamp || Date.now()
+                            };
+                            addMessage(newMessage);
+                            // 부모에 후원 이벤트 전달 (영상 위 오버레이 표시용)
+                            if (onDonation) {
+                                onDonation({
+                                    username: data.username,
+                                    amount: data.amount,
+                                    message: data.message,
+                                    tts_enabled: data.tts_enabled,
+                                    timestamp: data.timestamp || Date.now()
+                                });
                             }
                             return;
                         }
@@ -611,6 +635,27 @@ const StreamingChatWithTTS = ({
             );
         }
 
+        // 후원 메시지
+        if (msg.message_type === 'donation') {
+            return (
+                <div key={msg.id} className="chat-message donation-message">
+                    <div className="donation-header">
+                        <span className="message-badge">💰</span>
+                        <strong className="message-sender">{msg.username}</strong>
+                        <span>님이 </span>
+                        <strong className="donation-amount">{msg.amount.toLocaleString()} 크레딧</strong>
+                        <span>을 후원하셨습니다!</span>
+                    </div>
+                    {msg.message && (
+                        <div className="donation-body">
+                            <p className="message-text">"{msg.message}"</p>
+                        </div>
+                    )}
+                    <small className="message-time">[{messageTime}]</small>
+                </div>
+            );
+        }
+
         // AI 응답 메시지
         if (msg.message_type === 'ai') {
             return (
@@ -732,6 +777,23 @@ const StreamingChatWithTTS = ({
 
             {/* 채팅 입력 영역 */}
             <div className="chat-input-section bg-dark border-top border-secondary p-3">
+                {/* 후원하기 버튼: 입력창 바로 위 */}
+                <div className="d-flex justify-content-end mb-2">
+                    <Button 
+                        variant="success" 
+                        size="sm"
+                        onClick={() => {
+                            if (!isLoggedIn) {
+                                alert('로그인이 필요한 기능입니다.');
+                                return;
+                            }
+                            if (onOpenDonation) onOpenDonation();
+                        }}
+                        title="크레딧 후원하기"
+                    >
+                        후원하기
+                    </Button>
+                </div>
                 <div className="input-group">
                     <Form.Control
                         as="textarea"

@@ -1,18 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { Container, Row, Col, Image, Button, Badge } from 'react-bootstrap';
+import axios from 'axios'; 
+import { useParams, useNavigate } from 'react-router-dom';
+import { Container, Row, Col, Image, Button, Badge, Spinner, Alert } from 'react-bootstrap';
 import StreamingChatWithTTS from './StreamingChatWithTTS';
 import VideoControlPanel from './VideoControlPanel';
 import VideoTransitionManager from './VideoTransitionManager';
+import DonationIsland from './DonationIsland';
 import { AITextSyncService } from '../../services/aiTextSyncService';
 import { DEFAULT_SETTINGS } from '../../config/aiChatSettings';
 import { TTSServiceManager } from '../../services/ttsServiceManager';
 import AITTSEngineSelector from '../ai/AITTSEngineSelector';
 import TTSSettingsManager from '../ai/TTSSettingsManager';
 import './StreamingPage.css';
+import apiClient from '../../utils/apiClient';
 
 function StreamingPage({ isLoggedIn, username }) {
-    const { streamerId } = useParams();
+    const { roomId } = useParams();
+    const [chatRoom, setChatRoom] = useState(null);
+    // 방 기준 변경안 적용:
+    // - 라우팅은 roomId를 사용합니다.
+    // - streamerId는 방 정보를 조회한 뒤 influencer.username에서 파생합니다.
+    const [streamerId, setStreamerId] = useState(null); // 파생된 스트리머 ID 저장
+    const navigate = useNavigate();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
     const audioRef = useRef(null);
     const videoContainerRef = useRef(null);
     const videoTransitionRef = useRef(null);
@@ -20,33 +32,15 @@ function StreamingPage({ isLoggedIn, username }) {
     // 비디오 상태 추가
     const [currentVideo, setCurrentVideo] = useState('a_idle_0.mp4');
     
-    // 자막 상태 추가
     const [currentSubtitle, setCurrentSubtitle] = useState('');
     const [revealedSubtitle, setRevealedSubtitle] = useState('');
     const [showSubtitle, setShowSubtitle] = useState(false);
     const subtitleTimeoutRef = useRef(null);
     const textSyncServiceRef = useRef(null);
     
-    // 디버그 정보 상태
-    const [debugInfo, setDebugInfo] = useState({
-        isPlaying: false,
-        audioDuration: 0,
-        currentTime: 0,
-        textProgress: 0,
-        totalChars: 0,
-        revealedChars: 0,
-        syncMode: 'none',
-        ttsEngine: 'none',
-        voiceSettings: {},
-        audioFileSize: 0,
-        generationTime: 0,
-        error: null,
-        requestedEngine: 'none',
-        fallbackUsed: false
-    });
-    const [showDebug, setShowDebug] = useState(false); // 기본값을 false로 변경
+    const [debugInfo, setDebugInfo] = useState({});
+    const [showDebug, setShowDebug] = useState(false);
     
-    // TTS 설정 상태 추가
     const [ttsSettings, setTtsSettings] = useState({
         ...DEFAULT_SETTINGS,
         autoPlay: true,
@@ -57,22 +51,50 @@ function StreamingPage({ isLoggedIn, username }) {
     const [showSettingsManager, setShowSettingsManager] = useState(false);
     const ttsManagerRef = useRef(null);
     
-    // 서버 TTS 설정 상태 추가
     const [serverTtsSettings, setServerTtsSettings] = useState(null);
     const [isServerSettingsLoaded, setIsServerSettingsLoaded] = useState(false);
 
     const [isMuted, setIsMuted] = useState(false);
     const [volume, setVolume] = useState(0.8);
 
+    // 후원 아일랜드 상태
+    const [isDonationIslandOpen, setIsDonationIslandOpen] = useState(false);
+    // 후원 오버레이 상태 (영상 위 표시)
+    const [donationOverlay, setDonationOverlay] = useState({ visible: false, data: null });
+
+    // 백엔드 API 베이스 URL (이미지 등 정적 경로 조합에 사용)
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+
+    // 채팅방 정보 가져오기 (방 기준)
+    useEffect(() => {
+        const fetchChatRoom = async () => {
+            try {
+                // 변경점: 기존에는 streamerId로 방을 조회했으나,
+                // 방 기준 변경안에 따라 roomId(pk)로 조회합니다.
+                const response = await apiClient.get(`/api/chat/rooms/${roomId}/`);
+                setChatRoom(response.data);
+
+                // 중요: streamerId를 방 정보에서 파생(influencer.username)하여 설정
+                const derivedStreamerId = response.data?.influencer?.username || null;
+                setStreamerId(derivedStreamerId);
+            } catch (error) {
+                console.error('Error fetching chat room:', error);
+                setStreamerId(null);
+            }
+        };
+
+        if (roomId) {
+            fetchChatRoom();
+        }
+    }, [roomId]);
+
     // 서버에서 TTS 설정 가져오기
     const fetchServerTtsSettings = async () => {
-        if (!streamerId || !isLoggedIn) return;
+        if (!streamerId || !isLoggedIn) return; // 파생된 streamerId가 준비되어야 호출
         
         try {
             const token = localStorage.getItem('accessToken');
-            const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-            
-            const response = await fetch(`${apiBaseUrl}/api/streamer/${streamerId}/tts/settings/`, {
+            const response = await fetch(`${apiBaseUrl}/api/chat/streamer/${streamerId}/tts/settings/`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -109,19 +131,19 @@ function StreamingPage({ isLoggedIn, username }) {
 
     // 서버 TTS 설정 로드
     useEffect(() => {
+        // streamerId는 방 정보 조회 이후 파생되므로 의존성에 포함
         if (isLoggedIn && streamerId) {
             fetchServerTtsSettings();
         }
     }, [isLoggedIn, streamerId]);
 
-    // TTS Manager 초기화
     useEffect(() => {
         if (!ttsManagerRef.current) {
             ttsManagerRef.current = new TTSServiceManager(ttsSettings);
         } else {
             ttsManagerRef.current.updateSettings(ttsSettings);
         }
-    }, [ttsSettings.ttsEngine]);
+    }, [ttsSettings]);
 
     const handleAction = (action) => {
         if (!isLoggedIn) {
@@ -131,7 +153,7 @@ function StreamingPage({ isLoggedIn, username }) {
         action();
     };
 
-    const handleDonation = () => handleAction(() => alert('준비중입니다.'));
+    const handleDonation = () => handleAction(() => setIsDonationIslandOpen(true));
     const handleEmoji = () => handleAction(() => alert('준비중입니다.'));
 
     const handleMuteToggle = () => {
@@ -153,7 +175,7 @@ function StreamingPage({ isLoggedIn, username }) {
     };
 
     const handleFullscreen = () => {
-        if (videoContainerRef.current && videoContainerRef.current.requestFullscreen) {
+        if (videoContainerRef.current?.requestFullscreen) {
             videoContainerRef.current.requestFullscreen();
         }
     };
@@ -208,70 +230,38 @@ function StreamingPage({ isLoggedIn, username }) {
     const handleWebSocketMessage = (data) => {
         if (data.type === 'tts_settings_changed' && data.settings) {
             setServerTtsSettings(data.settings);
-            
-            // 로컬 설정도 동기화
-            setTtsSettings(prev => ({
-                ...prev,
-                ...data.settings
-            }));
+            setTtsSettings(prev => ({ ...prev, ...data.settings }));
         }
     };
 
-    // AI 메시지와 음성 재생 시간을 받아 동기화된 자막 표시
     const handleAIMessage = (message, audioDuration, audioElement, ttsInfo = {}) => {
         setCurrentSubtitle(message);
         setRevealedSubtitle('');
         setShowSubtitle(true);
+        if (ttsInfo.serverSettings) setServerTtsSettings(ttsInfo.serverSettings);
         
-        // TTS 정보에서 서버 설정 업데이트
-        if (ttsInfo.serverSettings) {
-            setServerTtsSettings(ttsInfo.serverSettings);
+        if (subtitleTimeoutRef.current) clearTimeout(subtitleTimeoutRef.current);
+        if (textSyncServiceRef.current) textSyncServiceRef.current.stopReveal();
+
+        // 방 기준 변경안과 직접적 관련은 없지만,
+        // 기존 코드에서 AITextSyncService 인스턴스가 생성되지 않아 호출 시 에러 가능성이 있어
+        // 최초 사용 시 안전하게 초기화합니다.
+        if (!textSyncServiceRef.current) {
+            textSyncServiceRef.current = new AITextSyncService(ttsSettings);
+            textSyncServiceRef.current.setCallbacks(
+                (text) => setRevealedSubtitle(text),
+                () => {
+                    setTimeout(() => {
+                        setShowSubtitle(false);
+                        setRevealedSubtitle('');
+                        setDebugInfo(prev => ({ ...prev, syncMode: 'completed' }));
+                    }, 3000);
+                }
+            );
         }
         
-        // 디버그 정보 초기화
-        setDebugInfo({
-            isPlaying: true,
-            audioDuration: audioDuration || 0,
-            currentTime: 0,
-            textProgress: 0,
-            totalChars: message.length,
-            revealedChars: 0,
-            syncMode: audioDuration > 0 ? 'audio-sync' : 'delay-sync',
-            ttsEngine: ttsInfo.engine || 'unknown',
-            voiceSettings: ttsInfo.voice || {},
-            audioFileSize: ttsInfo.fileSize || 0,
-            generationTime: ttsInfo.generationTime || 0,
-            error: ttsInfo.error || null,
-            requestedEngine: ttsInfo.requestedEngine || 'unknown',
-            fallbackUsed: ttsInfo.fallbackUsed || false
-        });
-        
-        // 기존 타이머와 동기화 정리
-        if (subtitleTimeoutRef.current) {
-            clearTimeout(subtitleTimeoutRef.current);
-        }
-        if (textSyncServiceRef.current) {
-            textSyncServiceRef.current.stopReveal();
-        }
-        
-        // 음성 재생 시간과 동기화된 텍스트 표시
-        if (audioDuration && audioDuration > 0) {
-            // 음성이 있을 때: 음성 시간에 맞춰 텍스트 스트리밍
+        if (audioDuration > 0) {
             textSyncServiceRef.current.startSynchronizedReveal(message, audioDuration);
-            
-            // 오디오 시간 추적 (디버그용)
-            if (audioElement) {
-                const updateAudioTime = () => {
-                    if (audioElement.currentTime <= audioDuration) {
-                        setDebugInfo(prev => ({
-                            ...prev,
-                            currentTime: audioElement.currentTime
-                        }));
-                        requestAnimationFrame(updateAudioTime);
-                    }
-                };
-                updateAudioTime();
-            }
         } else {
             // 음성이 없을 때: 기본 지연 시간으로 텍스트 스트리밍
             textSyncServiceRef.current.startDelayedReveal(message, () => {
@@ -284,19 +274,50 @@ function StreamingPage({ isLoggedIn, username }) {
         }
     };
 
+    // 후원 오버레이 자동 종료 타이머
+    useEffect(() => {
+        if (!donationOverlay.visible) return;
+        const timer = setTimeout(() => {
+            setDonationOverlay({ visible: false, data: null });
+        }, 5000);
+        return () => clearTimeout(timer);
+    }, [donationOverlay.visible]);
+
     const streamInfo = {
         title: 'AI 스트리머 잼민이의 첫 방송!',
         viewers: 1234,
         keywords: ['AI', '코딩', '라이브', '스트리밍'],
         streamer: { 
             name: '잼민이', 
-            profilePic: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyNSIgY3k9IjI1IiByPSIyNSIgZmlsbD0iIzAwNzNlNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+QUk8L3RleHQ+PC9zdmc+', 
+            profilePic: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyNSIgY3k9IjI1IiByPSIyNSIgZmlsbD0iIzAwNzNlNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ-weight="bold" fill="#fff" text-anchor="middle" dy=".3em">AI</text></svg>', 
             bio: 'sLLM 기반 AI 스트리머입니다. 여러분과 소통하고 싶어요!' 
         }
     };
 
     return (
         <Container fluid className="streaming-container mt-4">
+            {/* 후원 오버레이: 영상 위 표시, 5초간 Fade in/out */}
+            {donationOverlay.visible && donationOverlay.data && (
+                <div className="donation-overlay show">
+                    <div className="donation-overlay-content">
+                        <div className="donation-title">
+                            <strong>{donationOverlay.data.username}</strong> 님이 <strong>{Number(donationOverlay.data.amount).toLocaleString()}</strong> 크레딧을 후원하셨습니다!!
+                        </div>
+                        {donationOverlay.data.message && (
+                            <div className="donation-message">"{donationOverlay.data.message}"</div>
+                        )}
+                    </div>
+                </div>
+            )}
+            {/* 후원 아일랜드 */}
+            {isDonationIslandOpen && chatRoom && (
+                <DonationIsland 
+                    roomId={chatRoom.id} 
+                    streamerId={streamerId} 
+                    onClose={() => setIsDonationIslandOpen(false)} 
+                />
+            )}
+
             {/* 통합 설정 패널 - 디버그, TTS 설정, 설정 관리 통합 */}
             {(showDebug || showTtsSettings || showSettingsManager) && (
                 <div className="settings-panel-overlay">
@@ -558,103 +579,44 @@ function StreamingPage({ isLoggedIn, username }) {
                             </div>
                         )}
                         <div className="video-controls">
-                            <Button variant="secondary" size="sm" onClick={handleMuteToggle}>
-                                {isMuted ? 'Unmute' : 'Mute'}
-                            </Button>
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max="1" 
-                                step="0.01" 
-                                value={volume} 
-                                onChange={handleVolumeChange} 
-                                className="volume-slider" 
-                            />
+                            <Button variant="secondary" size="sm" onClick={handleMuteToggle}>{isMuted ? 'Unmute' : 'Mute'}</Button>
+                            <input type="range" min="0" max="1" step="0.01" value={volume} onChange={handleVolumeChange} className="volume-slider" />
                             <Button variant="secondary" size="sm" onClick={handleFullscreen}>Fullscreen</Button>
-                            <Button 
-                                variant="outline-info" 
-                                size="sm" 
-                                onClick={() => setShowDebug(!showDebug)}
-                                title="디버그 패널 토글"
-                            >
-                                🔧
-                            </Button>
-                            <Button 
-                                variant="outline-primary" 
-                                size="sm" 
-                                onClick={() => setShowTtsSettings(!showTtsSettings)}
-                                title="TTS 설정 패널 토글"
-                            >
-                                🎵
-                            </Button>
-                            <Button 
-                                variant="outline-warning" 
-                                size="sm" 
-                                onClick={() => setShowSettingsManager(!showSettingsManager)}
-                                title="TTS 관리 패널 토글"
-                            >
-                                ⚙️
-                            </Button>
                         </div>
                         
                         {/* 비디오 제어 패널 */}
                         <VideoControlPanel onVideoChange={handleVideoChange} />
                     </div>
                     <div className="stream-info mt-3">
-                        <h3>{streamInfo.title}</h3>
+                        {/* 방 정보가 로딩되기 전에도 안전히 렌더링되도록 null guard 적용 */}
+                        <h3>{chatRoom?.name || '스트림'}</h3>
                         <div className="d-flex justify-content-between align-items-center text-muted">
-                            <span>시청자 수: {streamInfo.viewers}명</span>
-                            <span>방송 시간: 00:12:34</span>
+                            <span>시청자 수: 0명</span>
+                            <span>방송 시작: {chatRoom?.created_at ? new Date(chatRoom.created_at).toLocaleString('ko-KR') : '-'}</span>
                         </div>
                         <hr />
                         <div className="d-flex align-items-center my-3">
-                            <Image src={streamInfo.streamer.profilePic} roundedCircle />
+                            <Image src={chatRoom?.influencer?.profile_image ? `${apiBaseUrl}${chatRoom.influencer.profile_image}` : 'https://via.placeholder.com/50'} roundedCircle />
                             <div className="ms-3">
-                                <h5 className="mb-0">{streamInfo.streamer.name}</h5>
-                                <p className="mb-0">{streamInfo.streamer.bio}</p>
+                                <h5 className="mb-0">{chatRoom?.influencer?.nickname || chatRoom?.host?.username || '-'}</h5>
+                                <p className="mb-0">{chatRoom?.description || ''}</p>
                             </div>
-                        </div>
-                        <div className="keywords">
-                            {streamInfo.keywords.map(k => <Badge pill bg="info" className="me-2" key={k}>#{k}</Badge>)}
                         </div>
                     </div>
                 </Col>
                 <Col md={4}>
                     <div className="chat-section-wrapper d-flex flex-column h-100">
-                        {/* 채팅 컨테이너 - 대부분의 공간 사용, 입력창 포함 */}
                         <div className="chat-container-with-input flex-grow-1 d-flex flex-column">
-                            {streamerId ? (
-                                <StreamingChatWithTTS 
-                                    streamerId={streamerId}
-                                    isLoggedIn={isLoggedIn}
-                                    username={username}
-                                    onAIMessage={handleAIMessage}
-                                    onWebSocketMessage={handleWebSocketMessage}
-                                    externalSettings={ttsSettings}
-                                    onSettingsChange={handleTtsSettingChange}
-                                    externalShowSettings={showTtsSettings}
-                                    onShowSettingsChange={setShowTtsSettings}
-                                />
-                            ) : (
-                                <div className="text-center text-muted p-4">
-                                    <p>채팅을 불러오는 중...</p>
-                                    <small>streamerId: {streamerId || 'loading...'}</small><br/>
-                                    <small>isLoggedIn: {String(isLoggedIn)}</small><br/>
-                                    <small>username: {username || 'loading...'}</small>
-                                </div>
-                            )}
-                        </div>
-                        
-                        {/* 후원 버튼 영역 - 다시 활성화 */}
-                        <div className="external-actions-wrapper flex-shrink-0">
-                            <div className="external-actions">
-                                <Button variant="warning" size="sm" onClick={handleDonation}>
-                                    💰 후원
-                                </Button>
-                                <Button variant="light" size="sm" onClick={handleEmoji}>
-                                    😊 이모티콘
-                                </Button>
-                            </div>
+                            <StreamingChatWithTTS 
+                                streamerId={streamerId}
+                                roomId={roomId}
+                                isLoggedIn={isLoggedIn}
+                                username={username}
+                                onAIMessage={handleAIMessage}
+                                onWebSocketMessage={handleWebSocketMessage}
+                                onOpenDonation={() => setIsDonationIslandOpen(true)}
+                                onDonation={(d)=> setDonationOverlay({ visible: true, data: d })}
+                            />
                         </div>
                     </div>
                 </Col>
