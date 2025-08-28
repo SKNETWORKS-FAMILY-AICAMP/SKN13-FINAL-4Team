@@ -112,23 +112,22 @@ class MediaProcessingHub:
             logger.error(f"❌ 미디어 처리 실패: {str(e)}")
             return self._create_error_packet(text, str(e), room_name)
     
-    async def generate_tracks_with_cancellation(self, request_data: Dict, cancel_event: 'asyncio.Event') -> Optional[List]:
+    async def generate_tracks_no_cancellation(self, request_data: Dict) -> Optional[List]:
         """
-        취소 가능한 MediaTrack 생성 (StreamSession Queue 시스템 용)
+        취소 없는 MediaTrack 생성 (완전 순차 처리용)
         
         Args:
             request_data: 요청 데이터 (message, streamer_config 등)
-            cancel_event: 취소 이벤트 (set되면 작업 중단)
             
         Returns:
-            List[MediaTrack] or None: 생성된 트랙들 또는 취소 시 None
+            List[MediaTrack] or None: 생성된 트랙들
         """
         try:
             text = request_data.get('message', '')
             streamer_config = request_data.get('streamer_config', {})
             emotion = self._extract_emotion_from_text(text)
             
-            logger.info(f"🎬 취소 가능한 MediaTrack 생성 시작: {text[:30]}... (감정: {emotion})")
+            logger.info(f"🎬 [NO-CANCEL] MediaTrack 생성 시작: {text[:30]}... (감정: {emotion})")
             
             # AI 응답 생성 (최우선)
             from .llm_text_service import ai_service
@@ -136,46 +135,27 @@ class MediaProcessingHub:
             conversation_history = [{"role": "system", "content": system_prompt}]
             
             ai_response = await ai_service.generate_response(text, conversation_history)
-            if not ai_response or cancel_event.is_set():
-                logger.info("🚫 AI 응답 생성 중 취소됨")
+            if not ai_response:
+                logger.warning("⚠️ AI 응답 생성 실패")
                 return None
                 
             # 감정 재추출 (AI 응답 기반)
             emotion = self._extract_emotion_from_response(ai_response)
             clean_response = self._clean_emotion_tags(ai_response)
             
-            # 병렬 MediaTrack 생성 (취소 가능) - 코루틴을 Task로 변환
+            # 🆕 병렬 MediaTrack 생성 (취소 없음 - 순차 처리 보장)
             tasks = [
-                asyncio.create_task(self._create_audio_track_cancellable(clean_response, streamer_config, cancel_event)),
-                asyncio.create_task(self._create_video_track_cancellable(emotion, streamer_config, cancel_event)),
-                asyncio.create_task(self._create_subtitle_track_cancellable(clean_response, cancel_event))
+                asyncio.create_task(self._create_audio_track_no_cancel(clean_response, streamer_config)),
+                asyncio.create_task(self._create_video_track_no_cancel(emotion, streamer_config)),
+                asyncio.create_task(self._create_subtitle_track_no_cancel(clean_response))
             ]
             
-            # 모든 MediaTrack 작업 완료 대기 (취소 체크와 함께)
-            cancel_task = asyncio.create_task(cancel_event.wait())
-            all_tasks = tasks + [cancel_task]
+            logger.info(f"🚀 [NO-CANCEL] 3개 트랙 병렬 생성 시작: audio, video, subtitle")
             
-            done, pending = await asyncio.wait(all_tasks, return_when=asyncio.FIRST_COMPLETED)
-            
-            # 취소 이벤트가 먼저 완료된 경우
-            if cancel_event.is_set():
-                # 취소됨 - 모든 대기 중인 작업들 정리
-                for task in tasks:
-                    if not task.done():
-                        task.cancel()
-                logger.info("🚫 MediaTrack 생성이 취소되었습니다")
-                return None
-            
-            # 취소되지 않았다면 모든 MediaTrack 작업 완료까지 대기
-            cancel_task.cancel()  # 취소 태스크 정리
-            
-            # 남은 MediaTrack 작업들 완료 대기
+            # 🆕 모든 MediaTrack 작업 완료까지 대기 (취소 없음)
             done, pending = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
             
-            # 추가 취소 체크
-            if cancel_event.is_set():
-                logger.info("🚫 MediaTrack 생성 중 취소됨")
-                return None
+            logger.info(f"📊 [NO-CANCEL] 트랙 생성 완료: {len(done)}개 완료, {len(pending)}개 대기")
                 
             # 완료된 트랙들 수집
             tracks = []
@@ -187,7 +167,7 @@ class MediaProcessingHub:
                         track = await task
                         if track:
                             tracks.append(track)
-                            logger.info(f"✅ {task_name} 트랙 생성 성공: {track.kind}, {track.payload_ref[:50]}...")
+                            logger.info(f"✅ [NO-CANCEL] {task_name} 트랙 생성 성공: {track.kind}, {track.payload_ref[:50]}...")
                         else:
                             logger.warning(f"⚠️ {task_name} 트랙 생성 결과 None")
                     except Exception as e:
@@ -200,17 +180,118 @@ class MediaProcessingHub:
                         
             if tracks:
                 track_kinds = [t.kind for t in tracks]
-                logger.info(f"✅ MediaTrack 생성 완료: {len(tracks)}개 트랙 ({', '.join(track_kinds)})")
+                logger.info(f"✅ [NO-CANCEL] MediaTrack 생성 완료: {len(tracks)}개 트랙 ({', '.join(track_kinds)})")
                 return tracks
             else:
-                logger.warning("⚠️ 생성된 MediaTrack가 없습니다")
+                logger.warning("⚠️ [NO-CANCEL] 생성된 MediaTrack가 없습니다")
                 return None
                 
         except asyncio.CancelledError:
-            logger.info("🚫 MediaTrack 생성 작업이 취소됨")
+            logger.info("🚫 [NO-CANCEL] MediaTrack 생성 작업이 취소됨 (예상치 못한 취소)")
             return None
         except Exception as e:
-            logger.error(f"❌ MediaTrack 생성 실패: {str(e)}")
+            logger.error(f"❌ [NO-CANCEL] MediaTrack 생성 실패: {str(e)}")
+            return None
+    
+    async def generate_tracks_with_cancellation(self, request_data: Dict, cancel_event: 'asyncio.Event') -> Optional[List]:
+        """
+        취소 가능한 MediaTrack 생성 (레거시 메서드 - 호환성 유지용)
+        
+        Args:
+            request_data: 요청 데이터 (message, streamer_config 등)
+            cancel_event: 취소 이벤트 (set되면 작업 중단)
+            
+        Returns:
+            List[MediaTrack] or None: 생성된 트랙들 또는 취소 시 None
+        """
+        logger.warning("⚠️ generate_tracks_with_cancellation() 호출됨 - generate_tracks_no_cancellation() 사용 권장")
+        # 취소 없는 버전으로 리다이렉트
+        return await self.generate_tracks_no_cancellation(request_data)
+
+    async def _create_audio_track_no_cancel(self, text: str, streamer_config: Dict):
+        """취소 없는 오디오 트랙 생성 (순차 처리용)"""
+        try:
+            logger.info(f"🎵 [NO-CANCEL] 오디오 트랙 생성 시작: {text[:30]}...")
+            
+            # TTS 생성 (취소 없음)
+            tts_result = await self._generate_tts_async(text, streamer_config, None)
+            
+            if not tts_result:
+                logger.warning(f"⚠️ TTS 결과가 None임: {text[:30]}...")
+                return None
+                
+            logger.info(f"🔊 TTS 결과: {tts_result.get('audio_url', 'NO_URL')[:50]}..., 길이: {tts_result.get('duration', 0)}초")
+                
+            # StreamSession.MediaTrack 임포트
+            from .streaming.domain.stream_session import MediaTrack
+            
+            duration_ms = int(tts_result['duration'] * 1000)
+            
+            audio_track = MediaTrack(
+                kind="audio",
+                pts_ms=0,  # 즉시 시작
+                dur_ms=duration_ms,
+                payload_ref=tts_result['audio_url'],
+                codec="audio/mpeg",
+                meta={
+                    'engine': tts_result['tts_info']['engine'],
+                    'voice': tts_result['tts_info'].get('voice'),
+                    'file_size': tts_result['tts_info'].get('file_size', 0),
+                    'emotion': streamer_config.get('emotion', 'neutral')
+                }
+            )
+            
+            logger.info(f"✅ 오디오 MediaTrack 생성 성공 (순차): {audio_track.payload_ref[:50]}...")
+            return audio_track
+            
+        except Exception as e:
+            logger.error(f"❌ 오디오 트랙 생성 실패: {e}")
+            return None
+    
+    async def _create_video_track_no_cancel(self, emotion: str, streamer_config: Dict):
+        """취소 없는 비디오 트랙 생성 (순차 처리용)"""
+        try:
+            character_id = streamer_config.get('streamer_id', 'jammin-i')
+            talk_video = self.video_selector.get_talk_video(emotion, character_id)
+            
+            from .streaming.domain.stream_session import MediaTrack
+            
+            return MediaTrack(
+                kind="video",
+                pts_ms=0,  # 즉시 시작
+                dur_ms=5000,  # 기본 5초 (TTS 길이에 맞춤)
+                payload_ref=talk_video,
+                codec="video/mp4",
+                meta={
+                    'emotion': emotion,
+                    'character_id': character_id,
+                    'clip_type': 'talk'
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ 비디오 트랙 생성 실패: {e}")
+            return None
+    
+    async def _create_subtitle_track_no_cancel(self, text: str):
+        """취소 없는 자막 트랙 생성 (순차 처리용)"""
+        try:
+            # 자막 타이밍 생성 (빠른 작업)
+            subtitle_data = self._generate_subtitle_timing(text, 3.0)  # 기본 3초
+                
+            from .streaming.domain.stream_session import MediaTrack
+            
+            return MediaTrack(
+                kind="subtitle",
+                pts_ms=0,  # 즉시 시작
+                dur_ms=int(subtitle_data['total_duration'] * 1000),
+                payload_ref=json.dumps(subtitle_data),  # JSON 문자열로 저장
+                codec="text/json",
+                meta=subtitle_data
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ 자막 트랙 생성 실패: {e}")
             return None
     
     async def _create_audio_track_cancellable(self, text: str, streamer_config: Dict, cancel_event: 'asyncio.Event'):
@@ -222,13 +303,18 @@ class MediaProcessingHub:
                 
             logger.info(f"🎵 오디오 트랙 생성 시작: {text[:30]}...")
             
-            # TTS 생성 (기존 로직 활용)
-            tts_result = await self._generate_tts_async(text, streamer_config)
-            logger.info(f"🔊 TTS 결과: {tts_result.get('audio_url', 'NO_URL')[:50]}..., 길이: {tts_result.get('duration', 0)}초")
+            # TTS 생성 (취소 가능한 버전)
+            tts_result = await self._generate_tts_async(text, streamer_config, cancel_event)
             
             if cancel_event.is_set():
                 logger.info("🚫 오디오 트랙 TTS 생성 후 취소됨")
                 return None
+                
+            if not tts_result:
+                logger.warning(f"⚠️ TTS 결과가 None임 (취소된 것으로 추정): {text[:30]}...")
+                return None
+                
+            logger.info(f"🔊 TTS 결과: {tts_result.get('audio_url', 'NO_URL')[:50]}..., 길이: {tts_result.get('duration', 0)}초")
                 
             # StreamSession.MediaTrack 임포트
             from .streaming.domain.stream_session import MediaTrack
@@ -332,25 +418,37 @@ class MediaProcessingHub:
             return 'neutral'
     
     
-    async def _generate_tts_async(self, text: str, streamer_config: Dict) -> Dict[str, Any]:
-        """TTS 생성 (비동기)"""
+    async def _generate_tts_async(self, text: str, streamer_config: Dict, cancel_event: Optional['asyncio.Event'] = None) -> Dict[str, Any]:
+        """TTS 생성 (비동기, 취소 가능)"""
         logger.info(f"🔊 TTS 생성 시작: {text[:30]}...")
+        
+        # 취소 확인
+        if cancel_event and cancel_event.is_set():
+            logger.info(f"🚫 TTS 생성 취소됨: {text[:30]}...")
+            return None
+            
         voice_settings = streamer_config.get('voice_settings', {})
         engine = voice_settings.get('engine', 'elevenlabs')
         logger.info(f"🔊 TTS 엔진: {engine}, 설정: {voice_settings}")
         
         if engine == 'elevenlabs':
-            return await self._generate_elevenlabs_tts(text, voice_settings)
+            return await self._generate_elevenlabs_tts_async(text, voice_settings, cancel_event)
         elif engine == 'openai':
-            return await self._generate_openai_tts(text, voice_settings)
+            return await self._generate_openai_tts_async(text, voice_settings, cancel_event)
         else:
-            # 기본값: ElevenLabs
-            return await self._generate_elevenlabs_tts(text, voice_settings)
+            # 기본값: ElevenLabs (폴백 없음)
+            return await self._generate_elevenlabs_tts_async(text, voice_settings, cancel_event)
     
-    async def _generate_elevenlabs_tts(self, text: str, voice_settings: Dict) -> Dict[str, Any]:
-        """ElevenLabs TTS 생성"""
+    async def _generate_elevenlabs_tts_async(self, text: str, voice_settings: Dict, cancel_event: Optional['asyncio.Event'] = None) -> Dict[str, Any]:
+        """ElevenLabs TTS 생성 (비동기, 취소 가능)"""
         try:
             logger.info(f"🎤 ElevenLabs TTS 호출 시작: {text[:30]}...")
+            
+            # 취소 확인
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 ElevenLabs TTS 취소됨: {text[:30]}...")
+                return None
+            
             api_key = settings.ELEVENLABS_API_KEY
             if not api_key:
                 logger.error("❌ ElevenLabs API key not configured")
@@ -402,19 +500,35 @@ class MediaProcessingHub:
                 }
             }
             
-            # 비동기 HTTP 요청
-            response = await asyncio.to_thread(requests.post, url, json=data, headers=headers)
+            # 취소 확인 후 HTTP 요청
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 HTTP 요청 전 취소 확인됨: {text[:30]}...")
+                return None
+            
+            # 동기 HTTP 요청 with timeout
+            response = requests.post(url, json=data, headers=headers, timeout=10.0)
+            
+            # 취소 확인
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 HTTP 응답 중 취소 확인됨: {text[:30]}...")
+                return None
             
             if response.status_code != 200:
-                logger.error(f"❌ ElevenLabs API 응답 오류: {response.status_code}")
+                logger.error(f"❌ ElevenLabs API 응답 오류: {response.status_code} - {response.text}")
                 raise Exception(f"ElevenLabs API error: {response.status_code}")
             
-            logger.info(f"✅ ElevenLabs API 성공: {len(response.content)} bytes")
+            content = response.content
+            logger.info(f"✅ ElevenLabs API 성공: {len(content)} bytes")
+            
+            # 취소 확인
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 응답 처리 중 취소 확인됨: {text[:30]}...")
+                return None
             
             # 오디오 데이터를 base64로 인코딩해서 직접 전달
-            audio_base64 = base64.b64encode(response.content).decode('utf-8')
+            audio_base64 = base64.b64encode(content).decode('utf-8')
             audio_data_url = f"data:audio/mpeg;base64,{audio_base64}"
-            logger.info(f"🎵 오디오 데이터 생성 완료: {len(response.content)} bytes -> base64")
+            logger.info(f"🎵 오디오 데이터 생성 완료: {len(content)} bytes -> base64")
             
             # 오디오 길이 추정 (실제로는 오디오 파일 분석 필요)
             estimated_duration = len(text) * 0.1  # 대략적 추정
@@ -427,20 +541,38 @@ class MediaProcessingHub:
                     'engine': 'elevenlabs',
                     'voice': voice_id,
                     'model': data['model_id'],
-                    'file_size': len(response.content),
+                    'file_size': len(content),
                     'format': 'base64_data_url'
                 }
             }
             
         except Exception as e:
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 ElevenLabs TTS 작업 취소됨: {str(e)}")
+                return None
             logger.error(f"❌ ElevenLabs TTS 실패: {str(e)}")
-            # OpenAI 폴백
-            return await self._generate_openai_tts(text, voice_settings)
+            raise
     
-    async def _generate_openai_tts(self, text: str, voice_settings: Dict) -> Dict[str, Any]:
-        """OpenAI TTS 생성 (폴백)"""
+    async def _generate_openai_tts_async(self, text: str, voice_settings: Dict, cancel_event: Optional['asyncio.Event'] = None) -> Dict[str, Any]:
+        """OpenAI TTS 생성 (비동기, 취소 가능)"""
         try:
+            logger.info(f"🎤 OpenAI TTS 호출 시작: {text[:30]}...")
+            
+            # 취소 확인
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 OpenAI TTS 취소됨: {text[:30]}...")
+                return None
+                
+            if not settings.OPENAI_API_KEY:
+                logger.error("❌ OpenAI API key not configured")
+                raise ValueError("OpenAI API key not configured")
+            
             client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+            
+            # 취소 확인
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 OpenAI API 호출 전 취소 확인됨: {text[:30]}...")
+                return None
             
             response = await client.audio.speech.create(
                 model="tts-1-hd",
@@ -448,6 +580,11 @@ class MediaProcessingHub:
                 input=text,
                 speed=voice_settings.get('speed', 1.0)
             )
+            
+            # 취소 확인
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 OpenAI 응답 처리 중 취소 확인됨: {text[:30]}...")
+                return None
             
             # 오디오 데이터를 base64로 인코딩해서 직접 전달
             audio_base64 = base64.b64encode(response.content).decode('utf-8')
@@ -463,14 +600,17 @@ class MediaProcessingHub:
                     'engine': 'openai',
                     'voice': voice_settings.get('openai_voice', 'alloy'),
                     'model': 'tts-1-hd',
-                    'fallback_used': True,
+                    'file_size': len(response.content),
                     'format': 'base64_data_url'
                 }
             }
             
         except Exception as e:
-            logger.error(f"❌ OpenAI TTS 폴백 실패: {str(e)}")
-            return self._create_tts_error_result(text, str(e))
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 OpenAI TTS 작업 취소됨: {str(e)}")
+                return None
+            logger.error(f"❌ OpenAI TTS 실패: {str(e)}")
+            raise
     
     
     def _generate_subtitle_timing(self, text: str, duration: float) -> Dict[str, Any]:

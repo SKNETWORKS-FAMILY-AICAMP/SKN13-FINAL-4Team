@@ -114,10 +114,14 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             # StreamSession 초기화가 실패해도 연결은 유지하되, 세션은 None으로 설정
             self.session = None
         
-        # Queue Processor 시작 (중복 시작 방지)
-        if not self.queue_processor_task or self.queue_processor_task.done():
-            self.queue_processor_task = asyncio.create_task(self.process_session_queue())
-            logger.info(f"🎬 Queue Processor 시작: {self.room_group_name}")
+        # 🆕 두 개의 독립적인 Queue Processor 시작 (Request Queue와 Response Queue 분리)
+        if not hasattr(self, 'request_processor_task') or self.request_processor_task.done():
+            self.request_processor_task = asyncio.create_task(self.process_request_queue())
+            logger.info(f"🎬 Request Queue Processor 시작: {self.room_group_name}")
+            
+        if not hasattr(self, 'response_processor_task') or self.response_processor_task.done():
+            self.response_processor_task = asyncio.create_task(self.process_response_queue())
+            logger.info(f"🎵 Response Queue Processor 시작: {self.room_group_name}")
         
         await self.channel_layer.group_add(
             self.room_group_name,
@@ -231,10 +235,14 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         )
 
     async def disconnect(self, close_code):
-        # Queue Processor 정리
-        if self.queue_processor_task and not self.queue_processor_task.done():
-            self.queue_processor_task.cancel()
-            logger.info(f"🚫 Queue Processor 취소: {self.room_group_name}")
+        # 🆕 두 개의 Queue Processor 정리
+        if hasattr(self, 'request_processor_task') and self.request_processor_task and not self.request_processor_task.done():
+            self.request_processor_task.cancel()
+            logger.info(f"🚫 Request Queue Processor 취소: {self.room_group_name}")
+            
+        if hasattr(self, 'response_processor_task') and self.response_processor_task and not self.response_processor_task.done():
+            self.response_processor_task.cancel()
+            logger.info(f"🚫 Response Queue Processor 취소: {self.room_group_name}")
         
         if hasattr(self, 'room_group_name'):
             await self.channel_layer.group_discard(
@@ -258,12 +266,32 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         """사용자로부터 메시지 수신"""
         try:
             data = json.loads(text_data)
-            message = data.get('message', '').strip()
+            
+            # 🆕 메시지 타입별 처리
+            if 'type' in data:
+                message_type = data.get('type')
+                
+                if message_type == 'playback_completed':
+                    # 프론트엔드에서 재생 완료 신호
+                    seq = data.get('seq')
+                    if seq is not None and hasattr(self, 'session') and self.session:
+                        self.session.mark_playback_completed(seq)
+                        logger.info(f"✅ 재생 완료 신호 처리됨: seq={seq}")
+                    return
+                    
+                elif message_type == 'chat_message':
+                    message = data.get('message', '').strip()
+                else:
+                    logger.warning(f"알 수 없는 메시지 타입: {message_type}")
+                    return
+            else:
+                # 기존 호환성: message 필드만 있는 경우
+                message = data.get('message', '').strip()
             
             if not message:
                 return
                 
-            logger.info(f"스트리밍 채팅 메시지: {self.user.username} → {message[:50]}...")
+            logger.info(f"📨 [MESSAGE] 스트리밍 채팅 메시지: {self.user.username} → '{message[:50]}...' | 길이: {len(message)}자")
             
             # 사용자 메시지를 모든 클라이언트에게 브로드캐스트
             await self.channel_layer.group_send(
@@ -279,7 +307,10 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             # AI 응답이 필요한 메시지인지 확인
             if message.startswith('@'):
                 clean_message = message[1:].strip()
+                logger.info(f"🤖 [AI-TRIGGER] AI 요청 감지: '{clean_message[:30]}...' | 사용자: {self.user.username}")
                 await self.process_ai_response(clean_message)
+            else:
+                logger.debug(f"💬 [USER-ONLY] 일반 채팅 메시지 (AI 트리거 없음): {self.user.username}")
                 
         except Exception as e:
             logger.error(f"메시지 처리 오류: {e}")
@@ -287,7 +318,7 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
     async def process_ai_response(self, clean_message):
         """AI 요청을 StreamSession Queue에 추가 (기존 쿨다운 시스템 제거)"""
         try:
-            logger.info(f"📝 Queue에 AI 요청 추가: {clean_message[:30]}...")
+            logger.info(f"📝 [REQUEST] Queue에 AI 요청 추가: {clean_message[:30]}... | 사용자: {self.user.username}")
             
             # 스트리머 설정 조회
             current_tts_settings = await self.get_streamer_tts_settings(self.streamer_id)
@@ -309,29 +340,44 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             # StreamSession Queue에 요청 추가
             await self.session.enqueue_request(request_data)
             
-            logger.info(f"✅ Queue에 요청 추가 완료: {clean_message[:30]}... (큐 크기: {self.session.request_queue.qsize()})")
+            queue_size = self.session.request_queue.qsize()
+            logger.info(f"✅ [REQUEST] Queue에 요청 추가 완료: '{clean_message[:30]}...' | 큐 크기: {queue_size} | 처리중: {self.session.is_processing}")
             
         except Exception as e:
-            logger.error(f"❌ AI 요청 Queue 추가 실패: {e}")
+            logger.error(f"❌ [REQUEST] AI 요청 Queue 추가 실패: {e} | 사용자: {self.user.username} | 메시지: '{clean_message[:30]}...'")
     
-    async def process_session_queue(self):
-        """StreamSession Queue를 처리하여 MediaPacket 브로드캐스트"""
+    async def process_request_queue(self):
+        """Request Queue 처리 - MediaPacket 생성만 담당"""
         try:
-            logger.info(f"🎬 Queue Processor 시작: {self.room_group_name}")
+            logger.info(f"🎬 [REQ-PROCESSOR] Request Queue Processor 시작: {self.room_group_name}")
             
-            # StreamSession의 process_queue 제너레이터 사용
-            async for media_packet in self.session.process_queue(self.media_processor):
+            # 🆕 제너레이터가 아닌 직접 호출 방식으로 변경
+            await self.session.process_queue(self.media_processor)
+                    
+        except asyncio.CancelledError:
+            logger.info(f"🚫 [REQ-PROCESSOR] Request Queue Processor 취소됨: {self.room_group_name}")
+        except Exception as e:
+            logger.error(f"❌ [REQ-PROCESSOR] Request Queue Processor 오류: {e}")
+    
+    async def process_response_queue(self):
+        """Response Queue 처리 - MediaPacket 순차 재생 담당"""
+        try:
+            logger.info(f"🎵 [RES-PROCESSOR] Response Queue Processor 시작: {self.room_group_name}")
+            
+            # StreamSession의 process_response_queue 제너레이터 사용
+            async for media_packet in self.session.process_response_queue():
                 if media_packet:
-                    # MediaPacket 브로드캐스트
+                    logger.info(f"🎵 [RES-PROCESSOR] MediaPacket 순차 재생: seq={media_packet.seq}, hash={media_packet.hash[:8]}")
+                    # MediaPacket 브로드캐스트 (순차 재생)
                     await self.broadcast_mediapacket(media_packet)
                     
-                    # Queue 상태 업데이트 브로드캐스트
+                    # Response Queue 상태 업데이트 브로드캐스트
                     await self.broadcast_queue_status()
                     
         except asyncio.CancelledError:
-            logger.info(f"🚫 Queue Processor 취소됨: {self.room_group_name}")
+            logger.info(f"🚫 [RES-PROCESSOR] Response Queue Processor 취소됨: {self.room_group_name}")
         except Exception as e:
-            logger.error(f"❌ Queue Processor 오류: {e}")
+            logger.error(f"❌ [RES-PROCESSOR] Response Queue Processor 오류: {e}")
     
     async def broadcast_mediapacket(self, media_packet):
         """MediaPacket을 WebSocket으로 브로드캐스트"""

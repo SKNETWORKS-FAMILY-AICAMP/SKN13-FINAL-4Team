@@ -10,56 +10,28 @@ from dotenv import load_dotenv
 # Load .env
 load_dotenv()
 
-<<<<<<< HEAD
-# -------------------------
-# Base paths
-# -------------------------
-BASE_DIR = Path(__file__).resolve().parent.parent
-
-# -------------------------
-# Environment
-# -------------------------
-ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')  # development or production
-DEBUG = ENVIRONMENT != 'production'
-
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-67i&fjm5^wi4g@s)ka&z4a0(l&-sgm+9jf%w^y_2*4d6%&q^z4')
-
-# -------------------------
-# Allowed Hosts
-# -------------------------
-=======
 # --- 기본 경로 설정 ---
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- 환경 변수 설정 (가장 먼저 정의) ---
 ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')
 DEBUG = ENVIRONMENT != 'production'
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-67i&fjm5^wi4g@s)ka&z4a0(l&-sgm+9jf%w^y_2*4d6%&q^z4')
 
 # 샤드 수 (실전: 4~16로 시작, 트래픽 따라 조정)
 SHARD_COUNT = int(os.getenv("CHANNEL_SHARDS", "8"))
 
-
 # --- 호스트 설정 ---
->>>>>>> 89a26b20f2d3ab72056e478525f67f34b8ecef26
 if DEBUG:
     ALLOWED_HOSTS = ['*']
 else:
     allowed_hosts_str = os.environ.get('DJANGO_ALLOWED_HOSTS', '')
     ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_str.split(',') if h.strip()]
 
-<<<<<<< HEAD
-# -------------------------
-# Installed Apps & Middleware
-# -------------------------
-=======
-
 def make_redis_url(host):
     return f"redis://{host}:6379/0"
 
-    
 # --- 핵심 애플리케이션 ---
->>>>>>> 89a26b20f2d3ab72056e478525f67f34b8ecef26
 INSTALLED_APPS = [
     'daphne',
     'channels',
@@ -106,15 +78,7 @@ TEMPLATES = [
     },
 ]
 
-<<<<<<< HEAD
-ASGI_APPLICATION = 'config.asgi.application'
-
-# -------------------------
-# Database
-# -------------------------
-=======
 # --- 데이터베이스 설정 ---
->>>>>>> 89a26b20f2d3ab72056e478525f67f34b8ecef26
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -126,45 +90,6 @@ DATABASES = {
     }
 }
 
-# # --- Redis / Channels / Cache 설정 ---
-# if ENVIRONMENT == 'production':
-#     # 실서버 환경: AWS ElastiCache 사용
-#     ELASTICACHE_ENDPOINT = os.environ.get('ELASTICACHE_ENDPOINT')
-#     ELASTICACHE_USER = os.environ.get('ELASTICACHE_USER')
-#     ELASTICACHE_PASSWORD = os.environ.get('ELASTICACHE_PASSWORD')
-#     REDIS_LOCATION = f"rediss://{ELASTICACHE_USER}:{ELASTICACHE_PASSWORD}@{ELASTICACHE_ENDPOINT}"
-# else:
-#     # 개발 환경: 로컬 Docker Redis 사용
-#     REDIS_LOCATION = "redis://redis:6379"
-
-# CACHES = {
-#     "default": {
-#         "BACKEND": "django_redis.cache.RedisCache",
-#         "LOCATION": f"{REDIS_LOCATION}/1", # DB 1번
-#         "OPTIONS": {
-#             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-#             "SSL_CERT_REQS": None,
-#         },
-#     }
-# }
-
-# CHANNEL_LAYERS = {
-#     "default": {
-#         "BACKEND": "channels_redis.core.RedisChannelLayer",
-#         "CONFIG": {
-#             "hosts": [
-#                 {
-#                     "address": (
-#                         os.getenv("ELASTICACHE_HOST", "localhost"),
-#                         int(os.getenv("ELASTICACHE_PORT", 6379))
-#                     ),
-#                     "password": os.getenv("ELASTICACHE_PASSWORD", None),
-#                 }
-#             ],
-#         },
-#     },
-# }
-
 # --- Redis / Channels / Cache 설정 ---
 if ENVIRONMENT == 'production':
     # 실서버 환경: 단일 AWS ElastiCache를 샤드처럼 사용
@@ -172,7 +97,7 @@ if ENVIRONMENT == 'production':
     REDIS_LOCATION = f"rediss://{ELASTICACHE_ENDPOINT}" # 인증 없음, TLS 사용
     SHARD_COUNT = int(os.environ.get("CHANNEL_SHARDS", "4"))
 
-    # [수정] Dictionary unpacking을 사용하여 default와 샤드 설정을 올바르게 병합
+    # Dictionary unpacking을 사용하여 default와 샤드 설정을 올바르게 병합
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -194,7 +119,7 @@ else:
     REDIS_LOCATION = "redis://redis:6379"
     SHARD_COUNT = int(os.environ.get("CHANNEL_SHARDS", "4"))
 
-    # [수정] Dictionary unpacking을 사용하여 default와 샤드 설정을 올바르게 병합
+    # Dictionary unpacking을 사용하여 default와 샤드 설정을 올바르게 병합
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -221,8 +146,6 @@ CACHES = {
         },
     }
 }
-
->>>>>>> 89a26b20f2d3ab72056e478525f67f34b8ecef26
 
 # --- 인증 및 권한 ---
 AUTH_USER_MODEL = 'users.User'
@@ -267,62 +190,11 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 30,
 }
 
-<<<<<<< HEAD
-# -------------------------
-# Redis / Channel Layer / Cache
-# -------------------------
-ELASTICACHE_ENDPOINT = os.environ.get('ELASTICACHE_ENDPOINT', 'redis')  # 개발용 기본값 'redis'
-ELASTICACHE_USER = os.environ.get('ELASTICACHE_USER', '')
-ELASTICACHE_PASSWORD = os.environ.get('ELASTICACHE_PASSWORD', '')
-
-REDIS_SCHEME = 'rediss' if ELASTICACHE_USER else 'redis'
-REDIS_HOST = ELASTICACHE_ENDPOINT
-REDIS_PORT = 6379
-REDIS_DB_CHANNELS = 0
-REDIS_DB_CACHE = 1
-
-# Channel Layers
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [
-                f"{REDIS_SCHEME}://{ELASTICACHE_USER}:{ELASTICACHE_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB_CHANNELS}"
-                if ELASTICACHE_USER else f"{REDIS_SCHEME}://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB_CHANNELS}"
-            ],
-        },
-    },
-}
-
-# Django Caches
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"{REDIS_SCHEME}://{ELASTICACHE_USER}:{ELASTICACHE_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB_CACHE}"
-                    if ELASTICACHE_USER else f"{REDIS_SCHEME}://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB_CACHE}",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-            "SSL_CERT_REQS": None,
-        },
-    }
-}
-
-# -------------------------
-# Third-party API Keys
-# -------------------------
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
-
-# -------------------------
-# AI Chatbot Settings
-# -------------------------
-=======
 # --- Third-party API Keys ---
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
 
 # --- AI Chatbot Settings ---
->>>>>>> 89a26b20f2d3ab72056e478525f67f34b8ecef26
 AI_CHATBOT_SETTINGS = {
     'MODEL': 'gpt-3.5-turbo',
     'MAX_TOKENS': 1000,
