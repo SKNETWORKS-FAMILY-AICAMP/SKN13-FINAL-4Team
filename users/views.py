@@ -9,7 +9,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
 from django.conf import settings 
 
-from .models import User, UserWallet
+from .models import User, UserWallet, CashLog
 from .serializers import MyTokenObtainPairSerializer, UserRegistrationSerializer, UserSerializer,CustomTokenObtainPairSerializer, PasswordChangeSerializer, ProfileUpdateSerializer, UserWalletSerializer
 
 class UserWalletAPIView(APIView):
@@ -162,3 +162,44 @@ class MyTokenObtainPairView(TokenObtainPairView):
     로그인 시 username을 포함한 커스텀 토큰을 발급하는 View
     """
     serializer_class = MyTokenObtainPairSerializer
+
+
+class DevAddCreditsAPIView(APIView):
+    """개발용 크레딧 추가 API (개발 환경 전용)"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        # 개발 환경에서만 활성화
+        if not settings.DEBUG:
+            return Response({'error': '개발 환경에서만 사용 가능합니다.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            amount = int(request.data.get('amount', 0))
+            if amount <= 0 or amount > 10000000:  # 최대 1천만 크레딧
+                return Response({'error': '유효하지 않은 금액입니다. (1-10,000,000)'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 지갑 가져오거나 생성
+            wallet, created = UserWallet.objects.get_or_create(user=request.user)
+            
+            # 크레딧 추가
+            wallet.balance += amount
+            wallet.save()
+            
+            # 로그 기록
+            CashLog.objects.create(
+                wallet=wallet,
+                log_type='charge',
+                amount=amount,
+                description=f"[DEV] 개발용 크레딧 추가 {amount:,}C"
+            )
+            
+            return Response({
+                'success': True,
+                'message': f'{amount:,} 크레딧이 추가되었습니다.',
+                'balance': wallet.balance
+            }, status=status.HTTP_200_OK)
+            
+        except (ValueError, TypeError):
+            return Response({'error': '올바른 숫자를 입력해주세요.'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': f'서버 오류: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

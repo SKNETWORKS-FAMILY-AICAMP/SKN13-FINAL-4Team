@@ -13,7 +13,8 @@ from .views import (
     UsernameCheckAPIView,
     PasswordChangeAPIView,
     MyTokenObtainPairView,
-    UserWalletAPIView
+    UserWalletAPIView,
+    DevAddCreditsAPIView
 )
 
 
@@ -31,6 +32,9 @@ urlpatterns = [
     path('change-password/', PasswordChangeAPIView.as_view(), name='change-password-api'),
     path('upload-image/', MyProfileAPIView.as_view(), name='upload-image-api'),
     path('api/token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    
+    # 개발용 API
+    path('dev/add-credits/', DevAddCreditsAPIView.as_view(), name='dev-add-credits'),
 
     path('', include(router.urls)),
 ]

@@ -548,5 +548,22 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"❌ Queue 디버그 정보 전송 실패: {e}")
     
+    async def donation_message(self, event):
+        """후원 메시지 브로드캐스트 핸들러"""
+        try:
+            donation_data = event['data']
+            
+            await self.send(text_data=json.dumps({
+                'type': 'donation_message',
+                'data': donation_data,
+                'message_type': 'donation',
+                'timestamp': time.time()
+            }))
+            
+            logger.info(f"💰 후원 메시지 전송됨: {donation_data['username']} - {donation_data['amount']}크레딧")
+            
+        except Exception as e:
+            logger.error(f"❌ 후원 메시지 전송 실패: {e}")
+    
     # 🚫 기존 synchronized_media_broadcast 제거 (MediaPacket으로 대체)
     # async def synchronized_media_broadcast(self, event): → mediapacket_broadcast로 대체
