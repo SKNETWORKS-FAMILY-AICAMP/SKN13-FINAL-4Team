@@ -196,7 +196,7 @@ ELEVENLABS_API_KEY = os.environ.get("ELEVENLABS_API_KEY")
 
 # --- AI Chatbot Settings ---
 AI_CHATBOT_SETTINGS = {
-    'MODEL': 'gpt-3.5-turbo',
+    'MODEL': 'gpt-5-nano',
     'MAX_TOKENS': 1000,
     'TEMPERATURE': 0.7,
     'SYSTEM_PROMPT': '''당신은 도움이 되는 AI 어시스턴트입니다. 모든 사용자의 메시지에 친근하고 유용한 답변을 제공하세요.

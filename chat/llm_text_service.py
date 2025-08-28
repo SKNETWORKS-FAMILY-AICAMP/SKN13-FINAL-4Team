@@ -42,7 +42,7 @@ class AIService:
             self.initialize_client()
         return self.client is not None
     
-    async def generate_response(self, user_message: str, conversation_history: list = None) -> Optional[str]:
+    async def generate_response(self, user_message: str, conversation_history: list = None) -> Optional[dict]:
         """
         사용자 메시지에 대한 AI 응답 생성
         

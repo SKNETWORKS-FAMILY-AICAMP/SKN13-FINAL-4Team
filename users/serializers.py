@@ -83,10 +83,20 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
 
 # UserSerializer는 이제 프로필 조회(GET) 용도로만 사용됩니다.
 class UserSerializer(serializers.ModelSerializer):
+    balance = serializers.SerializerMethodField()
+    
     class Meta:
         model = User
-        fields = ('id', 'username', 'nickname', 'email', 'date_joined', 'is_staff', 'profile_image', 'gender', 'birth_date', 'sanctioned_until', 'is_sanctioned')
-        read_only_fields = ('id', 'username', 'email', 'date_joined', 'is_sanctioned')
+        fields = ('id', 'username', 'nickname', 'email', 'date_joined', 'is_staff', 'profile_image', 'gender', 'birth_date', 'sanctioned_until', 'is_sanctioned', 'balance')
+        read_only_fields = ('id', 'username', 'email', 'date_joined', 'is_sanctioned', 'balance')
+    
+    def get_balance(self, obj):
+        """사용자의 wallet balance를 반환"""
+        try:
+            return obj.wallet.balance
+        except UserWallet.DoesNotExist:
+            # 지갑이 없으면 0을 반환
+            return 0
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
