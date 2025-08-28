@@ -18,17 +18,14 @@ function ChatRoomManagement() {
     const [editThumbnailPreview, setEditThumbnailPreview] = useState('');
     const fileInputRef = useRef(null);
 
-    // .env 파일에 정의된 API 기본 주소를 가져옵니다.
-    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || '';
 
     const fetchRooms = useCallback(async () => {
         setLoading(true);
         try {
             const response = await api.get(`/api/chat/rooms/`);
-            
             const roomsData = response.data?.results || (Array.isArray(response.data) ? response.data : []);
             setRooms(roomsData);
-
         } catch (err) {
             if (err.response?.status === 401) {
                 alert('세션이 만료되었거나 로그인이 필요합니다.');
@@ -53,7 +50,11 @@ function ChatRoomManagement() {
             description: room.description,
             status: room.status,
         });
-        setEditThumbnailPreview(room.thumbnail ? `${apiBaseUrl}${room.thumbnail}` : '');
+        // [수정] 모달의 썸네일 미리보기 URL 생성 로직
+        const thumbnailUrl = room.thumbnail && (room.thumbnail.startsWith('http') || room.thumbnail.startsWith('/media'))
+            ? room.thumbnail.startsWith('http') ? room.thumbnail : `${apiBaseUrl}${room.thumbnail}`
+            : ''; // 이미지가 없을 경우 빈 문자열
+        setEditThumbnailPreview(thumbnailUrl);
         setShowEditModal(true);
     };
 
@@ -147,43 +148,47 @@ function ChatRoomManagement() {
                         </tr>
                     </thead>
                     <tbody>
-                        {rooms.map(room => (
-                            <tr key={room.id}>
-                                <td>{room.id}</td>
-                                <td>
-                                    <img 
-                                        src={room.thumbnail ? `${apiBaseUrl}${room.thumbnail}` : 'https://via.placeholder.com/80x45'} 
-                                        alt={room.name} 
-                                        style={{ width: '80px', height: '45px', objectFit: 'cover' }}
-                                    />
-                                </td>
-                                <td>{room.name}</td>
-                                <td>{room.influencer_nickname || 'N/A'}</td>
-                                <td>{getStatusBadge(room.status)}</td>
-                                <td>{new Date(room.created_at).toLocaleString('ko-KR')}</td>
-                                <td>
-                                    <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleEdit(room)}>
-                                        수정
-                                    </Button>
-                                    <Button variant="outline-danger" size="sm" onClick={() => handleDelete(room.id, room.name)}>
-                                        삭제
-                                    </Button>
-                                </td>
-                            </tr>
-                        ))}
+                        {rooms.map(room => {
+                            const thumbnailUrl = room.thumbnail && (room.thumbnail.startsWith('http') || room.thumbnail.startsWith('/media'))
+                                ? room.thumbnail.startsWith('http') ? room.thumbnail : `${apiBaseUrl}${room.thumbnail}`
+                                : 'https://via.placeholder.com/80x45';
+
+                            return (
+                                <tr key={room.id}>
+                                    <td>{room.id}</td>
+                                    <td>
+                                        <img 
+                                            src={thumbnailUrl} 
+                                            alt={room.name} 
+                                            style={{ width: '80px', height: '45px', objectFit: 'cover' }}
+                                        />
+                                    </td>
+                                    <td>{room.name}</td>
+                                    <td>{room.influencer_nickname || 'N/A'}</td>
+                                    <td>{getStatusBadge(room.status)}</td>
+                                    <td>{new Date(room.created_at).toLocaleString('ko-KR')}</td>
+                                    <td>
+                                        <Button variant="outline-primary" size="sm" className="me-2" onClick={() => handleEdit(room)}>
+                                            수정
+                                        </Button>
+                                        <Button variant="outline-danger" size="sm" onClick={() => handleDelete(room.id, room.name)}>
+                                            삭제
+                                        </Button>
+                                    </td>
+                                </tr>
+                            )
+                        })}
                     </tbody>
                 </Table>
             </Container>
 
-            {/* 썸네일 수정 기능이 추가된 모달 */}
             {selectedRoom && (
                 <Modal show={showEditModal} onHide={handleCloseModal} centered>
                     <Modal.Header closeButton>
-                        <Modal.Title>방송 정보 수정 {/*(ID: {selectedRoom.id})*/}</Modal.Title>
+                        <Modal.Title>방송 정보 수정</Modal.Title>
                     </Modal.Header>
                     <Form onSubmit={handleUpdate}>
                         <Modal.Body>
-                            {/* 썸네일 수정 UI */}
                             <Form.Group className="mb-3 text-center">
                                 <Form.Label>썸네일 이미지</Form.Label>
                                 <div className="thumbnail-preview mx-auto mb-2">
@@ -205,7 +210,6 @@ function ChatRoomManagement() {
                                 </Button>
                             </Form.Group>
 
-                            {/* 방송 제목 */}
                             <Form.Group className="mb-3">
                                 <Form.Label>방송 제목</Form.Label>
                                 <Form.Control 
@@ -216,7 +220,6 @@ function ChatRoomManagement() {
                                 />
                             </Form.Group>
 
-                            {/* 방송 설명 */}
                             <Form.Group className="mb-3">
                                 <Form.Label>방송 설명</Form.Label>
                                 <Form.Control 
@@ -228,7 +231,6 @@ function ChatRoomManagement() {
                                 />
                             </Form.Group>
 
-                            {/* 방송 상태 */}
                             <Form.Group className="mb-3">
                                 <Form.Label>방송 상태</Form.Label>
                                 <Form.Select

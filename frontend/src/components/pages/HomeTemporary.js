@@ -59,13 +59,12 @@ function HomeTemporary() {
                 {rooms.length > 0 ? (
                     rooms.map((room) => {
                         const isLive = room.status === 'live';
-
                         
                         // 정의된 apiBaseUrl 변수를 사용하여 썸네일 전체 주소를 만듭니다.
-                        const thumbnailUrl = room.thumbnail 
-                            ? `${apiBaseUrl}${room.thumbnail}`
-                            : `https://via.placeholder.com/400x225.png?text=No+Image`;
-
+                            const thumbnailUrl = room.thumbnail && (room.thumbnail.startsWith('http') || room.thumbnail.startsWith('/media'))
+                                ? room.thumbnail.startsWith('http') ? room.thumbnail : `${apiBaseUrl}${room.thumbnail}`
+                                : `https://via.placeholder.com/400x225.png?text=No+Image`;
+                                
                         const cardContent = (
                             <div className="broadcast-card">
                                 <div className="thumbnail-container">
