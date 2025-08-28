@@ -16,6 +16,7 @@ import './App.css';
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState('');
+  const [userBalance, setUserBalance] = useState(0);
 
   // 사용자 정보를 가져와 상태를 설정하는 함수
   const fetchAndSetUser = async (providedToken = null) => {
@@ -40,7 +41,8 @@ function App() {
       
       console.log('✅ 사용자 정보 조회 성공:', response.data.username);
       setIsLoggedIn(true);
-      setUsername(response.data.username); 
+      setUsername(response.data.username);
+      setUserBalance(response.data.balance || 0); 
     } catch (error) {
       console.error('❌ 사용자 정보 조회 실패:', error);
       console.error('❌ 오류 상세:', error.response?.status, error.response?.data);
@@ -48,6 +50,7 @@ function App() {
       localStorage.removeItem('refreshToken');
       setIsLoggedIn(false);
       setUsername('');
+      setUserBalance(0);
     }
   };
 
@@ -78,13 +81,14 @@ function App() {
     localStorage.removeItem('refreshToken');
     setIsLoggedIn(false);
     setUsername('');
+    setUserBalance(0);
     window.location.href = '/';
   };
 
   return (
     <Router>
       <div className="App">
-        <Navbar isLoggedIn={isLoggedIn} onLogout={handleLogout} />
+        <Navbar isLoggedIn={isLoggedIn} onLogout={handleLogout} userBalance={userBalance} />
         <Routes>
           <Route path="/" element={<HomeTemporary />} />
           <Route path="/signup/terms" element={<TermsPage />} />

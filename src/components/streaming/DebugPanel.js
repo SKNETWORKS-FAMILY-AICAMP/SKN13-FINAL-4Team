@@ -70,6 +70,17 @@ const DebugPanel = ({
                     
                 </div>
 
+                {/* AI 모델 정보 */}
+                <div className="col-12 mb-2">
+                    <strong>🤖 AI 모델:</strong>
+                    <span className="badge bg-success ms-2">
+                        {debugInfo.aiModel || 'gpt-5-nano'}
+                    </span>
+                    <small className="ms-2 text-muted">
+                        (Chat Completion)
+                    </small>
+                </div>
+
                 {/* 동기화 모드 */}
                 <div className="col-6">
                     <strong>동기화:</strong>

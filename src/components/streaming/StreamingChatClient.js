@@ -619,9 +619,6 @@ const StreamingChatWithTTS = ({
                               style={{ backgroundColor: donationColor, color: 'white', fontSize: '0.9em' }}>
                             {msg.donation_amount.toLocaleString()} 크레딧
                         </span>
-                        {msg.tts_enabled && (
-                            <span className="tts-badge badge bg-info ms-2" style={{ fontSize: '0.8em' }}>🔊 TTS</span>
-                        )}
                     </div>
                     {msg.message && (
                         <div className="donation-text" style={{ 

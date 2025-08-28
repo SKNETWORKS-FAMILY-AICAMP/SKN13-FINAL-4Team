@@ -9,6 +9,7 @@ import QueueWorkflowPanel from './QueueWorkflowPanel';
 import DonationIsland from './DonationIsland';
 import { MediaSyncController } from '../../services/MediaSyncController';
 import { processTextForDisplay, debugVoiceTags } from '../../utils/textUtils';
+import donationTTSService from '../../services/donationTTSService';
 // Hot Reload 테스트 주석 - 2025.08.26 - 최종 수정!
 import './StreamingPage.css';
 
@@ -292,6 +293,19 @@ function StreamingPage({ isLoggedIn, username }) {
         else if (data.type === 'donation_overlay' && data.data) {
             console.log('💰 후원 오버레이 표시:', data.data);
             setDonationOverlay({ visible: true, data: data.data });
+            
+            // TTS가 활성화된 후원인 경우 음성으로 읽어주기
+            if (data.data.tts_enabled !== false) {
+                console.log('🎤 후원 TTS 재생 시작:', data.data);
+                donationTTSService.playDonationTTS(data.data, {
+                    voice: 'aneunjin', // 기본 음성: 안은진
+                    model_id: 'eleven_multilingual_v2',
+                    stability: 0.5,
+                    similarity_boost: 0.8,
+                    style: 0.0,
+                    use_speaker_boost: true
+                });
+            }
         }
         // 새로운 동기화된 미디어 브로드캐스트 처리
         else if (data.type === 'synchronized_media' && isBroadcastingEnabled) {
@@ -732,19 +746,6 @@ function StreamingPage({ isLoggedIn, username }) {
 
     return (
         <Container fluid className="streaming-container mt-4">
-            {/* 후원 오버레이: 영상 위 표시, 5초간 Fade in/out */}
-            {donationOverlay.visible && donationOverlay.data && (
-                <div className="donation-overlay show">
-                    <div className="donation-overlay-content">
-                        <div className="donation-title">
-                            <strong>{donationOverlay.data.username}</strong> 님이 <strong>{Number(donationOverlay.data.amount).toLocaleString()}</strong> 크레딧을 후원하셨습니다!!
-                        </div>
-                        {donationOverlay.data.message && (
-                            <div className="donation-message">"{donationOverlay.data.message}"</div>
-                        )}
-                    </div>
-                </div>
-            )}
             
             {/* 후원 아일랜드 */}
             {isDonationIslandOpen && chatRoom && (
@@ -848,6 +849,7 @@ function StreamingPage({ isLoggedIn, username }) {
                             currentVideo={currentVideo}
                             onVideoLoaded={handleVideoLoaded}
                             className="streaming-video-container"
+                            donationOverlay={donationOverlay}
                         />
                         
                         {/* 비디오 로딩 실패 시 플레이스홀더 */}

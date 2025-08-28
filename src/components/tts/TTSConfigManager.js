@@ -115,6 +115,7 @@ const TTSSettingsManager = ({ streamerId, isLoggedIn, username }) => {
 
     // 설정 변경 처리
     const handleSettingChange = (key, value) => {
+        console.log(`🔧 TTS 설정 변경: ${key} = ${value}`);
         setSettings(prev => ({
             ...prev,
             [key]: value

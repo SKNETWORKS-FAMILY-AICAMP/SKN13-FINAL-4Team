@@ -64,3 +64,20 @@
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
 }
+
+/* 비디오 내 후원 오버레이 */
+.video-donation-overlay {
+    position: absolute !important;
+    top: 20px !important;
+    right: 0px !important;
+    z-index: 20 !important;
+    background-color: rgba(0, 0, 0, 0.8) !important;
+    color: white !important;
+    padding: 20px !important;
+    border-radius: 10px !important;
+    text-align: center !important;
+    max-width: 350px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+    opacity: 1 !important;
+    transform: none !important;
+}

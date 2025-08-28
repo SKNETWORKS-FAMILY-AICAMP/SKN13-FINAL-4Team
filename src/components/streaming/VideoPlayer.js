@@ -4,7 +4,8 @@ import './VideoPlayer.css';
 const VideoPlayer = React.forwardRef(({ 
     currentVideo, 
     onVideoLoaded,
-    className = ""
+    className = "",
+    donationOverlay
 }, ref) => {
     const [isLoading, setIsLoading] = useState(false);
     const videoRef = useRef(null);
@@ -170,6 +171,55 @@ const VideoPlayer = React.forwardRef(({
                     }}
                 >
                     🔄 비디오 전환 중...
+                </div>
+            )}
+
+            {/* 후원 오버레이: 비디오 위에 표시 */}
+            {donationOverlay?.visible && donationOverlay?.data && (
+                <div 
+                    className="video-donation-overlay"
+                    style={{
+                        position: 'absolute',
+                        top: '20px',
+                        right: '0px',
+                        zIndex: 20,
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        color: 'white',
+                        padding: '20px',
+                        borderRadius: '10px',
+                        textAlign: 'center',
+                        maxWidth: '350px',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)'
+                    }}
+                >
+                    <div className="donation-overlay-content">
+                        <div 
+                            className="donation-title"
+                            style={{
+                                fontSize: '1.2rem',
+                                fontWeight: 'bold',
+                                marginBottom: '10px'
+                            }}
+                        >
+                            <strong>{donationOverlay.data.username}</strong> 님이{' '}
+                            <strong style={{ color: '#ffd700' }}>
+                                {Number(donationOverlay.data.amount).toLocaleString()}
+                            </strong>{' '}
+                            크레딧을 후원하셨습니다!! 💰
+                        </div>
+                        {donationOverlay.data.message && (
+                            <div 
+                                className="donation-message"
+                                style={{
+                                    fontSize: '1rem',
+                                    fontStyle: 'italic',
+                                    color: '#e0e0e0'
+                                }}
+                            >
+                                "{donationOverlay.data.message}"
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
