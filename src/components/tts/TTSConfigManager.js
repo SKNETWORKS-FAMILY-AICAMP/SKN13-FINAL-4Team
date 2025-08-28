@@ -276,14 +276,6 @@ const TTSSettingsManager = ({ streamerId, isLoggedIn, username }) => {
                 )}
 
                 <Form>
-                    {/* ElevenLabs 고정 안내 */}
-                    <Alert variant="info" className="mb-4">
-                        <h6 className="mb-2">🎯 ElevenLabs TTS 전용</h6>
-                        <p className="mb-0">
-                            이 스트리밍 시스템은 최고 품질의 ElevenLabs TTS만 사용합니다. 
-                            한국 배우들의 프리미엄 음성으로 최상의 스트리밍 경험을 제공합니다.
-                        </p>
-                    </Alert>
 
                     <Row>
                         <Col md={6}>

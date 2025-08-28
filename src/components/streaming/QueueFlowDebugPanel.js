@@ -14,13 +14,15 @@ const QueueFlowDebugPanel = ({ detailedQueueInfo, queueStatus, sessionInfo, isMi
         return (
             <div className="mt-3 p-2 bg-success bg-opacity-10 rounded">
                 <h6 className="text-success mb-2">🔄 큐 플로우 (데이터 없음)</h6>
-                <small className="text-muted">서버에서 플로우 정보를 수신하지 못했습니다.</small>
+                <small style={{ color: '#adb5bd' }}>서버에서 플로우 정보를 수신하지 못했습니다.</small>
             </div>
         );
     }
 
-    const currentProcessing = detailedQueueInfo.current_processing;
-    const pendingRequests = detailedQueueInfo.pending_requests || [];
+    const requestQueue = detailedQueueInfo.request_queue || {};
+    const responseQueue = detailedQueueInfo.response_queue || {};
+    const currentProcessing = requestQueue.current_processing;
+    const pendingRequests = requestQueue.pending_requests || [];
     const recentHistory = detailedQueueInfo.recent_history || [];
     const metrics = detailedQueueInfo.metrics || {};
     const queueLength = sessionInfo.queue_length || 0;
@@ -76,7 +78,7 @@ const QueueFlowDebugPanel = ({ detailedQueueInfo, queueStatus, sessionInfo, isMi
                         </span>
                     </div>
                 </div>
-                <div className="mt-2 small text-muted">
+                <div className="mt-2 small" style={{ color: '#adb5bd' }}>
                     {systemStatus.description}
                 </div>
             </div>
@@ -141,12 +143,12 @@ const QueueFlowVisualization = ({ pendingRequests, currentProcessing, recentHist
                                         pendingRequests.length > 2 ? 'bg-warning text-dark' : 'bg-success'}`}>
                     {pendingRequests.length}개 대기
                 </div>
-                <div className="small text-muted mt-1">요청 큐</div>
+                <div className="small mt-1" style={{ color: '#adb5bd' }}>요청 큐</div>
                 <div className="mt-1">
                     {Array.from({ length: Math.min(pendingRequests.length, 5) }, (_, i) => (
                         <div key={i} className="bg-warning rounded mb-1" style={{ width: '20px', height: '4px' }} />
                     ))}
-                    {pendingRequests.length > 5 && <div className="small text-muted">+{pendingRequests.length - 5}</div>}
+                    {pendingRequests.length > 5 && <div className="small" style={{ color: '#adb5bd' }}>+{pendingRequests.length - 5}</div>}
                 </div>
             </div>
 
@@ -160,13 +162,13 @@ const QueueFlowVisualization = ({ pendingRequests, currentProcessing, recentHist
                 <div className={`badge ${isProcessing ? 'bg-primary' : 'bg-secondary'}`}>
                     {isProcessing ? '처리 중' : '유휴'}
                 </div>
-                <div className="small text-muted mt-1">프로세서</div>
+                <div className="small mt-1" style={{ color: '#adb5bd' }}>프로세서</div>
                 <div className="mt-1">
                     <div className={`rounded ${isProcessing ? 'bg-primary' : 'bg-secondary'}`} 
                          style={{ width: '20px', height: '8px' }} />
                 </div>
                 {currentProcessing && (
-                    <div className="small text-muted mt-1">
+                    <div className="small mt-1" style={{ color: '#adb5bd' }}>
                         {currentProcessing.processing_duration?.toFixed(1)}초
                     </div>
                 )}
@@ -182,7 +184,7 @@ const QueueFlowVisualization = ({ pendingRequests, currentProcessing, recentHist
                 <div className="badge bg-success">
                     {recentHistory.filter(h => h.status === 'completed').length}개 완료
                 </div>
-                <div className="small text-muted mt-1">응답</div>
+                <div className="small mt-1" style={{ color: '#adb5bd' }}>응답</div>
                 <div className="mt-1">
                     {Array.from({ length: Math.min(recentHistory.length, 3) }, (_, i) => (
                         <div key={i} className={`rounded mb-1 ${
@@ -259,7 +261,7 @@ const BottleneckAnalysis = ({ metrics, pendingRequests, currentProcessing }) => 
                         </span>
                         <strong>{bottleneck.message}</strong>
                     </div>
-                    <div className="small text-muted mt-1">💡 {bottleneck.suggestion}</div>
+                    <div className="small mt-1" style={{ color: '#adb5bd' }}>💡 {bottleneck.suggestion}</div>
                 </div>
             ))}
         </div>

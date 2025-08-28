@@ -201,6 +201,34 @@ export class MediaSyncController {
     }
     
     /**
+     * 🆕 즉시 재생 중단 (새 요청으로 인한 취소)
+     */
+    abort() {
+        console.log('🚫 MediaSyncController 즉시 중단 (새 요청으로 인해)');
+        
+        // 현재 재생 중인 모든 항목 정리
+        this._clearCurrentPlayback();
+        
+        // 현재 재생 중인 오디오 즉시 중단
+        if (this.audioRef?.current && !this.audioRef.current.paused) {
+            this.audioRef.current.pause();
+            this.audioRef.current.currentTime = 0;
+            console.log('🔇 오디오 재생 즉시 중단됨');
+        }
+        
+        // 상태를 중단됨으로 표시
+        if (this.currentPlayback) {
+            this.currentPlayback.state = 'aborted';
+            console.log(`🚫 재생 중단됨: ${this.currentPlayback.sync_id ? this.currentPlayback.sync_id.substring(0, 8) : 'undefined'}`);
+        }
+        
+        // 에러 콜백 호출 (중단됨을 알림)
+        if (this.options.onPlaybackError) {
+            this.options.onPlaybackError(this.currentPlayback?.sync_id, 'aborted_by_new_request');
+        }
+    }
+    
+    /**
      * 현재 재생 상태 반환
      */
     getPlaybackStatus() {
@@ -212,30 +240,6 @@ export class MediaSyncController {
         };
     }
     
-    /**
-     * 오디오 재생 (누락된 메서드 구현)
-     */
-    async _playAudio(audioUrl) {
-        try {
-            if (!this.audioRef?.current) {
-                console.warn('⚠️ audioRef가 없어 오디오 재생 불가');
-                return;
-            }
-
-            console.log('🎵 오디오 재생 시작:', audioUrl.substring(0, 50) + '...');
-            
-            // 오디오 소스 설정 및 재생
-            this.audioRef.current.src = audioUrl;
-            this.audioRef.current.currentTime = 0;
-            
-            // 재생 시도
-            await this.audioRef.current.play();
-            console.log('✅ 오디오 재생 시작됨');
-            
-        } catch (error) {
-            console.error('❌ 오디오 재생 실패:', error);
-        }
-    }
     
     /**
      * 설정 업데이트

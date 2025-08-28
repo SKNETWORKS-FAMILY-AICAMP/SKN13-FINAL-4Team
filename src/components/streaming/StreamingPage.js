@@ -5,7 +5,7 @@ import { StreamingChatClient } from './StreamingChatClient';
 import VideoControlPanel from './VideoControlPanel';
 import VideoPlayer from './VideoPlayer';
 import SettingsPanel from './SettingsPanel';
-import QueueSystemPanel from './QueueSystemPanel';
+import QueueWorkflowPanel from './QueueWorkflowPanel';
 import DonationIsland from './DonationIsland';
 import { MediaSyncController } from '../../services/MediaSyncController';
 import { processTextForDisplay, debugVoiceTags } from '../../utils/textUtils';
@@ -279,10 +279,13 @@ function StreamingPage({ isLoggedIn, username }) {
         else if (data.type === 'queue_status_update' && data.session_info) {
             console.log('📊 Queue 상태 업데이트 수신:', data.session_info);
             setSessionInfo(data.session_info);
+            setQueueStatus(data.session_info);
         }
         // 🆕 상세 Queue 디버그 정보 처리
         else if (data.type === 'queue_debug_update' && data.detailed_queue_info) {
             console.log('🔍 상세 Queue 정보 수신:', data.detailed_queue_info);
+            console.log('🔍 Request Queue:', data.detailed_queue_info.request_queue);
+            console.log('🔍 Response Queue:', data.detailed_queue_info.response_queue);
             setDetailedQueueInfo(data.detailed_queue_info);
         }
         // 새로운 동기화된 미디어 브로드캐스트 처리
@@ -292,6 +295,25 @@ function StreamingPage({ isLoggedIn, username }) {
         // 🆕 MediaPacket 처리
         else if (data.type === 'media_packet' && data.packet) {
             console.log('📦 MediaPacket 수신:', data.packet);
+            
+            // 🆕 기존 오디오 재생 중단 (새 패킷 수신 시)
+            if (audioRef.current && !audioRef.current.paused) {
+                console.log('🔇 기존 오디오 재생 중단 (새 MediaPacket으로 인해)');
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+            }
+            
+            // 🆕 MediaSyncController 재생 중단
+            if (syncMediaPlayerRef.current && syncMediaPlayerRef.current.abort) {
+                console.log('🚫 MediaSyncController 재생 중단');
+                syncMediaPlayerRef.current.abort();
+            }
+            
+            // 🆕 진행 중인 자막 타이머 정리
+            if (subtitleTimeoutRef.current) {
+                clearTimeout(subtitleTimeoutRef.current);
+                subtitleTimeoutRef.current = null;
+            }
             
             // MediaPacket을 synchronized_media 형태로 변환하여 처리
             const packet = data.packet;
@@ -701,16 +723,7 @@ function StreamingPage({ isLoggedIn, username }) {
     }, [donationOverlay.visible]);
 
 
-    const streamInfo = {
-        title: 'AI 스트리머 잼민이의 첫 방송!',
-        viewers: 1234,
-        keywords: ['AI', '코딩', '라이브', '스트리밍'],
-        streamer: { 
-            name: '잼민이', 
-            profilePic: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyNSIgY3k9IjI1IiByPSIyNSIgZmlsbD0iIzAwNzNlNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjZmZmIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+QUk8L3RleHQ+PC9zdmc+', 
-            bio: 'sLLM 기반 AI 스트리머입니다. 여러분과 소통하고 싶어요!' 
-        }
-    };
+    // streamInfo 미사용으로 제거
 
     return (
         <Container fluid className="streaming-container mt-4">
@@ -759,8 +772,8 @@ function StreamingPage({ isLoggedIn, username }) {
                 detailedQueueInfo={detailedQueueInfo}
             />
 
-            {/* 🆕 Queue System Panel - 화면 우측 고정 */}
-            <QueueSystemPanel 
+            {/* 🆕 Queue Workflow Panel - 통합 Queue 모니터 */}
+            <QueueWorkflowPanel 
                 detailedQueueInfo={detailedQueueInfo}
                 queueStatus={queueStatus}
                 sessionInfo={sessionInfo}

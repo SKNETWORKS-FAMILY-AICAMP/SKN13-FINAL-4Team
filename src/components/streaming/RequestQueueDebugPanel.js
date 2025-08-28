@@ -14,13 +14,14 @@ const RequestQueueDebugPanel = ({ detailedQueueInfo, isMinimized = false }) => {
         return (
             <div className="mt-3 p-2 bg-warning bg-opacity-10 rounded">
                 <h6 className="text-warning mb-2">📥 요청 큐 (데이터 없음)</h6>
-                <small className="text-muted">서버에서 큐 정보를 수신하지 못했습니다.</small>
+                <small style={{ color: '#adb5bd' }}>서버에서 큐 정보를 수신하지 못했습니다.</small>
             </div>
         );
     }
 
-    const currentProcessing = detailedQueueInfo.current_processing;
-    const pendingRequests = detailedQueueInfo.pending_requests || [];
+    const requestQueue = detailedQueueInfo.request_queue || {};
+    const currentProcessing = requestQueue.current_processing;
+    const pendingRequests = requestQueue.pending_requests || [];
     const metrics = detailedQueueInfo.metrics || {};
 
     if (isMinimized) {
@@ -30,8 +31,8 @@ const RequestQueueDebugPanel = ({ detailedQueueInfo, isMinimized = false }) => {
                     <span className="fw-bold text-warning">📥 요청 큐</span>
                     <div>
                         <span className="badge bg-warning text-dark me-2">{pendingRequests.length} 대기</span>
-                        <span className={`badge ${currentProcessing ? 'bg-primary' : 'bg-secondary'}`}>
-                            {currentProcessing ? '처리 중' : '유휴'}
+                        <span className={`badge ${requestQueue.is_processing ? 'bg-primary' : 'bg-secondary'}`}>
+                            {requestQueue.is_processing ? '처리 중' : '유휴'}
                         </span>
                     </div>
                 </div>
@@ -100,43 +101,110 @@ const RequestQueueDebugPanel = ({ detailedQueueInfo, isMinimized = false }) => {
                 </div>
             ) : (
                 <div className="mb-3 p-2 bg-secondary bg-opacity-20 rounded text-center">
-                    <span className="text-muted">현재 처리 중인 요청이 없습니다</span>
+                    <span style={{ color: '#adb5bd' }}>현재 처리 중인 요청이 없습니다</span>
                 </div>
             )}
 
-            {/* 대기 중인 요청들 */}
+            {/* 대기 중인 요청들 - 스택 시각화 */}
             <div className="mb-3">
                 <h6 className="text-warning mb-2">
                     ⏳ 대기 큐 ({pendingRequests.length}개)
                 </h6>
                 
                 {pendingRequests.length > 0 ? (
-                    <div className="pending-requests-list" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                        {pendingRequests.map((request, index) => (
-                            <div key={index} className="mb-2 p-2 bg-light bg-opacity-10 rounded">
-                                <div className="d-flex justify-content-between align-items-start">
-                                    <div className="flex-grow-1">
-                                        <div className="small">
-                                            <span className="badge bg-warning text-dark me-2">#{request.position}</span>
-                                            <strong>{request.username}:</strong>
-                                            <span className="ms-2">"{request.message}"</span>
+                    <>
+                        {/* 스택 시각화 */}
+                        <div className="queue-stack mb-3" style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column-reverse',
+                            gap: '2px',
+                            minHeight: '60px',
+                            alignItems: 'center'
+                        }}>
+                            {pendingRequests.slice(0, 5).map((request, index) => (
+                                <div 
+                                    key={index}
+                                    className="stack-item"
+                                    style={{
+                                        width: `${90 - index * 5}%`,
+                                        height: '20px',
+                                        backgroundColor: index === 0 ? '#ffc107' : 
+                                                       index === 1 ? '#fd7e14' :
+                                                       index === 2 ? '#dc3545' : '#6c757d',
+                                        borderRadius: '3px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#fff',
+                                        fontSize: '0.7rem',
+                                        fontWeight: 'bold',
+                                        border: '1px solid rgba(255,255,255,0.2)'
+                                    }}
+                                    title={`${request.username}: ${request.message}`}
+                                >
+                                    #{request.position} {request.username}
+                                </div>
+                            ))}
+                            {pendingRequests.length > 5 && (
+                                <div style={{
+                                    fontSize: '0.7rem',
+                                    color: '#adb5bd',
+                                    marginTop: '5px'
+                                }}>
+                                    +{pendingRequests.length - 5} more...
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 상세 요청 목록 */}
+                        <div className="pending-requests-list" style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                            {pendingRequests.slice(0, 3).map((request, index) => (
+                                <div key={index} className="mb-1 p-1 bg-light bg-opacity-10 rounded">
+                                    <div className="d-flex justify-content-between align-items-center">
+                                        <div className="flex-grow-1">
+                                            <div className="small">
+                                                <span className="badge bg-warning text-dark me-1" style={{ fontSize: '0.6rem' }}>
+                                                    #{request.position}
+                                                </span>
+                                                <strong style={{ fontSize: '0.7rem' }}>{request.username}:</strong>
+                                                <span className="ms-1" style={{ fontSize: '0.7rem' }}>"{request.message?.substring(0, 15)}..."</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-end">
+                                            <span className={`badge ${
+                                                request.waiting_time > 30 ? 'bg-danger' :
+                                                request.waiting_time > 10 ? 'bg-warning' : 'bg-success'
+                                            } text-dark`} style={{ fontSize: '0.6rem' }}>
+                                                {request.waiting_time ? `${request.waiting_time.toFixed(0)}초` : '방금'}
+                                            </span>
                                         </div>
                                     </div>
-                                    <div className="text-end">
-                                        <span className={`badge ${
-                                            request.waiting_time > 30 ? 'bg-danger' :
-                                            request.waiting_time > 10 ? 'bg-warning' : 'bg-success'
-                                        } text-dark small`}>
-                                            {request.waiting_time ? `${request.waiting_time.toFixed(1)}초 대기` : '방금 전'}
-                                        </span>
-                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                            {pendingRequests.length > 3 && (
+                                <div className="text-center">
+                                    <small style={{ color: '#adb5bd', fontSize: '0.6rem' }}>
+                                        ... 및 {pendingRequests.length - 3}개 더
+                                    </small>
+                                </div>
+                            )}
+                        </div>
+                    </>
                 ) : (
-                    <div className="text-center py-2">
-                        <span className="text-muted small">대기 중인 요청이 없습니다</span>
+                    <div className="text-center py-3">
+                        <div className="empty-queue-indicator" style={{
+                            width: '80%',
+                            height: '30px',
+                            backgroundColor: 'rgba(108, 117, 125, 0.2)',
+                            borderRadius: '3px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto',
+                            border: '2px dashed #6c757d'
+                        }}>
+                            <span className="small" style={{ color: '#adb5bd' }}>대기 중인 요청이 없습니다</span>
+                        </div>
                     </div>
                 )}
             </div>
