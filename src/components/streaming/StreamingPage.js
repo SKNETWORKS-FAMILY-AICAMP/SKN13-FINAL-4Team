@@ -288,6 +288,11 @@ function StreamingPage({ isLoggedIn, username }) {
             console.log('🔍 Response Queue:', data.detailed_queue_info.response_queue);
             setDetailedQueueInfo(data.detailed_queue_info);
         }
+        // 🆕 후원 오버레이 처리
+        else if (data.type === 'donation_overlay' && data.data) {
+            console.log('💰 후원 오버레이 표시:', data.data);
+            setDonationOverlay({ visible: true, data: data.data });
+        }
         // 새로운 동기화된 미디어 브로드캐스트 처리
         else if (data.type === 'synchronized_media' && isBroadcastingEnabled) {
             handleSynchronizedMediaBroadcast(data);

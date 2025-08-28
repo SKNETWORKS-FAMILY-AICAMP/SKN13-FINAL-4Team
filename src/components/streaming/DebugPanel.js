@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Button, Alert } from 'react-bootstrap';
+import api from '../../utils/unifiedApiClient';
 
 // 음성 ID를 한국어 이름으로 매핑
 const getVoiceName = (voiceId) => {
@@ -149,6 +151,9 @@ const DebugPanel = ({
                 />
             )}
 
+            {/* 개발자 도구 */}
+            <DevToolsPanel />
+
         </div>
     );
 };
@@ -263,5 +268,115 @@ const ElevenLabsDebugInfo = ({ voiceSettings }) => (
         </div>
     </div>
 );
+
+// 개발자 도구 패널
+const DevToolsPanel = () => {
+    const [isLoading, setIsLoading] = useState(false);
+    const [message, setMessage] = useState(null);
+
+    const addDevCredits = async (amount) => {
+        if (isLoading) return;
+        
+        setIsLoading(true);
+        setMessage(null);
+
+        try {
+            const response = await api.post('/api/users/dev/add-credits/', {
+                amount: amount
+            });
+
+            setMessage({
+                type: 'success',
+                text: `🎉 ${amount.toLocaleString()} 크레딧이 추가되었습니다! (잔액: ${response.data.balance?.toLocaleString()} C)`
+            });
+
+            // 3초 후 메시지 자동 제거
+            setTimeout(() => setMessage(null), 3000);
+            
+        } catch (error) {
+            console.error('개발용 크레딧 추가 실패:', error);
+            setMessage({
+                type: 'error',
+                text: `❌ 크레딧 추가 실패: ${error.response?.data?.error || '서버 오류'}`
+            });
+            
+            // 5초 후 에러 메시지 자동 제거
+            setTimeout(() => setMessage(null), 5000);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="mt-3 p-2 bg-danger bg-opacity-10 rounded border border-danger">
+            <h6 className="text-danger mb-2">🔧 개발자 도구</h6>
+            
+            {message && (
+                <Alert variant={message.type === 'success' ? 'success' : 'danger'} className="p-2 small mb-3">
+                    {message.text}
+                </Alert>
+            )}
+            
+            <div className="row g-1">
+                <div className="col-12">
+                    <small className="text-muted">테스트용 크레딧 추가 (개발 환경 전용)</small>
+                </div>
+                <div className="col-6 col-md-3">
+                    <Button 
+                        variant="outline-danger" 
+                        size="sm" 
+                        className="w-100"
+                        disabled={isLoading}
+                        onClick={() => addDevCredits(10000)}
+                    >
+                        +10K
+                    </Button>
+                </div>
+                <div className="col-6 col-md-3">
+                    <Button 
+                        variant="outline-danger" 
+                        size="sm" 
+                        className="w-100"
+                        disabled={isLoading}
+                        onClick={() => addDevCredits(50000)}
+                    >
+                        +50K
+                    </Button>
+                </div>
+                <div className="col-6 col-md-3">
+                    <Button 
+                        variant="outline-danger" 
+                        size="sm" 
+                        className="w-100"
+                        disabled={isLoading}
+                        onClick={() => addDevCredits(100000)}
+                    >
+                        +100K
+                    </Button>
+                </div>
+                <div className="col-6 col-md-3">
+                    <Button 
+                        variant="outline-danger" 
+                        size="sm" 
+                        className="w-100"
+                        disabled={isLoading}
+                        onClick={() => addDevCredits(1000000)}
+                    >
+                        +1M
+                    </Button>
+                </div>
+            </div>
+            
+            {isLoading && (
+                <div className="mt-2 text-center">
+                    <small className="text-muted">
+                        <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                        크레딧 추가 중...
+                    </small>
+                </div>
+            )}
+        </div>
+    );
+};
 
 export default DebugPanel;

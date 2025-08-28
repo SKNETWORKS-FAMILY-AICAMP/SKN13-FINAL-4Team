@@ -253,6 +253,34 @@ const StreamingChatWithTTS = ({
                             return;
                         }
                         
+                        // 🆕 후원 메시지 처리
+                        if (data.type === 'donation_message') {
+                            console.log('💰 후원 메시지 수신:', data);
+                            
+                            // 후원 메시지를 채팅에 표시
+                            const donationMessage = {
+                                id: Date.now() + Math.random(),
+                                message: data.data.message || '',
+                                message_type: 'donation',
+                                sender: data.data.username,
+                                timestamp: data.timestamp || Date.now(),
+                                donation_amount: data.data.amount,
+                                tts_enabled: data.data.tts_enabled
+                            };
+                            
+                            addMessage(donationMessage);
+                            
+                            // 부모 컴포넌트로 후원 오버레이 데이터 전달
+                            if (onWebSocketMessage) {
+                                onWebSocketMessage({
+                                    type: 'donation_overlay',
+                                    data: data.data
+                                });
+                            }
+                            
+                            return;
+                        }
+                        
                         // synchronized_media 메시지 처리 (AI 응답 + TTS + 비디오)
                         if (data.type === 'synchronized_media') {
                             console.log('🎬 동기화된 미디어 수신:', data);
@@ -557,6 +585,59 @@ const StreamingChatWithTTS = ({
                     <strong className="message-sender">AI</strong>
                     <span className="message-text">{msg.message}</span>
                     <small className="message-time">[{messageTime}]</small>
+                </div>
+            );
+        }
+
+        // 후원 메시지 (SuperChat 스타일)
+        if (msg.message_type === 'donation') {
+            const getDonationColor = (amount) => {
+                if (amount >= 50000) return '#e91e63'; // 핑크 (5만원 이상)
+                if (amount >= 20000) return '#ff9800'; // 오렌지 (2만원 이상) 
+                if (amount >= 10000) return '#4caf50'; // 그린 (1만원 이상)
+                if (amount >= 5000) return '#2196f3';  // 블루 (5천원 이상)
+                return '#9c27b0'; // 퍼플 (기본)
+            };
+
+            const donationColor = getDonationColor(msg.donation_amount);
+            
+            return (
+                <div key={msg.id} className="chat-message donation-message compact-message" 
+                     style={{ 
+                         backgroundColor: donationColor + '20',
+                         border: `2px solid ${donationColor}`,
+                         borderRadius: '8px',
+                         margin: '8px 0',
+                         padding: '12px'
+                     }}>
+                    <div className="donation-header" style={{ marginBottom: '4px' }}>
+                        <span className="message-badge" style={{ fontSize: '1.2em' }}>💰</span>
+                        <strong className="message-sender" style={{ color: donationColor, fontSize: '1.1em' }}>
+                            {msg.sender}
+                        </strong>
+                        <span className="donation-amount badge ms-2" 
+                              style={{ backgroundColor: donationColor, color: 'white', fontSize: '0.9em' }}>
+                            {msg.donation_amount.toLocaleString()} 크레딧
+                        </span>
+                        {msg.tts_enabled && (
+                            <span className="tts-badge badge bg-info ms-2" style={{ fontSize: '0.8em' }}>🔊 TTS</span>
+                        )}
+                    </div>
+                    {msg.message && (
+                        <div className="donation-text" style={{ 
+                            color: '#fff', 
+                            fontWeight: 'bold',
+                            backgroundColor: donationColor + '40',
+                            padding: '6px 10px',
+                            borderRadius: '4px',
+                            marginTop: '6px'
+                        }}>
+                            "{msg.message}"
+                        </div>
+                    )}
+                    <small className="message-time" style={{ color: donationColor, marginTop: '4px', display: 'block' }}>
+                        [{messageTime}]
+                    </small>
                 </div>
             );
         }
