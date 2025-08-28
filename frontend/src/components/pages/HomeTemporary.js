@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../../utils/unifiedApiClient';
-import styles from './HomeTemporary.module.css';
+import api from '../../api';
+import './HomeTemporary.css';
 
 function HomeTemporary() {
     const [rooms, setRooms] = useState([]);
@@ -14,18 +14,15 @@ function HomeTemporary() {
         const abortController = new AbortController();
 
         const fetchChatRooms = async () => {
+            setLoading(true);
+            setError('');
             try {
-                const response = await api.get(`/api/chat/rooms/`, {
+                const response = await api.get('/api/chat/rooms/', {
                     signal: abortController.signal
                 });
                 
-                const results = response.data?.results || response.data || [];
-                if (Array.isArray(results)) {
-                    setRooms(results);
-                } else {
-                    console.error("Received data is not an array:", results);
-                    setRooms([]);
-                }
+                const roomsData = response.data?.results || (Array.isArray(response.data) ? response.data : []);
+                setRooms(roomsData);
 
             } catch (err) {
                 if (err.name === 'CanceledError') {
@@ -39,43 +36,49 @@ function HomeTemporary() {
             }
         };
 
-        fetchChatRooms();
+            fetchChatRooms();
 
+        // 컴포넌트가 사라질 때 API 요청을 취소합니다.
         return () => {
             abortController.abort();
         };
-    }, []);
+    
+        // Cleanup 함수: 컴포넌트가 언마운트될 때 실행됩니다.
+        return () => {
+            abortController.abort();
+        };
+    }, []); // 컴포넌트가 처음 마운트될 때 한 번만 실행합니다. // 의존성 배열이 비어있으므로, 컴포넌트가 처음 마운트될 때 한 번만 실행됩니다.
 
     if (loading) return <div className="loading-message">로딩 중...</div>;
     if (error) return <div className="loading-message">{error}</div>;
 
     return (
-        <div className={styles.container}>
+        <div className="home-temporary-container">
             <h2>스트리밍 목록</h2>
-            <div className={styles.broadcastList}>
+            <div className="broadcast-list">
                 {rooms.length > 0 ? (
                     rooms.map((room) => {
                         const isLive = room.status === 'live';
                         
                         // 정의된 apiBaseUrl 변수를 사용하여 썸네일 전체 주소를 만듭니다.
-                        const thumbnailUrl = room.thumbnail && (room.thumbnail.startsWith('http') || room.thumbnail.startsWith('/media'))
-                            ? room.thumbnail.startsWith('http') ? room.thumbnail : `${apiBaseUrl}${room.thumbnail}`
-                            : `https://via.placeholder.com/400x225.png?text=No+Image`;
-
+                            const thumbnailUrl = room.thumbnail && (room.thumbnail.startsWith('http') || room.thumbnail.startsWith('/media'))
+                                ? room.thumbnail.startsWith('http') ? room.thumbnail : `${apiBaseUrl}${room.thumbnail}`
+                                : `https://via.placeholder.com/400x225.png?text=No+Image`;
+                                
                         const cardContent = (
-                            <div className={styles.card}>
-                                <div className={styles.thumb}>
+                            <div className="broadcast-card">
+                                <div className="thumbnail-container">
                                     <img src={thumbnailUrl} alt={`${room.name} 방송 썸네일`} />
-                                    <div className={`${styles.statusBadge} ${isLive ? styles.statusLive : styles.statusOff}`}>
+                                    <div className={`status-badge ${isLive ? 'live' : 'off'}`}>
                                         {isLive ? 'LIVE' : (room.status === 'pending' ? '준비중' : 'OFF')}
                                     </div>
                                 </div>
-                                <div className={styles.info}>
-                                    <p className={styles.streamerName}>{room.streamer?.display_name || room.host_username}</p>
-                                    {isLive && <p className={styles.streamTitle}>{room.name}</p>}
-                                    <div className={styles.bottomInfo}>
-                                        {isLive && <p className={styles.viewerCount}>시청자 {room.viewer_count || 0}명</p>}
-                                        <p className={styles.timeInfo}>
+                                <div className="info-container">
+                                    <p className="streamer-name">{room.influencer?.nickname || room.host?.username}</p>
+                                    {isLive && <p className="stream-title">{room.name}</p>}
+                                    <div className="bottom-info">
+                                        {isLive && <p className="viewer-count">시청자 {room.viewer_count || 0}명</p>}
+                                        <p className="time-info">
                                             {isLive ? `방송 시작: ${new Date(room.created_at).toLocaleTimeString()}` : `생성: ${new Date(room.created_at).toLocaleDateString()}`}
                                         </p>
                                     </div>
@@ -91,6 +94,7 @@ function HomeTemporary() {
                             );
                         }
                         
+                        // 그 외 상태는 클릭 불가능한 div로 렌더링합니다.
                         return <div key={room.id}>{cardContent}</div>;
                     })
                 ) : (

@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { forwardRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Dropdown, Button } from 'react-bootstrap';
 import styles from './Navbar.module.css';
 import api from '../../utils/unifiedApiClient';
 
-function Navbar({ isLoggedIn, onLogout, userBalance }) {
-  const [user, setUser] = useState(null);
+function Navbar({ isLoggedIn, user, onLogout }) {
   const [theme, setTheme] = useState(() => (document.documentElement.getAttribute('data-theme') || 'dark'));
   const navigate = useNavigate();
 
@@ -34,7 +33,7 @@ function Navbar({ isLoggedIn, onLogout, userBalance }) {
   };
 
   // Custom Dropdown Toggle
-  const CustomToggle = React.forwardRef(({ children, onClick }, ref) => (
+  const CustomToggle = forwardRef(({ children, onClick }, ref) => (
     <a
       href="/"
       ref={ref}
@@ -116,11 +115,12 @@ function Navbar({ isLoggedIn, onLogout, userBalance }) {
                 className={`p-3 ${styles.profileMenu}`} 
                 style={{ width: '280px', top: '120%' }}
               >
+                {/* user가 null이 아닐 때 프로필 정보를 바로 표시합니다. */}
                 {user ? (
                   <>
                     <div className="d-flex align-items-center mb-3">
                       <img
-                        src={user.profile_image ? `http://localhost:8000${user.profile_image}` : `http://localhost:8000/media/profile_pics/default_profile.png`}
+                        src={user.profile_image ? `${apiBaseUrl}${user.profile_image}` : `${apiBaseUrl}/media/profile_pics/default_profile.png`}
                         alt="Profile"
                         className="rounded-circle"
                         style={{ width: '40px', height: '40px', objectFit: 'cover' }}
@@ -132,8 +132,8 @@ function Navbar({ isLoggedIn, onLogout, userBalance }) {
                     </div>
                     <div className="mb-3">
                       <small>보유 크레딧</small>
-                      {/* App.js로부터 받은 userBalance를 표시 */}
-                      <h5 style={{ color: 'var(--color-text)' }}>{userBalance?.toLocaleString() || '0'} C</h5>
+                      {/* App.js로부터 받은 user 객체의 credits 필드를 표시 */}
+                      <h5 style={{ color: 'var(--color-text)' }}>{user.credits?.toLocaleString() || '0'} C</h5>
                     </div>
                     <Dropdown.Divider />
                     <Button as={Link} to="/profile" variant="outline-primary" className="w-100 mb-2">

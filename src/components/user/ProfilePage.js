@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../utils/unifiedApiClient';
+import api from '../../api';
 import styles from './ProfilePage.module.css';
 import signupStyles from '../auth/SignupForm.module.css';
 import Sidebar from '../layout/Sidebar';
 
-function ProfilePage() {
+function ProfilePage({ refreshUserData }) { // props로 refreshUserData 함수를 받음
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -30,10 +30,13 @@ function ProfilePage() {
 
     const navigate = useNavigate();
     
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || '';
+
     useEffect(() => {
         const fetchUserData = async () => {
             try {
                 const response = await api.get('/api/users/me/');
+                
                 setUser(response.data);
                 setNickname(response.data.nickname || '');
                 setBirthDate(response.data.birth_date || '');
@@ -49,7 +52,7 @@ function ProfilePage() {
             }
         };
         fetchUserData();
-    }, [navigate]);
+    }, []);
 
     const checkNickname = useCallback(async () => {
         if (nickname.length > 0 && nickname.length < 2) {
@@ -110,6 +113,12 @@ function ProfilePage() {
             setUser(response.data);
             setImagePreviewUrl('');
             alert('프로필 이미지가 성공적으로 변경되었습니다.');
+            
+            // [추가] App.js의 사용자 정보를 업데이트하여 Navbar를 리프레시
+            if (refreshUserData) {
+                refreshUserData();
+            }
+
         } catch (err) {
             alert('이미지 업로드에 실패했습니다.');
             setImagePreviewUrl('');
@@ -158,7 +167,13 @@ function ProfilePage() {
         
         if (isChanged) {
             alert('프로필 변경 사항이 성공적으로 저장되었습니다.');
-            navigate(0);
+            
+            // App.js의 사용자 정보를 업데이트
+            if (refreshUserData) {
+                await refreshUserData(); // await를 사용하여 순차적 실행 보장
+            }
+            navigate(0); // 페이지 새로고침
+            
         } else {
             alert('변경사항이 없습니다.');
         }
@@ -167,6 +182,10 @@ function ProfilePage() {
     if (loading) return <div className="loading-message">로딩 중...</div>;
     if (error) return <div className="loading-message">{error}</div>;
     if (!user) return <div className="loading-message">사용자 정보가 없습니다.</div>;
+
+    const profileImageUrl = imagePreviewUrl || 
+                            (user.profile_image ? `${apiBaseUrl}${user.profile_image}` 
+                                              : `${apiBaseUrl}/media/profile_pics/default_profile.png`);
 
     return (
         <div className={styles.wrapper}> 
@@ -198,7 +217,6 @@ function ProfilePage() {
                 </div>
 
                 <form className={signupStyles.signupForm} onSubmit={handleSubmit}>
-                    {/* 사용자명 */}
                     <div className={signupStyles.formGroup}>
                         <label htmlFor="nickname" className="form-label text-start d-block">사용자명</label>
                         <input type="text" id="nickname" name="nickname" value={nickname} onChange={handleNicknameChange} />
