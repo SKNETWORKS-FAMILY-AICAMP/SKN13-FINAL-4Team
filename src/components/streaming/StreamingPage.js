@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Container, Row, Col, Image, Button, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Image, Button } from 'react-bootstrap';
 import { StreamingChatClient } from './StreamingChatClient';
 import VideoControlPanel from './VideoControlPanel';
 import VideoPlayer from './VideoPlayer';
@@ -11,7 +11,7 @@ import { MediaSyncController } from '../../services/MediaSyncController';
 import { processTextForDisplay, debugVoiceTags } from '../../utils/textUtils';
 import donationTTSService from '../../services/donationTTSService';
 // Hot Reload 테스트 주석 - 2025.08.26 - 최종 수정!
-import './StreamingPage.css';
+import styles from './StreamingPage.module.css';
 
 // Backend에서 TTS 설정 관리, fallback 기본값만 정의
 const DEFAULT_SETTINGS = {
@@ -745,7 +745,7 @@ function StreamingPage({ isLoggedIn, username }) {
     // streamInfo 미사용으로 제거
 
     return (
-        <Container fluid className="streaming-container mt-4">
+        <Container fluid className={`${styles['streaming-container']} mt-4`}>
             
             {/* 후원 아일랜드 */}
             {isDonationIslandOpen && chatRoom && (
@@ -789,7 +789,7 @@ function StreamingPage({ isLoggedIn, username }) {
 
             <Row>
                 <Col md={8}>
-                    <div className="video-player-wrapper" ref={videoContainerRef} style={{ position: 'relative' }}>
+                    <div className={styles['video-player-wrapper']} ref={videoContainerRef} style={{ position: 'relative' }}>
                         {/* 패널 토글 버튼 - 좌측 상단 고정 */}
                         <div 
                             className="panel-toggle-buttons"
@@ -905,13 +905,13 @@ function StreamingPage({ isLoggedIn, username }) {
                         
                         {/* AI 자막 표시 - 스트리밍 텍스트 */}
                         {showSubtitle && revealedSubtitle && (
-                            <div className="ai-subtitle">
-                                <div className="subtitle-background">
-                                    <span className="subtitle-text">{revealedSubtitle}</span>
+                            <div className={styles['ai-subtitle']}>
+                                <div className={styles['subtitle-background']}>
+                                    <span className={styles['subtitle-text']}>{revealedSubtitle}</span>
                                 </div>
                             </div>
                         )}
-                        <div className="video-controls">
+                        <div className={styles['video-controls']}>
                             <Button variant="secondary" size="sm" onClick={handleMuteToggle}>
                                 {isMuted ? 'Unmute' : 'Mute'}
                             </Button>
@@ -953,9 +953,9 @@ function StreamingPage({ isLoggedIn, username }) {
                     </div>
                 </Col>
                 <Col md={4}>
-                    <div className="chat-section-wrapper d-flex flex-column h-100">
+                    <div className={`${styles['chat-section-wrapper']} d-flex flex-column h-100`}>
                         {/* 채팅 컨테이너 - 대부분의 공간 사용, 입력창 포함 */}
-                        <div className="chat-container-with-input flex-grow-1 d-flex flex-column">
+                        <div className={`${styles['chat-container-with-input']} flex-grow-1 d-flex flex-column`}>
                             {streamerId ? (
                                 <StreamingChatClient 
                                         streamerId={streamerId}
@@ -976,14 +976,10 @@ function StreamingPage({ isLoggedIn, username }) {
                         </div>
                         
                         {/* 후원 버튼 영역 - 다시 활성화 */}
-                        <div className="external-actions-wrapper flex-shrink-0">
-                            <div className="external-actions">
-                                <Button variant="warning" size="sm" onClick={handleDonation}>
-                                    💰 후원
-                                </Button>
-                                <Button variant="light" size="sm" onClick={handleEmoji}>
-                                    😊 이모티콘
-                                </Button>
+                        <div className={`${styles['external-actions-wrapper']} flex-shrink-0`}>
+                            <div className={styles['external-actions']}>
+                                <button className={styles.donationBtn} onClick={handleDonation}>💰 후원</button>
+                                <button className={styles.emojiBtn} onClick={handleEmoji}>😊 이모티콘</button>
                             </div>
                         </div>
                     </div>

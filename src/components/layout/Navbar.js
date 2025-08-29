@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Dropdown, Button } from 'react-bootstrap';
+import styles from './Navbar.module.css';
 import api from '../../utils/unifiedApiClient';
 
 function Navbar({ isLoggedIn, onLogout, userBalance }) {
   const [user, setUser] = useState(null);
+  const [theme, setTheme] = useState(() => (document.documentElement.getAttribute('data-theme') || 'light'));
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,10 +28,10 @@ function Navbar({ isLoggedIn, onLogout, userBalance }) {
     fetchUserData();
   }, [isLoggedIn, onLogout]);
 
-    const handleLogout = () => {
-        onLogout();
-        navigate('/');
-    };
+  const handleLogout = () => {
+    onLogout();
+    navigate('/');
+  };
 
   // Custom Dropdown Toggle
   const CustomToggle = React.forwardRef(({ children, onClick }, ref) => (
@@ -46,19 +48,41 @@ function Navbar({ isLoggedIn, onLogout, userBalance }) {
     </a>
   ));
 
-    return (
-        <nav className="navbar navbar-expand navbar-dark bg-dark">
-            <div className="container-fluid">
-                <Link className="navbar-brand" to="/">Influencer App</Link>
-                <ul className="navbar-nav ms-auto">
-                    {isLoggedIn ? (
-                        <Dropdown as="li" className="nav-item" align="end">
-                            <Dropdown.Toggle as={CustomToggle} id="profile-dropdown-toggle">
-                                프로필
-                            </Dropdown.Toggle>
+  return (
+    <nav className="navbar navbar-expand" style={{ backgroundColor: 'var(--color-surface)' }}>
+      <div className="container-fluid">
+        <Link className="navbar-brand" to="/" style={{ color: 'var(--color-text)' }}>Influencer App</Link>
+        <ul className="navbar-nav ms-auto">
+          <li className="nav-item me-3">
+            <button
+              className={styles.themeToggleBtn}
+              onClick={() => {
+                const next = theme === 'light' ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', next);
+                setTheme(next);
+              }}
+              title="테마 전환"
+            >
+              {theme === 'light' ? 'Dark' : 'Light'}
+            </button>
+          </li>
+          {isLoggedIn ? (
+            <Dropdown as="li" className="nav-item" align="end">
+              <Dropdown.Toggle as={CustomToggle} id="profile-dropdown-toggle">
+                {user ? (
+                  <img
+                    src={user.profile_image ? `http://localhost:8000${user.profile_image}` : `http://localhost:8000/media/profile_pics/default_profile.png`}
+                    alt="Profile"
+                    className={`${styles.profileToggleImage}`}
+                    title="프로필"
+                  />
+                ) : (
+                  <span className="placeholder rounded-circle" style={{ display: 'inline-block', width: '32px', height: '32px', backgroundColor: 'rgba(0,0,0,0.1)' }} />
+                )}
+              </Dropdown.Toggle>
 
               <Dropdown.Menu 
-                className="p-3" 
+                className={`p-3 ${styles.profileMenu}`} 
                 style={{ width: '280px', top: '120%' }}
               >
                 {user ? (
@@ -71,14 +95,14 @@ function Navbar({ isLoggedIn, onLogout, userBalance }) {
                         style={{ width: '40px', height: '40px', objectFit: 'cover' }}
                       />
                       <div className="ms-3">
-                        <h6 className="mb-0">{user.nickname || user.username}</h6>
+                        <h6 className="mb-0" style={{ color: 'var(--color-text)' }}>{user.nickname || user.username}</h6>
                         <div className="text-muted" style={{ fontSize: '0.9rem' }}>{user.email}</div>
                       </div>
                     </div>
                     <div className="mb-3">
                       <small>보유 크레딧</small>
                       {/* App.js로부터 받은 userBalance를 표시 */}
-                      <h5>{userBalance?.toLocaleString() || '0'} C</h5>
+                      <h5 style={{ color: 'var(--color-text)' }}>{userBalance?.toLocaleString() || '0'} C</h5>
                     </div>
                     <Dropdown.Divider />
                     <Button as={Link} to="/profile" variant="outline-primary" className="w-100 mb-2">
@@ -95,7 +119,7 @@ function Navbar({ isLoggedIn, onLogout, userBalance }) {
             </Dropdown>
           ) : (
             <li className="nav-item">
-              <Link className="nav-link" to="/login">로그인</Link>
+              <Link className="nav-link" to="/login" style={{ color: 'var(--color-text)' }}>로그인</Link>
             </li>
           )}
         </ul>

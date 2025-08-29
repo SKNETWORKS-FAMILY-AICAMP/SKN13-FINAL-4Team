@@ -1,0 +1,34 @@
+.sidebar {
+    width: 220px;
+    background-color: var(--color-surface);
+    padding-top: 1.5rem;
+    flex-shrink: 0;
+    border-right: 1px solid rgba(0,0,0,0.06);
+}
+
+.sidebarNav {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebarLink {
+    display: block;
+    color: var(--color-text);
+    padding: 0.75rem 1.5rem;
+    text-decoration: none;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebarLink:hover {
+    background-color: rgba(0,0,0,0.04);
+    color: var(--color-text);
+}
+
+.active {
+    background-color: var(--brand);
+    color: #fff;
+    font-weight: 600;
+}
+
+

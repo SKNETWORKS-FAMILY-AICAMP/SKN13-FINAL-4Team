@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../utils/unifiedApiClient';
-import './ProfilePage.css';
+import styles from './ProfilePage.module.css';
+import signupStyles from '../auth/SignupForm.module.css';
 import Sidebar from '../layout/Sidebar';
 
 function ProfilePage() {
@@ -9,7 +10,7 @@ function ProfilePage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     
-    const [nickname, setNickname] = useState('');
+    const [nickname, setNickname] = useState(''); 
     const [birthDate, setBirthDate] = useState(''); 
     const [gender, setGender] = useState('');
     const [passwordData, setPasswordData] = useState({
@@ -40,7 +41,6 @@ function ProfilePage() {
             } catch (err) {
                 setError('사용자 정보를 불러오는 데 실패했습니다.');
                 console.error("사용자 정보 로딩 실패:", err);
-                // 토큰 만료 등으로 실패 시 로그인 페이지로 보낼 수 있습니다.
                 if (err.response && err.response.status === 401) {
                     navigate('/login');
                 }
@@ -169,48 +169,58 @@ function ProfilePage() {
     if (!user) return <div className="loading-message">사용자 정보가 없습니다.</div>;
 
     return (
-        <div className="profile-page-wrapper"> 
+        <div className={styles.wrapper}> 
             {user.is_staff && <Sidebar />}
-            <div className="signup-container">
-                <div className="signup-header">
+            <div className={styles.signupContainer}>
+                <div className={signupStyles.signupHeader}>
                     <h1>프로필 수정</h1>
                 </div>
 
-                <div className="profile-image-container">
-                    {/* api.js의 baseURL이 적용되므로 상대 경로로 수정 */}
-                    <img 
-                        src={imagePreviewUrl || (user.profile_image ? user.profile_image : '/media/profile_pics/default_profile.png')} 
-                        alt="Profile" 
-                        className="profile-image" 
-                    />
-                    <button type="button" className="thumbnail-upload-btn" onClick={handleImageButtonClick}>이미지 변경</button>
+                <div className={styles.imageContainer}>
+                    {/* 현재 프로필 이미지: 백엔드 정적 경로를 절대 URL로 보정 */}
+                    {(() => {
+                        const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+                        const resolvedSrc = imagePreviewUrl || (
+                            user.profile_image
+                                ? (user.profile_image.startsWith('http') ? user.profile_image : `${apiBaseUrl}${user.profile_image}`)
+                                : `${apiBaseUrl}/media/profile_pics/default_profile.png`
+                        );
+                        return (
+                            <img 
+                                src={resolvedSrc}
+                                alt="Profile" 
+                                className={styles.profileImage} 
+                            />
+                        );
+                    })()}
+                    <button type="button" className={signupStyles.thumbnailUploadBtn} onClick={handleImageButtonClick}>이미지 변경</button>
                     <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImageChange} accept="image/*" />
                 </div>
 
-                <form className="signup-form" onSubmit={handleSubmit}>
+                <form className={signupStyles.signupForm} onSubmit={handleSubmit}>
                     {/* 사용자명 */}
-                    <div className="form-group">
+                    <div className={signupStyles.formGroup}>
                         <label htmlFor="nickname" className="form-label text-start d-block">사용자명</label>
                         <input type="text" id="nickname" name="nickname" value={nickname} onChange={handleNicknameChange} />
-                        <small className={nicknameStatus.isValid ? 'success' : 'error'}>
+                        <small className={nicknameStatus.isValid ? signupStyles.success : signupStyles.error}>
                             {nicknameStatus.isChecking ? '확인 중...' : nicknameStatus.message}
                         </small>
                     </div>
 
                     {/* 이메일 */}
-                    <div className="form-group">
+                    <div className={signupStyles.formGroup}>
                         <label htmlFor="email" className="form-label text-start d-block">이메일</label>
                         <input type="email" id="email" name="email" value={user.email} disabled />
                     </div>
 
                     {/* 생년월일 */}
-                    <div className="form-group">
+                    <div className={signupStyles.formGroup}>
                         <label htmlFor="birthDate" className="form-label text-start d-block">생년월일</label>
                         <input type="date" id="birthDate" name="birth_date" value={birthDate} onChange={handleBirthDateChange} />
                     </div>
 
                     {/* 성별 */}
-                    <div className="form-group">
+                    <div className={signupStyles.formGroup}>
                         <label htmlFor="gender" className="form-label text-start d-block">성별</label>
                         <select id="gender" name="gender" value={gender} onChange={handleGenderChange}>
                             <option value="">선택 안 함</option>
@@ -223,27 +233,27 @@ function ProfilePage() {
                     <hr style={{ margin: '2rem 0' }} />
 
                     {/* 현재 비밀번호 */}
-                    <div className="form-group">
+                    <div className={signupStyles.formGroup}>
                         <label htmlFor="currentPassword" className="form-label text-start d-block">현재 비밀번호</label>
                         <input type="password" id="currentPassword" name="current_password" placeholder="변경 시에만 입력" value={passwordData.current_password} onChange={handlePasswordChange} />
                     </div>
 
                     {/* 새 비밀번호 */}
-                    <div className="form-group">
+                    <div className={signupStyles.formGroup}>
                         <label htmlFor="newPassword" className="form-label text-start d-block">새 비밀번호</label>
                         <input type="password" id="newPassword" name="new_password" placeholder="새 비밀번호 입력" value={passwordData.new_password} onChange={handlePasswordChange} />
                         <small>비밀번호는 영문, 숫자, 특수문자를 포함하여 9자리 이상으로 설정해주세요.</small>
                     </div>
 
                     {/* 새 비밀번호 확인 */}
-                    <div className="form-group">
+                    <div className={signupStyles.formGroup}>
                         <label htmlFor="confirmPassword" className="form-label text-start d-block">새 비밀번호 확인</label>
                         <input type="password" id="confirmPassword" name="new_password_confirm" placeholder="새 비밀번호 다시 입력" value={passwordData.new_password_confirm} onChange={handlePasswordChange} />
                     </div>
                     
-                    <div className="form-actions">
-                        <button type="button" className="cancel-btn" onClick={() => navigate(-1)}>취소</button>
-                        <button type="submit" className="save-btn" disabled={!nicknameStatus.isValid}>변경사항 저장</button>
+                    <div className={styles.actions}>
+                        <button type="button" className={styles.cancelBtn} onClick={() => navigate(-1)}>취소</button>
+                        <button type="submit" className={styles.saveBtn} disabled={!nicknameStatus.isValid}>변경사항 저장</button>
                     </div>
                 </form>
             </div>

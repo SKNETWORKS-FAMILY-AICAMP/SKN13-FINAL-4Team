@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import './VideoPlayer.css';
+import styles from './VideoPlayer.module.css';
 
 const VideoPlayer = React.forwardRef(({ 
     currentVideo, 
@@ -129,7 +129,7 @@ const VideoPlayer = React.forwardRef(({
 
     return (
         <div 
-            className={`video-player-container ${className}`}
+            className={`${styles.container} ${className}`}
             style={{
                 position: 'relative',
                 width: '100%',
@@ -140,7 +140,7 @@ const VideoPlayer = React.forwardRef(({
         >
             <video
                 ref={videoRef}
-                className="streaming-video video-layer"
+                className={`${styles.streamingVideo} ${styles.videoLayer}`}
                 style={{
                     position: 'absolute',
                     top: '0',
@@ -177,7 +177,7 @@ const VideoPlayer = React.forwardRef(({
             {/* 후원 오버레이: 비디오 위에 표시 */}
             {donationOverlay?.visible && donationOverlay?.data && (
                 <div 
-                    className="video-donation-overlay"
+                    className={styles.donationOverlay}
                     style={{
                         position: 'absolute',
                         top: '20px',

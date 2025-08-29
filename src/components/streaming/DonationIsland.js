@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './DonationIsland.css';
+import styles from './DonationIsland.module.css';
 import api from '../../utils/unifiedApiClient';
 import CreditChargeModal from '../payments/CreditChargeModal';
 
@@ -68,12 +68,12 @@ const DonationIsland = ({ roomId, streamerId, onClose }) => {
 
     return (
         <>
-            <div className="donation-island-backdrop">
-                <div className="donation-island">
-                    <button className="close-button" onClick={onClose}>&times;</button>
-                    <h2>크리에이터 후원하기</h2>
+            <div className={styles.backdrop}>
+                <div className={styles.island}>
+                    <button className={styles.closeButton} onClick={onClose}>&times;</button>
+                    <h2 className={styles.title}>크리에이터 후원하기</h2>
 
-                    <div className="form-section">
+                    <div className={styles.section}>
                         <label htmlFor="donation-message">후원 메시지</label>
                         <textarea
                             id="donation-message"
@@ -81,28 +81,29 @@ const DonationIsland = ({ roomId, streamerId, onClose }) => {
                             onChange={(e) => setDonationMessage(e.target.value)}
                             placeholder="따뜻한 응원의 메시지를 남겨주세요."
                             rows="3"
+                            className={styles.textarea}
                         />
                     </div>
 
-                    <div className="form-section tts-switch">
+                    <div className={`${styles.section} ${styles.ttsSwitch}`}>
                         <span>TTS 활성화</span>
-                        <label className="switch">
+                        <label className={styles.switch}>
                             <input
                                 id="tts-enabled"
                                 type="checkbox"
                                 checked={ttsEnabled}
                                 onChange={() => setTtsEnabled(!ttsEnabled)}
                             />
-                            <span className="slider round"></span>
+                            <span className={`${styles.slider} ${styles.round}`}></span>
                         </label>
                     </div>
 
-                    <div className="form-section credit-info">
+                    <div className={`${styles.section} ${styles.creditInfo}`}>
                         <span>보유 크레딧: {userBalance.toLocaleString()} C</span>
-                        <button onClick={handleCharge} className="charge-button">충전</button>
+                        <button onClick={handleCharge} className={styles.chargeButton}>충전</button>
                     </div>
 
-                    <div className="form-section">
+                    <div className={styles.section}>
                         <label htmlFor="credit-amount">후원 크레딧</label>
                         <input
                             id="credit-amount"
@@ -110,9 +111,9 @@ const DonationIsland = ({ roomId, streamerId, onClose }) => {
                             value={creditAmount}
                             onChange={(e) => setCreditAmount(parseInt(e.target.value, 10) || 0)}
                             placeholder="후원할 금액"
-                            className="credit-input"
+                            className={styles.creditInput}
                         />
-                        <div className="credit-presets">
+                        <div className={styles.creditPresets}>
                             <button onClick={() => handleCreditPreset(1000)}>+1,000</button>
                             <button onClick={() => handleCreditPreset(3000)}>+3,000</button>
                             <button onClick={() => handleCreditPreset(5000)}>+5,000</button>
@@ -120,7 +121,7 @@ const DonationIsland = ({ roomId, streamerId, onClose }) => {
                         </div>
                     </div>
 
-                    <button onClick={handleDonate} className="donate-button" disabled={creditAmount <= 0}>
+                    <button onClick={handleDonate} className={styles.donateButton} disabled={creditAmount <= 0}>
                         {creditAmount > 0 ? `${creditAmount.toLocaleString()} 크레딧 후원하기` : '후원하기'}
                     </button>
                 </div>

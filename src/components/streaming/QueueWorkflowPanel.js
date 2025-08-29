@@ -3,6 +3,7 @@ import { Button } from 'react-bootstrap';
 import RequestQueueDebugPanel from './RequestQueueDebugPanel';
 import ResponseQueueDebugPanel from './ResponseQueueDebugPanel';
 import QueueFlowDebugPanel from './QueueFlowDebugPanel';
+import panelStyles from './Panels.module.css';
 
 /**
  * QueueWorkflowPanel - Request Queue와 Response Queue를 통합 모니터링하는 메인 패널
@@ -55,12 +56,8 @@ const QueueWorkflowPanel = ({
     const metrics = detailedQueueInfo?.metrics || {};
 
     return (
-        <div className="settings-panel-overlay" style={{
-            top: '20px',
-            right: '20px',
-            left: 'auto'
-        }}>
-            <div className="settings-panel-floating" style={{
+        <div className={panelStyles.overlay} style={{ right: '20px', left: 'auto' }}>
+            <div className={panelStyles.floating} style={{
                 minWidth: activeTab === 'queues' ? '600px' : '320px',
                 maxWidth: activeTab === 'queues' ? '800px' : '400px',
                 maxHeight: '80vh',

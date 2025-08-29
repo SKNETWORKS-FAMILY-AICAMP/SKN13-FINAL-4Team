@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import './SignupForm.css'; // 스타일링을 위한 CSS 파일
+import styles from './SignupForm.module.css'; // 스타일링을 위한 CSS 파일
 
 function SignupForm() {
     const [formData, setFormData] = useState({
@@ -122,8 +122,8 @@ function SignupForm() {
             const signupData  = { ...formData };
             if (!signupData.gender) signupData.gender = null;
 
-                console.log("서버로 보내는 비밀번호:", signupData.password);
-                console.log("비밀번호 확인 필드:", formData.password_confirm);
+            console.log("서버로 보내는 비밀번호:", signupData.password);
+            console.log("비밀번호 확인 필드:", formData.password_confirm);
 
             await axios.post(`${apiBaseUrl}/api/users/signup/`, signupData);
             alert('회원가입이 완료되었습니다. 로그인 페이지로 이동합니다.');
@@ -141,29 +141,29 @@ function SignupForm() {
 
     const getPasswordInputClass = () => {
         if (formData.password === '') return '';
-        return isPasswordValid ? 'valid-input' : 'invalid-input';
+        return isPasswordValid ? styles.validInput : styles.invalidInput;
     };
 
     return (
-        <div className="signup-container">
-            <div className="signup-header">
+        <div className={styles.signupContainer}>
+            <div className={styles.signupHeader}>
                 <h1>회원가입</h1>
                 <p>필수 정보를 입력해주세요</p>
             </div>
-            <form className="signup-form" onSubmit={handleSubmit}>
+            <form className={styles.signupForm} onSubmit={handleSubmit}>
                 {/* 아이디 */}
-                <div className="form-group">
+                <div className={styles.formGroup}>
                     <label htmlFor="username" className="form-label text-start d-block">아이디</label>
-                    <div className="input-with-button">
+                    <div className={styles.inputWithButton}>
                         <input type="text" id="username" name="username" placeholder="아이디를 입력하세요" value={formData.username} onChange={handleChange} required />
                         <button type="button" onClick={handleCheckUsername}>중복 확인</button>
                     </div>
-                    {usernameStatus && <small className={usernameStatus.includes('사용 가능') ? 'success' : 'error'}>{usernameStatus}</small>}
-                    {errors.username && <small className="error">{errors.username.join(' ')}</small>}
+                    {usernameStatus && <small className={usernameStatus.includes('사용 가능') ? styles.success : styles.error}>{usernameStatus}</small>}
+                    {errors.username && <small className={styles.error}>{errors.username.join(' ')}</small>}
                 </div>
 
                 {/* 비밀번호 */}
-                <div className="form-group">
+                <div className={styles.formGroup}>
                     <label htmlFor="password" className="form-label text-start d-block">비밀번호</label>
                     <input
                         type="password"
@@ -175,11 +175,11 @@ function SignupForm() {
                         required
                         className={getPasswordInputClass()}
                     />
-                    {errors.password && <small className="error">{errors.password.join(' ')}</small>}
+                    {errors.password && <small className={styles.error}>{errors.password.join(' ')}</small>}
                 </div>
 
                 {/* 비밀번호 확인 */}
-                <div className="form-group">
+                <div className={styles.formGroup}>
                     <label htmlFor="password_confirm" className="form-label text-start d-block">비밀번호 확인</label>
                     <input 
                       type="password" 
@@ -190,29 +190,29 @@ function SignupForm() {
                       onChange={handleChange} 
                       required 
                     />
-                    {errors.password_confirm && <small className="error">{errors.password_confirm.join(' ')}</small>}
+                    {errors.password_confirm && <small className={styles.error}>{errors.password_confirm.join(' ')}</small>}
                 </div>
 
                 {/* 사용자명 (닉네임) */}
-                <div className="form-group">
+                <div className={styles.formGroup}>
                     <label htmlFor="nickname" className="form-label text-start d-block">사용자명</label>
-                    <div className="input-with-button">
+                    <div className={styles.inputWithButton}>
                         <input type="text" id="nickname" name="nickname" placeholder="사용자명을 입력하세요" value={formData.nickname} onChange={handleChange} required />
                         <button type="button" onClick={handleCheckNickname}>중복 확인</button>
                     </div>
-                    {nicknameStatus && <small className={nicknameStatus.includes('사용 가능') ? 'success' : 'error'}>{nicknameStatus}</small>}
-                    {errors.nickname && <small className="error">{errors.nickname.join(' ')}</small>}
+                    {nicknameStatus && <small className={nicknameStatus.includes('사용 가능') ? styles.success : styles.error}>{nicknameStatus}</small>}
+                    {errors.nickname && <small className={styles.error}>{errors.nickname.join(' ')}</small>}
                 </div>
 
                 {/* 이메일 */}
-                <div className="form-group">
+                <div className={styles.formGroup}>
                     <label htmlFor="email" className="form-label text-start d-block">이메일</label>
                     <input type="email" id="email" name="email" placeholder="이메일을 입력하세요" value={formData.email} onChange={handleChange} required />
-                    {errors.email && <small className="error">{errors.email.join(' ')}</small>}
+                    {errors.email && <small className={styles.error}>{errors.email.join(' ')}</small>}
                 </div>
 
                 {/* 생년월일 */}
-                <div className="form-group">
+                <div className={styles.formGroup}>
                     <label htmlFor="birth_date" className="form-label text-start d-block">생년월일 </label>
                     <input 
                         type="date" 
@@ -222,20 +222,20 @@ function SignupForm() {
                         onChange={handleChange} 
                         required
                     />
-                    {errors.birth_date && <small className="error">{errors.birth_date.join(' ')}</small>}
+                    {errors.birth_date && <small className={styles.error}>{errors.birth_date.join(' ')}</small>}
                 </div>
 
                 {/* 성별 */}
-                <div className="form-group">
+                <div className={styles.formGroup}>
                     <label htmlFor="gender" className="form-label text-start d-block">성별</label>
                     <select id="gender" name="gender" value={formData.gender} onChange={handleChange}>
                         <option value="M">남성</option>
                         <option value="F">여성</option>
                     </select>
-                    {errors.gender && <small className="error">{errors.gender.join(' ')}</small>}
+                    {errors.gender && <small className={styles.error}>{errors.gender.join(' ')}</small>}
                 </div>
 
-                <button type="submit" className="signup-btn">회원가입 완료</button>
+                <button type="submit" className={styles.signupBtn}>회원가입 완료</button>
             </form>
         </div>
     );
