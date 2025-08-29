@@ -11,6 +11,8 @@ import StreamingPage from './components/streaming/StreamingPage';
 import HomeTemporary from './components/pages/HomeTemporary';
 import CreateChatRoom from './components/staff/CreateChatRoom';
 import ChatRoomManagement from './components/staff/ChatRoomManagement';
+import InfluencerManagementPage from './components/staff/InfluencerManagementPage';
+import TTSDebugTool from './components/tts/TTSDebugTool';
 import './App.css';
 
 function App() {
@@ -89,6 +91,8 @@ function App() {
               <Route path="/management/userlist" element={<UserListPage />} />
               <Route path="/staff/create" element={<CreateChatRoom />} />
               <Route path="/staff/management" element={<ChatRoomManagement />} />
+              <Route path="/staff/influencers" element={<InfluencerManagementPage />} />
+              <Route path="/debug/tts" element={<TTSDebugTool />} />
             </>
           )}
 
