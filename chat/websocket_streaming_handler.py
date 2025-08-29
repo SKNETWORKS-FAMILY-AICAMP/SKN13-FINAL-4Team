@@ -562,6 +562,25 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             
             logger.info(f"💰 후원 메시지 전송됨: {donation_data['username']} - {donation_data['amount']}크레딧")
             
+            # 스트리머 세션에서만 1회 AI 감사 응답 트리거 (중복 방지)
+            try:
+                if getattr(self, 'user', None) and getattr(self, 'streamer_id', None):
+                    # 현재 컨슈머의 사용자명이 스트리머 ID와 동일하면 스트리머 연결로 간주
+                    if self.user.username == self.streamer_id and hasattr(self, 'session') and self.session:
+                        donor = donation_data.get('username') or '시청자'
+                        amount = donation_data.get('amount')
+                        note = donation_data.get('message') or ''
+                        # 감사 인사 프롬프트 구성
+                        thank_prompt = (
+                            f"후원 감사합니다. 후원자: {donor}, 금액: {amount} 크레딧. "
+                            f"후원 메시지: {note}. 친근하고 간단한 감사 인사를 해주세요."
+                            f"후원자의 질문이 "
+                        )
+                        logger.info("🤖 후원 감사 AI 응답 트리거")
+                        await self.process_ai_response(thank_prompt)
+            except Exception as e:
+                logger.warning(f"후원 감사 AI 트리거 중 경고: {e}")
+            
         except Exception as e:
             logger.error(f"❌ 후원 메시지 전송 실패: {e}")
     
