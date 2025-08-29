@@ -1,5 +1,5 @@
 .wrapper { display: flex; color: var(--color-text); }
-.signupContainer { flex-grow: 1; }
+.signupContainer { flex-grow: 1; padding: 0 24px; max-width: 960px; margin: 0 auto; }
 .imageContainer { text-align: center; margin-bottom: 30px; position: relative; width: 120px; margin-left: auto; margin-right: auto; }
 .profileImage { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid rgba(0,0,0,0.1); }
 .changeImageBtn { position: absolute; bottom: 5px; right: 5px; background-color: var(--brand); color: white; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; font-size: 14px; }
@@ -9,4 +9,8 @@
 .saveBtn:hover { background-color: #ff5a6f; }
 .saveBtn:disabled { background-color: #ccc; cursor: not-allowed; }
 .cancelBtn { flex-grow: 1; padding: 15px; background-color: rgba(0,0,0,0.15); color: var(--color-text); border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; }
+
+@media (max-width: 768px) {
+  .signupContainer { padding: 0 16px; max-width: 100%; }
+}
 

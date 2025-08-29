@@ -51,11 +51,11 @@ function Navbar({ isLoggedIn, onLogout, userBalance }) {
   return (
     <nav className="navbar navbar-expand" style={{ backgroundColor: 'var(--color-surface)' }}>
       <div className="container-fluid">
-        <Link className="navbar-brand" to="/" style={{ color: 'var(--color-text)' }}>Influencer App</Link>
-        <ul className="navbar-nav ms-auto">
+        <Link className="navbar-brand" to="/" style={{ color: 'var(--brand)' }}>Love Language Model</Link>
+        <ul className="navbar-nav ms-auto align-items-center">
           <li className="nav-item me-3">
             <button
-              className={styles.themeToggleBtn}
+              className={`${styles.themeToggleBtn} ${styles.iconBtn}`}
               onClick={() => {
                 const next = theme === 'light' ? 'dark' : 'light';
                 document.documentElement.setAttribute('data-theme', next);
@@ -63,7 +63,27 @@ function Navbar({ isLoggedIn, onLogout, userBalance }) {
               }}
               title="테마 전환"
             >
-              {theme === 'light' ? 'Dark' : 'Light'}
+              {theme === 'light' ? (
+                // Light → Dark 전환 버튼: 달 아이콘(#262323)
+                <svg className={styles.iconSvg} viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#262323" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+              ) : (
+                // Dark → Light 전환 버튼: 태양 아이콘(#F5F5F5)
+                <svg className={styles.iconSvg} viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="5" fill="#F5F5F5"/>
+                  <g stroke="#F5F5F5" strokeWidth="2">
+                    <line x1="12" y1="1" x2="12" y2="4"/>
+                    <line x1="12" y1="20" x2="12" y2="23"/>
+                    <line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/>
+                    <line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/>
+                    <line x1="1" y1="12" x2="4" y2="12"/>
+                    <line x1="20" y1="12" x2="23" y2="12"/>
+                    <line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/>
+                    <line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/>
+                  </g>
+                </svg>
+              )}
             </button>
           </li>
           {isLoggedIn ? (

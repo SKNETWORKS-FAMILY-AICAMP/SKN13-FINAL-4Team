@@ -1,6 +1,6 @@
 .profileToggleImage {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid var(--brand);
@@ -12,18 +12,23 @@
   box-shadow: 0 0 0 3px rgba(255, 108, 126, 0.35);
 }
 
-.themeToggleBtn {
-  background: transparent;
-  color: var(--color-text);
-  border: 1px solid rgba(0,0,0,0.12);
-  border-radius: 999px;
-  padding: 6px 12px;
-  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
-}
+.themeToggleBtn { background: transparent; color: var(--color-text); border: none; }
 
-.themeToggleBtn:hover {
-  background-color: rgba(0,0,0,0.04);
+.iconBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: background-color 160ms ease;
 }
+.iconBtn:hover { background-color: rgba(0,0,0,0.06); }
+.iconSvg { width: 20px; height: 20px; display: block; }
 
 .profileMenu {
   background-color: var(--color-surface) !important;
