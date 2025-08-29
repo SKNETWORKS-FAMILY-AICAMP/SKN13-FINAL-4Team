@@ -107,7 +107,7 @@ function StreamingPage({ isLoggedIn, username }) {
                 setChatRoom(data);
                 
                 // streamerId를 방 정보에서 파생하여 설정
-                const derivedStreamerId = data?.influencer?.username || null;
+                const derivedStreamerId = data?.influencer?.name || null;
                 setStreamerId(derivedStreamerId);
             } catch (error) {
                 console.error('Error fetching chat room:', error);
