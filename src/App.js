@@ -11,6 +11,10 @@ import UserListPage from './components/user/UserListPage';
 import ProfilePage from './components/user/ProfilePage';
 import StreamingPage from './components/streaming/StreamingPage';
 import HomeTemporary from './components/pages/HomeTemporary';
+import SuccessPage from './components/pages/SuccessPage';
+import FailPage from './components/pages/FailPage';
+import CreateChatRoom from './components/staff/CreateChatRoom';
+import ChatRoomManagement from './components/staff/ChatRoomManagement';
 import './App.css';
 
 function App() {
@@ -91,6 +95,9 @@ function App() {
         <Navbar isLoggedIn={isLoggedIn} onLogout={handleLogout} userBalance={userBalance} />
         <Routes>
           <Route path="/" element={<HomeTemporary />} />
+          {/* 결제 결과 페이지 */}
+          <Route path="/success" element={<SuccessPage />} />
+          <Route path="/fail" element={<FailPage />} />
           <Route path="/signup/terms" element={<TermsPage />} />
           <Route path="/signup" element={<SignupForm />} />
           <Route path="/login" element={<LoginForm onLogin={handleLogin} />} />
@@ -99,10 +106,16 @@ function App() {
           {/* 관리자용 유저 목록 페이지 */}
           <Route path="/management" element={<UserListPage />} />
           <Route path="/management/userlist" element={<UserListPage />} />
+          {/* 스태프 페이지 */}
+          <Route path="/staff/create" element={<CreateChatRoom />} />
+          <Route path="/staff/management" element={<ChatRoomManagement />} />
           
           {/* 개인 프로필 페이지 */}
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/stream/:roomId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} />
+          {/* 호환 라우트: 과거 링크 대응 */}
+          <Route path="/chat/lobby" element={<HomeTemporary />} />
+          <Route path="/chat/:roomId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} />
         </Routes>
       </div>
     </Router>
