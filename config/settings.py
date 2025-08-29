@@ -38,6 +38,8 @@ INSTALLED_APPS = [
     'users',
     'chat',
     'payments',  # Keep payments app from HEAD
+    'influencers',
+    'debugging',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

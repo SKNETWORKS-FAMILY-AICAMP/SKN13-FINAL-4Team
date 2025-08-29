@@ -29,6 +29,4 @@ urlpatterns = [
     path('voices/mapping/status/', voice_validation_views.get_voice_mapping_status, name='get_voice_mapping_status'),
     path('voices/debug/', voice_validation_views.debug_voice_service, name='debug_voice_service'),
 
-    # 변경점: DefaultRouter가 이미 rooms/ 및 rooms/<pk>/ 경로를 생성합니다.
-    # 아래 수동 매핑은 중복/충돌 가능성이 있으므로 제거하여 일원화합니다.
 ]
