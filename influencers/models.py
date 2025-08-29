@@ -31,7 +31,7 @@ class Influencer(models.Model):
     )
 
     def __str__(self):
-        return self.name_ko
+        return self.name
 
 class InfluencerCoreValue(models.Model):
     influencer = models.ForeignKey(Influencer, on_delete=models.CASCADE)
@@ -57,7 +57,7 @@ class CommunicationStyle(models.Model):
     empathy_expression = models.TextField(blank=True, verbose_name="공감 표현 방식")
 
     def __str__(self):
-        return f"{self.influencer.name_ko}의 의사소통 스타일"
+        return f"{self.influencer.name}의 의사소통 스타일"
 
 class PersonalityTrait(models.Model):
     influencer = models.OneToOneField(
@@ -78,7 +78,7 @@ class PersonalityTrait(models.Model):
     time_orientation = models.TextField(blank=True, verbose_name="시간 지향성")
 
     def __str__(self):
-        return f"{self.influencer.name_ko}의 성격 기질"
+        return f"{self.influencer.name}의 성격 기질"
 
 class MoralCompass(models.Model):
     influencer = models.OneToOneField(
@@ -92,4 +92,4 @@ class MoralCompass(models.Model):
     fairness = models.TextField(blank=True, verbose_name="공정성")
 
     def __str__(self):
-        return f"{self.influencer.name_ko}의 도덕·윤리 좌표"
+        return f"{self.influencer.name}의 도덕·윤리 좌표"

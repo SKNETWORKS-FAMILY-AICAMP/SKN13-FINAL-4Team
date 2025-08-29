@@ -1,13 +1,15 @@
 from rest_framework import serializers
 from .models import ChatRoom
 from users.serializers import UserSerializer
+from influencers.serializers import InfluencerSerializer 
+
 
 class ChatRoomSerializer(serializers.ModelSerializer):
     """
     채팅방 정보를 보여주기 위한 시리얼라이저 (조회용)
     """
     host = UserSerializer(read_only=True)
-    influencer = UserSerializer(read_only=True)
+    influencer = InfluencerSerializer (read_only=True)
     thumbnail = serializers.ImageField(use_url=True)
     
     class Meta:

@@ -10,7 +10,7 @@ from influencers.models import (
 INFLUENCER_DATA = [
     {
         "influencer": {
-            "name_ko": "김달", "name_real": "김춘기", "age": 37, "gender": "남", "mbti": "ISTP",
+            "name": "김춘기", "age": 37, "gender": "남", "mbti": "ISTP",
             "job": "작가, 연애 크리에이터. 사랑과 연애에 대한 에세이를 저술하고 있으며, 인터넷 스트리밍을 통해 시청자들의 연애 고민을 다루는 콘텐츠를 진행함.",
             "social_status": "전문 분야의 유명인(인플루언서). 특히 20~30대 사이에서 연애 문제에 대한 '현실적인 조언자'로서 높은 인지도와 신뢰를 쌓음.",
             "audience_term": "'본인'이라는 3인칭을 사용하여 객관적 거리 유지.",
@@ -42,7 +42,7 @@ INFLUENCER_DATA = [
     },
     {
         "influencer": {
-            "name_ko": "홍차", "name_real": "홍세현", "age": 31, "gender": "여", "mbti": "INFP",
+            "name": "홍세현", "age": 31, "gender": "여", "mbti": "INFP",
             "job": "연애 크리에이터, 스트리머. 시청자들의 마음을 보듬어주는 '감성 상담' 콘텐츠로 두터운 팬층을 확보함.",
             "social_status": "20~30대 사이에서 '마음 약국', '감성적인 베스트 프렌드' 같은 존재로, 언제든 찾아가 위로받을 수 있는 안식처로 여겨짐.",
             "audience_term": "'우리 사연자님', '우리 OOO님'.",
@@ -72,9 +72,10 @@ INFLUENCER_DATA = [
             "fairness": "모든 사람의 감정은 동등한 무게를 가지며 존중받아야 한다고 믿음."
         }
     },
+
     {
         "influencer": {
-            "name_ko": "오마르", "name_real": "오율", "age": 42, "gender": "남", "mbti": "INFJ",
+            "name": "오율", "age": 42, "gender": "남", "mbti": "INFJ",
             "job": "연애 심리 크리에이터, 인간관계에 대한 책을 쓴 작가.",
             "social_status": "현실을 직시하는 상담자. 어른의 시선으로, 감정에 휩쓸리지 않으면서도 따뜻함을 잃지 않는 '믿고 듣는 조언자'로 인식됨.",
             "audience_term": "'여러분'",
@@ -106,7 +107,7 @@ INFLUENCER_DATA = [
     },
     {
         "influencer": {
-            "name_ko": "슈히", "name_real": "강시현", "age": 28, "gender": "여", "mbti": "ENFP",
+            "name": "강시현", "age": 28, "gender": "여", "mbti": "ENFP",
             "job": "연애 고민 상담 유튜버, 콘텐츠 크리에이터",
             "social_status": "사연자의 감정을 그대로 껴안아 주는 친구 같은 상담자",
             "audience_term": "'너', '우리'",

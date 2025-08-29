@@ -19,18 +19,18 @@ def update_chatroom_cache(sender, instance, **kwargs):
     # 캐싱할 데이터 직렬화
     # (Serializer를 사용하는 것이 더 좋지만, 기존 로직을 유지합니다)
     influencer_data = {
-        'id': instance.influencer.id, 'username': instance.influencer.username, 'nickname': instance.influencer.nickname,
+        'id': instance.influencer.id, 'username': instance.influencer.name, 'nickname': instance.influencer.name,
     } if instance.influencer else None
     host_data = {
-        'id': instance.host.id, 'username': instance.host.username, 'nickname': instance.host.nickname,
+        'id': instance.influencer.id, 'username': instance.influencer.name, 'nickname': instance.influencer.name,
     }
     room_data = {
         'id': instance.id, 'host': host_data, 'name': instance.name,
         'description': instance.description,
         'thumbnail': instance.thumbnail.url if instance.thumbnail else None,
         'influencer': influencer_data, 
-        'influencer_nickname': instance.influencer.nickname if instance.influencer else None,
-        'host_username': instance.host.username,
+        'influencer_nickname': instance.influencer.name if instance.influencer else None,
+        'host_username': instance.influencer.name,
         'status': instance.status,
         'created_at': instance.created_at.isoformat(),
         'closed_at': instance.closed_at.isoformat() if instance.closed_at else None,
