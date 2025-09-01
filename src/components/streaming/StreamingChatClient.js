@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Form, Button, Badge } from 'react-bootstrap';
+import { Form, Button } from 'react-bootstrap';
 import { getValidToken } from '../../utils/tokenUtils';
 // Broadcasting 시스템: Backend에서 TTS 설정 및 오디오 처리 관리
 const DEFAULT_SETTINGS = {
@@ -44,7 +44,8 @@ const StreamingChatWithTTS = ({
     externalSettings,
     onSettingsChange,
     externalShowSettings,
-    onShowSettingsChange
+    onShowSettingsChange,
+    onOpenDonation
 }) => {
     const [messages, setMessages] = useState([]);
     const MAX_MESSAGES = 100; // 최대 메시지 개수 제한
@@ -757,7 +758,7 @@ const StreamingChatWithTTS = ({
                 style={{ 
                     scrollbarWidth: 'thin',
                     scrollbarColor: '#495057 #212529',
-                    minHeight: '500px'
+                    minHeight: '400px'
                 }}
             >
                 {messages.length === 0 ? (
@@ -775,7 +776,7 @@ const StreamingChatWithTTS = ({
                 <div className="input-group">
                     <Form.Control
                         as="textarea"
-                        rows={3}
+                        rows={2}
                         placeholder={
                             !isLoggedIn 
                                 ? "로그인 후 채팅에 참여할 수 있습니다..." 
@@ -790,16 +791,38 @@ const StreamingChatWithTTS = ({
                         className="chat-input"
                         style={{ 
                             resize: 'none',
-                            minHeight: '80px',
+                            minHeight: '50px',
                             fontSize: '14px',
                             lineHeight: '1.4'
                         }}
                     />
+                </div>
+                
+                {/* 버튼 영역 */}
+                <div className="d-flex justify-content-between align-items-center mt-2">
+                    <Button 
+                        variant="outline-primary"
+                        size="sm"
+                        onClick={() => onOpenDonation && onOpenDonation()}
+                        disabled={!isLoggedIn || !isConnected}
+                        style={{
+                            backgroundColor: 'var(--brand)',
+                            borderColor: 'var(--brand)',
+                            color: 'white'
+                        }}
+                    >
+                        💰 후원
+                    </Button>
+                    
                     <Button 
                         variant="primary"
+                        size="sm"
                         onClick={sendMessage}
                         disabled={!isLoggedIn || !isConnected || !inputValue.trim()}
-                        className="px-3"
+                        style={{
+                            backgroundColor: 'var(--brand)',
+                            borderColor: 'var(--brand)'
+                        }}
                     >
                         전송
                     </Button>

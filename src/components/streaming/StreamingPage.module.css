@@ -1,5 +1,6 @@
 .streaming-container {
-    height: calc(100vh - 80px);
+    height: calc(100vh - 120px);
+    overflow-y: auto;
 }
 
 .video-player-wrapper {
@@ -7,8 +8,8 @@
     background-color: var(--color-bg);
     border-radius: 8px;
     overflow: hidden;
-    height: calc(100vh - 120px);
-    max-height: calc(100vh - 120px);
+    height: calc(100vh - 200px);
+    max-height: calc(100vh - 200px);
     min-height: 400px;
 }
 
@@ -33,9 +34,14 @@
     font-weight: bold;
 }
 
+.stream-info {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+}
+
 .chat-section-wrapper {
-    height: calc(100vh - 100px);
-    max-height: calc(100vh - 100px);
+    height: calc(100vh - 180px);
+    max-height: calc(100vh - 180px);
     min-height: 500px;
     border-radius: 8px;
     background-color: var(--color-surface);
@@ -50,45 +56,14 @@
 .chat-container-with-input {
     flex: 1 1 auto;
     overflow: visible;
-    min-height: 400px;
+    min-height: 350px;
     display: flex;
     flex-direction: column;
-    margin-bottom: 10px;
     background-color: var(--color-bg);
+    margin-bottom: 0;
 }
 
-.external-actions-wrapper {
-    flex: 0 0 auto;
-    border-top: 1px solid rgba(0,0,0,0.15);
-    background-color: var(--color-surface);
-    height: 50px;
-    min-height: 50px;
-    max-height: 50px;
-    margin-top: 5px;
-}
 
-.external-actions {
-    position: relative;
-    min-height: 50px;
-    padding: 8px 12px;
-    background-color: var(--color-surface);
-    border: none;
-    border-radius: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-}
-
-.donationBtn {
-    background-color: var(--brand);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 16px;
-    transition: background-color 160ms ease;
-}
-.donationBtn:hover { background-color: #ff5a6f; }
 
 
 .ai-subtitle {

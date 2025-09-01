@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Container, Row, Col, Image, Button } from 'react-bootstrap';
 import { StreamingChatClient } from './StreamingChatClient';
@@ -121,7 +121,7 @@ function StreamingPage({ isLoggedIn, username }) {
     }, [roomId]);
 
     // 서버에서 TTS 설정 가져오기
-    const fetchServerTtsSettings = async () => {
+    const fetchServerTtsSettings = useCallback(async () => {
         if (!streamerId || !isLoggedIn) return;
         
         try {
@@ -151,7 +151,7 @@ function StreamingPage({ isLoggedIn, username }) {
         } catch (error) {
             console.error('❌ 서버 TTS 설정 로드 오류:', error);
         }
-    };
+    }, [streamerId, isLoggedIn]);
 
     // Broadcasting 시스템에서 TTS 설정 관리됨
     // const handleTtsSettingChange = (key, value) => { ... }
@@ -161,7 +161,7 @@ function StreamingPage({ isLoggedIn, username }) {
         if (isLoggedIn && streamerId) {
             fetchServerTtsSettings();
         }
-    }, [isLoggedIn, streamerId]);
+    }, [isLoggedIn, streamerId, fetchServerTtsSettings]);
 
     // 컴포넌트 언마운트 시 타이머 정리
     useEffect(() => {
@@ -183,7 +183,7 @@ function StreamingPage({ isLoggedIn, username }) {
         action();
     };
 
-    const handleDonation = () => handleAction(() => setIsDonationIslandOpen(true));
+
 
     const handleMuteToggle = () => {
         if (!audioRef.current) return;
@@ -262,7 +262,7 @@ function StreamingPage({ isLoggedIn, username }) {
             
             console.log('✅ MediaSyncController 초기화 완료');
         }
-    }, [videoTransitionRef.current]);
+    }, []);
 
     // WebSocket 메시지 처리 (TTS 설정 변경 및 새로운 Broadcasting 포함)
     const handleWebSocketMessage = (data) => {
@@ -974,12 +974,7 @@ function StreamingPage({ isLoggedIn, username }) {
                             )}
                         </div>
                         
-                        {/* 후원 버튼 영역 - 다시 활성화 */}
-                        <div className={`${styles['external-actions-wrapper']} flex-shrink-0`}>
-                            <div className={styles['external-actions']}>
-                                <button className={styles.donationBtn} onClick={handleDonation}>💰 후원</button>
-                            </div>
-                        </div>
+
                     </div>
                 </Col>
             </Row>
