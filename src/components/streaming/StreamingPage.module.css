@@ -90,15 +90,6 @@
 }
 .donationBtn:hover { background-color: #ff5a6f; }
 
-.emojiBtn {
-    background-color: var(--color-bg);
-    color: var(--color-text);
-    border: 1px solid rgba(0,0,0,0.15);
-    border-radius: 8px;
-    padding: 8px 16px;
-    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
-}
-.emojiBtn:hover { background-color: rgba(0,0,0,0.04); }
 
 .ai-subtitle {
     position: absolute;
@@ -135,7 +126,7 @@
     to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
-.panel-toggle-buttons { /* inline style 보조용 네임스페이스 */ }
+/* removed empty ruleset: .panel-toggle-buttons */
 
 
 /* Themed Chat (global selectors to target existing classNames) */

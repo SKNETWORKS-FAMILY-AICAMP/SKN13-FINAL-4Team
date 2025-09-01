@@ -184,7 +184,6 @@ function StreamingPage({ isLoggedIn, username }) {
     };
 
     const handleDonation = () => handleAction(() => setIsDonationIslandOpen(true));
-    const handleEmoji = () => handleAction(() => alert('준비중입니다.'));
 
     const handleMuteToggle = () => {
         if (!audioRef.current) return;
@@ -979,7 +978,6 @@ function StreamingPage({ isLoggedIn, username }) {
                         <div className={`${styles['external-actions-wrapper']} flex-shrink-0`}>
                             <div className={styles['external-actions']}>
                                 <button className={styles.donationBtn} onClick={handleDonation}>💰 후원</button>
-                                <button className={styles.emojiBtn} onClick={handleEmoji}>😊 이모티콘</button>
                             </div>
                         </div>
                     </div>
