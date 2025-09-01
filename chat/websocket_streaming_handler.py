@@ -552,6 +552,7 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         """후원 메시지 브로드캐스트 핸들러"""
         try:
             donation_data = event['data']
+            logger.info(f"🎯 donation_message 핸들러 시작: {donation_data}")
             
             await self.send(text_data=json.dumps({
                 'type': 'donation_message',
@@ -562,24 +563,58 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             
             logger.info(f"💰 후원 메시지 전송됨: {donation_data['username']} - {donation_data['amount']}크레딧")
             
-            # 스트리머 세션에서만 1회 AI 감사 응답 트리거 (중복 방지)
+            # 후원 시 AI 감사 응답 트리거 (중복 방지를 위해 첫 번째 연결에서만 실행)
             try:
-                if getattr(self, 'user', None) and getattr(self, 'streamer_id', None):
-                    # 현재 컨슈머의 사용자명이 스트리머 ID와 동일하면 스트리머 연결로 간주
-                    if self.user.username == self.streamer_id and hasattr(self, 'session') and self.session:
+                logger.info(f"🔍 후원 AI 트리거 조건 확인 시작")
+                logger.info(f"  - user: {getattr(self, 'user', None)}")
+                logger.info(f"  - streamer_id: {getattr(self, 'streamer_id', None)}")
+                logger.info(f"  - hasattr session: {hasattr(self, 'session')}")
+                logger.info(f"  - session not None: {hasattr(self, 'session') and self.session is not None}")
+                
+                if (getattr(self, 'user', None) and getattr(self, 'streamer_id', None) 
+                    and hasattr(self, 'session') and self.session):
+                    
+                    logger.info(f"✅ 후원 AI 트리거 조건 통과")
+                    
+                    # 중복 방지: 동일한 후원에 대해 여러 연결에서 AI 응답이 중복 실행되지 않도록 
+                    # 세션별로 처리된 후원을 추적
+                    donation_hash = f"{donation_data.get('username', '')}-{donation_data.get('amount', 0)}-{int(time.time())}"
+                    logger.info(f"🎯 후원 해시 생성: {donation_hash}")
+                    
+                    if not hasattr(self.session, '_processed_donations'):
+                        self.session._processed_donations = set()
+                        logger.info(f"📦 새 후원 추적 세트 생성")
+                    
+                    if donation_hash not in self.session._processed_donations:
+                        self.session._processed_donations.add(donation_hash)
+                        logger.info(f"🆕 새로운 후원으로 AI 응답 실행")
+                        
                         donor = donation_data.get('username') or '시청자'
                         amount = donation_data.get('amount')
                         note = donation_data.get('message') or ''
+                        
                         # 감사 인사 프롬프트 구성
                         thank_prompt = (
                             f"후원 감사합니다. 후원자: {donor}, 금액: {amount} 크레딧. "
                             f"후원 메시지: {note}. 친근하고 간단한 감사 인사를 해주세요."
-                            f"후원자의 질문이 "
                         )
-                        logger.info("🤖 후원 감사 AI 응답 트리거")
+                        logger.info(f"🤖 후원 감사 AI 응답 트리거 - {donor}: {amount}크레딧")
                         await self.process_ai_response(thank_prompt)
+                        
+                        # 메모리 관리: 오래된 후원 기록 정리 (최근 100개만 유지)
+                        if len(self.session._processed_donations) > 100:
+                            old_donations = list(self.session._processed_donations)[:50]
+                            for old_donation in old_donations:
+                                self.session._processed_donations.discard(old_donation)
+                    else:
+                        logger.debug(f"🔄 중복된 후원 AI 응답 스킵: {donation_hash}")
+                else:
+                    logger.warning(f"❌ 후원 AI 트리거 조건 실패")
+                        
             except Exception as e:
                 logger.warning(f"후원 감사 AI 트리거 중 경고: {e}")
+                import traceback
+                logger.warning(f"스택 트레이스: {traceback.format_exc()}")
             
         except Exception as e:
             logger.error(f"❌ 후원 메시지 전송 실패: {e}")

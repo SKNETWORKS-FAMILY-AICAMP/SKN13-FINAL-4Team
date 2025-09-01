@@ -31,10 +31,12 @@ class DonationAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        logger.info(f"🚀 DonationAPIView.post 시작 - 사용자: {request.user}")
         room_id = request.data.get('roomId')
         amount = request.data.get('amount')
         message = request.data.get('message', '')
         tts_enabled = request.data.get('tts_enabled', False)
+        logger.info(f"📝 후원 요청 데이터: roomId={room_id}, amount={amount}, message='{message}', tts_enabled={tts_enabled}")
 
         if not all([room_id, amount]):
             return Response({'error': 'roomId와 amount는 필수입니다.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -69,6 +71,14 @@ class DonationAPIView(APIView):
             # WebSocket으로 후원 메시지 전송
             # 여기서 room_id는 채팅방의 pk(id)를 사용합니다.
             room_group_name = f'streaming_chat_{chatroom.influencer.username}'
+            logger.info(f"🎯 후원 WebSocket 전송 시작:")
+            logger.info(f"  - chatroom: {chatroom}")
+            logger.info(f"  - chatroom.id: {chatroom.id}")
+            logger.info(f"  - chatroom.influencer: {chatroom.influencer}")
+            logger.info(f"  - chatroom.influencer.username: {chatroom.influencer.username if chatroom.influencer else 'None'}")
+            logger.info(f"  - room_group_name: {room_group_name}")
+            logger.info(f"  - donation_data: username={user.nickname or user.username}, amount={amount}")
+            
             async_to_sync(channel_layer.group_send)(
                 room_group_name,
                 {
@@ -81,6 +91,7 @@ class DonationAPIView(APIView):
                     }
                 }
             )
+            logger.info(f"✅ 후원 WebSocket 메시지 전송 완료: {room_group_name}")
             
             return Response({'success': '후원이 완료되었습니다.'}, status=status.HTTP_200_OK)
 
