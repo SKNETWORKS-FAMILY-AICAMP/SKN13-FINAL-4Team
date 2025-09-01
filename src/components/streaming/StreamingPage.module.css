@@ -11,6 +11,7 @@
     height: calc(100vh - 200px);
     max-height: calc(100vh - 200px);
     min-height: 400px;
+    z-index: 1;
 }
 
 .video-controls {
@@ -24,10 +25,45 @@
     background-color: rgba(0, 0, 0, 0.6);
     padding: 10px;
     box-sizing: border-box;
+    z-index: 1000;
+    pointer-events: auto;
+    backdrop-filter: blur(5px);
+    transition: opacity 0.3s ease;
+}
+
+.video-controls:hover {
+    background-color: rgba(0, 0, 0, 0.8);
 }
 
 .volume-slider {
     width: 100px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .stream-info h3 {

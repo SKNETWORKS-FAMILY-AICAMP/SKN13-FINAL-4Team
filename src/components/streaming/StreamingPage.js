@@ -911,19 +911,57 @@ function StreamingPage({ isLoggedIn, username }) {
                             </div>
                         )}
                         <div className={styles['video-controls']}>
-                            <Button variant="secondary" size="sm" onClick={handleMuteToggle}>
-                                {isMuted ? 'Unmute' : 'Mute'}
+                            <Button 
+                                variant="secondary" 
+                                size="sm" 
+                                onClick={handleMuteToggle}
+                                style={{
+                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    minWidth: '60px'
+                                }}
+                            >
+                                {isMuted ? '🔇' : '🔊'}
                             </Button>
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max="1" 
-                                step="0.01" 
-                                value={volume} 
-                                onChange={handleVolumeChange} 
-                                className="volume-slider" 
-                            />
-                            <Button variant="secondary" size="sm" onClick={handleFullscreen}>Fullscreen</Button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '120px' }}>
+                                <span style={{ color: 'white', fontSize: '12px', minWidth: '30px' }}>
+                                    {Math.round(volume * 100)}%
+                                </span>
+                                <input 
+                                    type="range" 
+                                    min="0" 
+                                    max="1" 
+                                    step="0.01" 
+                                    value={volume} 
+                                    onChange={handleVolumeChange} 
+                                    className="volume-slider" 
+                                    style={{
+                                        width: '80px',
+                                        height: '6px',
+                                        borderRadius: '3px',
+                                        background: 'rgba(255, 255, 255, 0.3)',
+                                        outline: 'none',
+                                        cursor: 'pointer'
+                                    }}
+                                />
+                            </div>
+                            <div style={{ flex: 1 }}></div>
+                            <Button 
+                                variant="secondary" 
+                                size="sm" 
+                                onClick={handleFullscreen}
+                                style={{
+                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    minWidth: '80px'
+                                }}
+                            >
+                                ⛶ 전체화면
+                            </Button>
                         </div>
                         
                         {/* 비디오 제어 패널 */}
