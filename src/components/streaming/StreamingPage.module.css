@@ -8,8 +8,8 @@
     background-color: var(--color-bg);
     border-radius: 8px;
     overflow: hidden;
-    height: calc(100vh - 200px);
-    max-height: calc(100vh - 200px);
+    height: calc(100vh - 300px);
+    max-height: calc(100vh - 300px);
     min-height: 400px;
     z-index: 1;
 }
@@ -76,9 +76,9 @@
 }
 
 .chat-section-wrapper {
-    height: calc(100vh - 180px);
-    max-height: calc(100vh - 180px);
-    min-height: 500px;
+    height: calc(100vh - 80px);
+    max-height: calc(100vh - 80px);
+    min-height: 600px;
     border-radius: 8px;
     background-color: var(--color-surface);
     overflow: visible;
