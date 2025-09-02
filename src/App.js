@@ -62,6 +62,13 @@ function App() {
 
   useEffect(() => {
     console.log('🚀 App.js useEffect 실행됨');
+    
+    // 다크모드를 기본값으로 설정
+    if (!document.documentElement.getAttribute('data-theme')) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      console.log('🌙 기본 테마를 dark로 설정');
+    }
+    
     const token = localStorage.getItem('accessToken');
     console.log('🔍 localStorage에서 토큰 확인:', !!token);
     

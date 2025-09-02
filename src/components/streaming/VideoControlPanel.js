@@ -7,67 +7,85 @@ import { getVideoAssetsConfig } from '../../utils/videoConfig';
 function VideoControlPanel({ onVideoChange, characterId = "hongseohyun" }) {
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
     const [isVisible, setIsVisible] = useState(false);
+    const [videoFiles, setVideoFiles] = useState([]);
+    const [isConfigLoaded, setIsConfigLoaded] = useState(false);
     
     // Backend API에서 가져온 설정으로 characterId에 따른 비디오 목록 생성
-    const getVideoFiles = (characterId) => {
-        const videoAssetsConfig = getVideoAssetsConfig();
-        const characterConfig = videoAssetsConfig.characters[characterId];
-        if (!characterConfig) {
-            console.warn(`⚠️ 캐릭터 '${characterId}' 설정을 찾을 수 없습니다.`);
-            return [];
-        }
-        
-        const videoFiles = [];
-        const videoCategories = characterConfig.videoCategories;
-        
-        // 각 카테고리별로 비디오 파일들을 수집
-        Object.entries(videoCategories).forEach(([category, categoryConfig]) => {
-            const files = categoryConfig.files || [];
-            files.forEach(filename => {
-                // 카테고리별 라벨 매핑
-                const categoryLabels = {
-                    'idle': '대기',
-                    'talk': '대화',
-                    'laugh': '웃음',
-                    'smile': '미소',
-                    'happy': '기쁨',
-                    'angry': '화남',
-                    'nod': '끄덕임',
-                    'thanks': '감사',
-                    'wondering': '궁금'
-                };
-                
-                // 파일명에서 번호 추출 (예: hongseohyun_idle_2.mp4 → 2)
-                const numberMatch = filename.match(/_(\d+)\.mp4$/);
-                const number = numberMatch ? numberMatch[1] : '';
-                
-                const label = categoryLabels[category] || category;
-                const displayLabel = number ? `${label} ${number}` : label;
-                
-                videoFiles.push({
-                    name: filename,
-                    label: displayLabel,
-                    category: category
+    const loadVideoFiles = async (characterId) => {
+        try {
+            const videoAssetsConfig = getVideoAssetsConfig();
+            
+            // 설정이 아직 로드되지 않았으면 기다림
+            if (!videoAssetsConfig || !videoAssetsConfig.characters) {
+                console.warn('⚠️ 비디오 설정이 아직 로드되지 않았습니다. 로딩 대기...');
+                return [];
+            }
+            
+            const characterConfig = videoAssetsConfig.characters[characterId];
+            if (!characterConfig) {
+                console.warn(`⚠️ 캐릭터 '${characterId}' 설정을 찾을 수 없습니다.`);
+                return [];
+            }
+            
+            const videoFiles = [];
+            const videoCategories = characterConfig.videoCategories;
+            
+            // 각 카테고리별로 비디오 파일들을 수집
+            Object.entries(videoCategories).forEach(([category, categoryConfig]) => {
+                const files = categoryConfig.files || [];
+                files.forEach(filename => {
+                    // 카테고리별 라벨 매핑
+                    const categoryLabels = {
+                        'idle': '대기',
+                        'talk': '대화',
+                        'laugh': '웃음',
+                        'smile': '미소',
+                        'happy': '기쁨',
+                        'angry': '화남',
+                        'nod': '끄덕임',
+                        'thanks': '감사',
+                        'wondering': '궁금'
+                    };
+                    
+                    // 파일명에서 번호 추출 (예: hongseohyun_idle_2.mp4 → 2)
+                    const numberMatch = filename.match(/_(\d+)\.mp4$/);
+                    const number = numberMatch ? numberMatch[1] : '';
+                    
+                    const label = categoryLabels[category] || category;
+                    const displayLabel = number ? `${label} ${number}` : label;
+                    
+                    videoFiles.push({
+                        name: filename,
+                        label: displayLabel,
+                        category: category
+                    });
                 });
             });
-        });
-        
-        return videoFiles;
-    };
-    
-    const videoFiles = getVideoFiles(characterId);
-
-    // characterId 변경 시 인덱스 초기화 및 첫 번째 비디오 호출
-    useEffect(() => {
-        console.log('🔄 VideoControlPanel: characterId 변경됨', characterId);
-        setCurrentVideoIndex(0);
-        
-        // characterId에 맞는 첫 번째 비디오를 부모에게 알림
-        if (onVideoChange && videoFiles.length > 0) {
-            const firstVideo = videoFiles[0];
-            console.log('🎬 VideoControlPanel: characterId 변경으로 첫 번째 비디오 호출', firstVideo.name);
-            onVideoChange(firstVideo, 0);
+            
+            console.log(`✅ 비디오 파일 로딩 완료: ${characterId} (${videoFiles.length}개)`);
+            return videoFiles;
+        } catch (error) {
+            console.error('❌ 비디오 파일 로딩 실패:', error);
+            return [];
         }
+    };
+
+    // 비디오 설정 로딩
+    useEffect(() => {
+        const initVideoFiles = async () => {
+            const files = await loadVideoFiles(characterId);
+            setVideoFiles(files);
+            setIsConfigLoaded(true);
+            
+            // 첫 번째 비디오를 부모에게 알림 (비활성화 - 무한루프 방지)
+            // if (onVideoChange && files.length > 0) {
+            //     const firstVideo = files[0];
+            //     console.log('🎬 VideoControlPanel: 초기 비디오 설정', firstVideo.name);
+            //     onVideoChange(firstVideo, 0);
+            // }
+        };
+        
+        initVideoFiles();
     }, [characterId, onVideoChange]);
 
     // 비디오 변경
@@ -122,6 +140,24 @@ function VideoControlPanel({ onVideoChange, characterId = "hongseohyun" }) {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // 설정이 로드되지 않았으면 로딩 표시
+    if (!isConfigLoaded) {
+        return (
+            <div style={{
+                position: 'absolute',
+                top: '20px',
+                right: '20px',
+                zIndex: 1000,
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                color: 'white',
+                padding: '10px',
+                borderRadius: '5px'
+            }}>
+                🔄 비디오 설정 로딩 중...
+            </div>
+        );
+    }
 
     if (!isVisible) {
         return (

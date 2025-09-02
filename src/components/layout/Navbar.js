@@ -6,7 +6,7 @@ import api from '../../utils/unifiedApiClient';
 
 function Navbar({ isLoggedIn, onLogout, userBalance }) {
   const [user, setUser] = useState(null);
-  const [theme, setTheme] = useState(() => (document.documentElement.getAttribute('data-theme') || 'light'));
+  const [theme, setTheme] = useState(() => (document.documentElement.getAttribute('data-theme') || 'dark'));
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -51,7 +51,18 @@ function Navbar({ isLoggedIn, onLogout, userBalance }) {
   return (
     <nav className="navbar navbar-expand" style={{ backgroundColor: 'var(--color-surface)' }}>
       <div className="container-fluid">
-        <Link className="navbar-brand" to="/" style={{ color: 'var(--brand)' }}>Love Language Model</Link>
+        <Link className="navbar-brand d-flex align-items-center" to="/" style={{ color: 'var(--brand)', textDecoration: 'none' }}>
+          <img 
+            src="/images/logo.png" 
+            alt="Love Language Model" 
+            style={{
+              height: '32px',
+              width: 'auto',
+              marginRight: '10px'
+            }}
+          />
+          Love Language Model
+        </Link>
         <ul className="navbar-nav ms-auto align-items-center">
           <li className="nav-item me-3">
             <button

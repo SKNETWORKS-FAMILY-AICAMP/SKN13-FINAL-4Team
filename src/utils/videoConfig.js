@@ -124,6 +124,140 @@ export const getDefaultIdleVideo = (characterId) => {
 };
 
 /**
+ * 캐릭터별 모든 idle 비디오 목록 가져오기
+ */
+export const getAllIdleVideos = (characterId) => {
+    try {
+        if (!videoAssetsConfig) {
+            console.warn('⚠️ 비디오 설정이 아직 로드되지 않았습니다.');
+            return [getDefaultIdleVideo(characterId)];
+        }
+        
+        const characterConfig = videoAssetsConfig.characters[characterId];
+        if (!characterConfig) {
+            return [getDefaultIdleVideo(characterId)];
+        }
+        
+        const idleConfig = characterConfig.videoCategories?.idle;
+        if (!idleConfig || !idleConfig.files || idleConfig.files.length === 0) {
+            return [getDefaultIdleVideo(characterId)];
+        }
+        
+        return idleConfig.files;
+    } catch (error) {
+        console.error('❌ getAllIdleVideos 오류:', error);
+        return [getDefaultIdleVideo(characterId)];
+    }
+};
+
+/**
+ * 캐릭터별 랜덤 idle 비디오 가져오기
+ */
+export const getRandomIdleVideo = (characterId) => {
+    try {
+        const idleVideos = getAllIdleVideos(characterId);
+        
+        if (idleVideos.length <= 1) {
+            return idleVideos[0];
+        }
+        
+        const randomIndex = Math.floor(Math.random() * idleVideos.length);
+        const selectedVideo = idleVideos[randomIndex];
+        
+        console.log(`🎲 랜덤 idle 비디오 선택: ${selectedVideo} (${randomIndex + 1}/${idleVideos.length})`);
+        return selectedVideo;
+    } catch (error) {
+        console.error('❌ getRandomIdleVideo 오류:', error);
+        return getDefaultIdleVideo(characterId);
+    }
+};
+
+/**
+ * Idle 비디오 순환 관리자
+ */
+class IdleRotationManager {
+    constructor() {
+        this.currentIndex = new Map(); // characterId별 현재 인덱스
+        this.rotationTimers = new Map(); // characterId별 타이머
+    }
+    
+    /**
+     * 다음 idle 비디오 가져오기 (순환)
+     */
+    getNextIdleVideo(characterId) {
+        try {
+            const idleVideos = getAllIdleVideos(characterId);
+            
+            if (idleVideos.length <= 1) {
+                return idleVideos[0];
+            }
+            
+            let currentIndex = this.currentIndex.get(characterId) || 0;
+            currentIndex = (currentIndex + 1) % idleVideos.length;
+            this.currentIndex.set(characterId, currentIndex);
+            
+            const selectedVideo = idleVideos[currentIndex];
+            console.log(`🔄 순환 idle 비디오: ${selectedVideo} (${currentIndex + 1}/${idleVideos.length})`);
+            return selectedVideo;
+        } catch (error) {
+            console.error('❌ getNextIdleVideo 오류:', error);
+            return getDefaultIdleVideo(characterId);
+        }
+    }
+    
+    /**
+     * 현재 idle 인덱스 리셋
+     */
+    resetRotation(characterId) {
+        this.currentIndex.set(characterId, 0);
+        console.log(`🔄 ${characterId} idle 순환 리셋`);
+    }
+    
+    /**
+     * 자동 순환 시작 (주기적으로 idle 비디오 변경)
+     */
+    startAutoRotation(characterId, intervalMs = 30000, onVideoChange) {
+        this.stopAutoRotation(characterId);
+        
+        const timer = setInterval(() => {
+            const nextVideo = this.getNextIdleVideo(characterId);
+            if (onVideoChange) {
+                onVideoChange(nextVideo);
+            }
+        }, intervalMs);
+        
+        this.rotationTimers.set(characterId, timer);
+        console.log(`⏰ ${characterId} 자동 idle 순환 시작 (${intervalMs/1000}초 간격)`);
+    }
+    
+    /**
+     * 자동 순환 중지
+     */
+    stopAutoRotation(characterId) {
+        const timer = this.rotationTimers.get(characterId);
+        if (timer) {
+            clearInterval(timer);
+            this.rotationTimers.delete(characterId);
+            console.log(`⏹️ ${characterId} 자동 idle 순환 중지`);
+        }
+    }
+    
+    /**
+     * 모든 자동 순환 중지
+     */
+    stopAllAutoRotations() {
+        this.rotationTimers.forEach((timer, characterId) => {
+            clearInterval(timer);
+            console.log(`⏹️ ${characterId} 자동 idle 순환 중지`);
+        });
+        this.rotationTimers.clear();
+    }
+}
+
+// 전역 인스턴스
+export const idleRotationManager = new IdleRotationManager();
+
+/**
  * 캐릭터별 기본 talk 비디오 가져오기
  */
 export const getDefaultTalkVideo = (characterId) => {

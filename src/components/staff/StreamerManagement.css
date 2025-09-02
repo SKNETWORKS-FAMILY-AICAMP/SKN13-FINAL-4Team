@@ -1,0 +1,187 @@
+/* Dark Mode CSS Variables for StreamerManagement */
+:root {
+  /* Light mode colors */
+  --color-text: #212529;
+  --color-muted: #6c757d;
+  --color-card-bg: #ffffff;
+  --color-card-bg-secondary: #f8f9fa;
+  --color-border: #dee2e6;
+  --color-primary: #007bff;
+  --color-success: #28a745;
+  --color-danger: #dc3545;
+}
+
+/* Dark mode colors - 강제로 적용 */
+[data-theme="dark"] {
+  --color-text: #ffffff !important;
+  --color-muted: #cccccc !important;
+  --color-card-bg: #2d3748 !important;
+  --color-card-bg-secondary: #4a5568 !important;
+  --color-border: #718096 !important;
+  --color-primary: #0d6efd !important;
+  --color-success: #38a169 !important;
+  --color-danger: #e53e3e !important;
+}
+
+/* Dark mode colors */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-text: #ffffff;
+    --color-muted: #cccccc;
+    --color-card-bg: #2d3748;
+    --color-card-bg-secondary: #4a5568;
+    --color-border: #718096;
+    --color-primary: #0d6efd;
+    --color-success: #38a169;
+    --color-danger: #e53e3e;
+  }
+}
+
+/* Dark mode override class */
+body.dark-mode,
+html[data-theme="dark"] {
+  --color-text: #ffffff !important;
+  --color-muted: #cccccc !important;
+  --color-card-bg: #2d3748 !important;
+  --color-card-bg-secondary: #4a5568 !important;
+  --color-border: #718096 !important;
+  --color-primary: #0d6efd !important;
+  --color-success: #38a169 !important;
+  --color-danger: #e53e3e !important;
+}
+
+/* Modal dark mode styling */
+.dark-modal .modal-content {
+  background-color: var(--color-card-bg) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-text) !important;
+}
+
+.dark-modal .modal-header {
+  border-bottom: 1px solid var(--color-border) !important;
+}
+
+.dark-modal .modal-footer {
+  border-top: 1px solid var(--color-border) !important;
+}
+
+.dark-modal .form-label {
+  color: var(--color-text) !important;
+}
+
+.dark-modal .form-control,
+.dark-modal .form-select {
+  background-color: var(--color-card-bg-secondary) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-text) !important;
+}
+
+.dark-modal .form-control:focus,
+.dark-modal .form-select:focus {
+  background-color: var(--color-card-bg-secondary) !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25) !important;
+  color: var(--color-text) !important;
+}
+
+.dark-modal .form-text {
+  color: var(--color-muted) !important;
+}
+
+.dark-modal .form-check-label {
+  color: var(--color-text) !important;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 768px) {
+  .streamers-grid {
+    padding: 0 10px;
+  }
+  
+  .modal-dialog {
+    margin: 1rem 0.5rem;
+  }
+  
+  .modal-body .row {
+    margin: 0;
+  }
+  
+  .modal-body .row > [class*="col-"] {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .modal-body .row > [class*="col-"] {
+    margin-bottom: 1rem;
+  }
+  
+  .modal-body .col-md-4,
+  .modal-body .col-md-6 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Fallback styles for when CSS variables don't work */
+.admin-page-wrapper h1,
+.admin-page-wrapper h2,
+.admin-page-wrapper h3,
+.admin-page-wrapper h4,
+.admin-page-wrapper h5,
+.admin-page-wrapper h6,
+.admin-page-wrapper p,
+.admin-page-wrapper div,
+.admin-page-wrapper span,
+.admin-page-wrapper strong {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .admin-page-wrapper h1,
+[data-theme="dark"] .admin-page-wrapper h2,
+[data-theme="dark"] .admin-page-wrapper h3,
+[data-theme="dark"] .admin-page-wrapper h4,
+[data-theme="dark"] .admin-page-wrapper h5,
+[data-theme="dark"] .admin-page-wrapper h6,
+[data-theme="dark"] .admin-page-wrapper p,
+[data-theme="dark"] .admin-page-wrapper div,
+[data-theme="dark"] .admin-page-wrapper span,
+[data-theme="dark"] .admin-page-wrapper strong {
+  color: #ffffff !important;
+}
+
+/* Streamer cards fallback */
+[data-theme="dark"] .admin-page-wrapper .streamers-grid > div > div {
+  background-color: #2d3748 !important;
+  border: 1px solid #718096 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .admin-page-wrapper .streamers-grid > div > div * {
+  color: #ffffff !important;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --color-border: #000000;
+    --color-text: #000000;
+    --color-card-bg: #ffffff;
+  }
+  
+  body.dark-mode {
+    --color-border: #ffffff;
+    --color-text: #ffffff;
+    --color-card-bg: #000000;
+  }
+}

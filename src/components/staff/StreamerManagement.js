@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../utils/unifiedApiClient';
 import Sidebar from '../layout/Sidebar';
 import signupStyles from '../auth/SignupForm.module.css';
+import './StreamerManagement.css';
 import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap';
 import voiceValidationService from '../../services/voiceValidationService';
 
@@ -50,25 +51,11 @@ function StreamerManagement() {
                 voiceValidationService.getAvailableModels().catch(() => null)
             ]);
             
-            // 음성 목록 설정 (한국인 음성만 필터링)
+            // 음성 목록 설정 (모든 음성 표시)
             if (voiceResult && voiceResult.success) {
-                // 한국인 음성만 필터링
-                const koreanVoices = (voiceResult.voices || []).filter(voice => {
-                    const name = voice.name?.toLowerCase() || '';
-                    const description = voice.description?.toLowerCase() || '';
-                    const voiceId = voice.voice_id?.toLowerCase() || voice.id?.toLowerCase() || '';
-                    
-                    // 한국인 이름이나 Korean 키워드가 포함된 음성만 선택
-                    return voiceId.includes('aneunjin') || voiceId.includes('kimtaeri') || 
-                           voiceId.includes('kimminjeong') || voiceId.includes('jinseonkyu') || 
-                           voiceId.includes('parkchangwook') || voiceId.includes('jiyoung') ||
-                           name.includes('안은진') || name.includes('김태리') || 
-                           name.includes('김민정') || name.includes('진선규') || 
-                           name.includes('박창욱') || name.includes('jiyoung') ||
-                           description.includes('korean') || description.includes('한국');
-                });
-                
-                setAvailableVoices(koreanVoices);
+                // 모든 음성을 표시 (필터링 제거)
+                const allVoices = voiceResult.voices || [];
+                setAvailableVoices(allVoices);
             } else {
                 // API 호출 실패 시 기본 한국인 음성 목록 사용
                 const defaultKoreanVoices = [
@@ -201,16 +188,16 @@ function StreamerManagement() {
             <div className={signupStyles.signupContainer}>
                 <div className={signupStyles.signupHeader} style={{ marginBottom: '30px' }}>
                     <h1 style={{ 
-                        fontSize: '2.5rem', 
+                        fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', 
                         fontWeight: 'bold', 
-                        color: '#2c3e50',
+                        color: 'var(--color-text)',
                         marginBottom: '10px'
                     }}>
                         👥 인플루언서 관리
                     </h1>
                     <p style={{ 
-                        fontSize: '1.1rem', 
-                        color: '#6c757d',
+                        fontSize: 'clamp(0.9rem, 2.5vw, 1.1rem)', 
+                        color: 'var(--color-muted)',
                         marginBottom: '0'
                     }}>
                         등록된 AI 인플루언서와 TTS 설정을 관리합니다
@@ -251,8 +238,8 @@ function StreamerManagement() {
                             return (
                                 <div key={streamer.character_id} style={{ marginBottom: '20px' }}>
                                     <div style={{
-                                        backgroundColor: 'white',
-                                        border: '1px solid #e0e0e0',
+                                        backgroundColor: '#2d3748',
+                                        border: '1px solid #718096',
                                         borderRadius: '12px',
                                         padding: '30px',
                                         boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
@@ -271,7 +258,7 @@ function StreamerManagement() {
                                                         borderRadius: '50%',
                                                         objectFit: 'cover',
                                                         objectPosition: 'center',
-                                                        border: '2px solid #ddd',
+                                                        border: '2px solid #718096',
                                                         display: 'block',
                                                         flexShrink: 0
                                                     }}
@@ -280,39 +267,39 @@ function StreamerManagement() {
                                             
                                             {/* 정보 */}
                                             <div style={{ flex: 1 }}>
-                                                <h3 style={{ margin: '0 0 15px 0', fontSize: '1.5rem', color: '#333' }}>
+                                                <h3 style={{ margin: '0 0 15px 0', fontSize: '1.5rem', color: '#ffffff' }}>
                                                     {streamer.display_name}
                                                 </h3>
                                                 
                                                 <div style={{ display: 'flex', gap: '40px', marginBottom: '20px' }}>
                                                     <div>
-                                                        <div style={{ marginBottom: '8px', fontSize: '0.95rem' }}>
-                                                            <strong>ID:</strong> {streamer.character_id}
+                                                        <div style={{ marginBottom: '8px', fontSize: '0.95rem', color: '#ffffff' }}>
+                                                            <strong style={{ color: '#ffffff' }}>ID:</strong> {streamer.character_id}
                                                         </div>
-                                                        <div style={{ marginBottom: '8px', fontSize: '0.95rem' }}>
-                                                            <strong>타입:</strong> {streamer.character_type || '미설정'}
+                                                        <div style={{ marginBottom: '8px', fontSize: '0.95rem', color: '#ffffff' }}>
+                                                            <strong style={{ color: '#ffffff' }}>타입:</strong> {streamer.character_type || '미설정'}
                                                         </div>
-                                                        <div style={{ fontSize: '0.95rem' }}>
-                                                            <strong>비디오:</strong> {streamer.video_directory}
+                                                        <div style={{ fontSize: '0.95rem', color: '#ffffff' }}>
+                                                            <strong style={{ color: '#ffffff' }}>비디오:</strong> {streamer.video_directory}
                                                         </div>
                                                     </div>
                                                     
                                                     {settings && (
                                                         <div style={{
-                                                            backgroundColor: '#f8f9fa',
+                                                            backgroundColor: '#4a5568',
                                                             padding: '12px',
                                                             borderRadius: '8px',
-                                                            border: '1px solid #e9ecef'
+                                                            border: '1px solid #718096'
                                                         }}>
-                                                            <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '0.9rem' }}>
+                                                            <div style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '0.9rem', color: '#ffffff' }}>
                                                                 🎵 TTS 설정
                                                             </div>
-                                                            <div style={{ fontSize: '0.85rem', lineHeight: '1.4' }}>
-                                                                <div>음성: <strong>{settings.elevenLabsVoice}</strong></div>
-                                                                <div>모델: <strong>{settings.elevenLabsModel}</strong></div>
+                                                            <div style={{ fontSize: '0.85rem', lineHeight: '1.4', color: '#ffffff' }}>
+                                                                <div>음성: <strong style={{ color: '#ffffff' }}>{settings.elevenLabsVoice}</strong></div>
+                                                                <div>모델: <strong style={{ color: '#ffffff' }}>{settings.elevenLabsModel}</strong></div>
                                                                 <div>
                                                                     자동재생: <strong style={{ 
-                                                                        color: settings.autoPlay ? '#28a745' : '#dc3545' 
+                                                                        color: settings.autoPlay ? '#38a169' : '#e53e3e' 
                                                                     }}>
                                                                         {settings.autoPlay ? 'ON' : 'OFF'}
                                                                     </strong>
@@ -325,12 +312,12 @@ function StreamerManagement() {
                                                 {streamer.description && (
                                                     <div style={{
                                                         fontSize: '0.9rem',
-                                                        color: '#666',
+                                                        color: '#cccccc',
                                                         fontStyle: 'italic',
                                                         padding: '10px',
-                                                        backgroundColor: '#f8f9fa',
+                                                        backgroundColor: '#4a5568',
                                                         borderRadius: '5px',
-                                                        borderLeft: '4px solid #007bff',
+                                                        borderLeft: '4px solid #0d6efd',
                                                         marginBottom: '15px'
                                                     }}>
                                                         {streamer.description}
@@ -343,11 +330,11 @@ function StreamerManagement() {
                                                             width: '10px',
                                                             height: '10px',
                                                             borderRadius: '50%',
-                                                            backgroundColor: streamer.is_active ? '#28a745' : '#dc3545',
+                                                            backgroundColor: streamer.is_active ? '#38a169' : '#e53e3e',
                                                             display: 'inline-block'
                                                         }}></span>
                                                         <span style={{ 
-                                                            color: streamer.is_active ? '#28a745' : '#dc3545',
+                                                            color: streamer.is_active ? '#38a169' : '#e53e3e',
                                                             fontWeight: 'bold',
                                                             fontSize: '0.9rem'
                                                         }}>
@@ -386,12 +373,12 @@ function StreamerManagement() {
                                 src={`/images/${selectedStreamer.character_id}.jpg`}
                                 alt={selectedStreamer.display_name}
                                 style={{
-                                    width: '40px',
-                                    height: '40px',
+                                    width: 'clamp(35px, 8vw, 40px)',
+                                    height: 'clamp(35px, 8vw, 40px)',
                                     objectFit: 'cover',
                                     borderRadius: '50%',
-                                    marginRight: '12px',
-                                    border: '2px solid #dee2e6'
+                                    marginRight: 'clamp(8px, 2vw, 12px)',
+                                    border: '2px solid var(--color-border)'
                                 }}
                                 onError={(e) => {
                                     e.target.style.display = 'none';
@@ -399,16 +386,27 @@ function StreamerManagement() {
                             />
                         )}
                         <div>
-                            <div style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
+                            <div style={{ 
+                                fontSize: 'clamp(1.1rem, 3vw, 1.25rem)', 
+                                fontWeight: 'bold',
+                                color: 'var(--color-text)'
+                            }}>
                                 {selectedStreamer?.display_name} TTS 설정
                             </div>
-                            <small style={{ color: '#6c757d', fontWeight: 'normal' }}>
+                            <small style={{ 
+                                color: 'var(--color-muted)', 
+                                fontWeight: 'normal',
+                                fontSize: 'clamp(0.75rem, 2vw, 0.875rem)'
+                            }}>
                                 {selectedStreamer?.character_id}
                             </small>
                         </div>
                     </Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
+                <Modal.Body style={{
+                    backgroundColor: 'var(--color-card-bg)',
+                    color: 'var(--color-text)'
+                }}>
                     <Form>
                         <div className="row">
                             <div className="col-md-6">
@@ -420,7 +418,15 @@ function StreamerManagement() {
                                     {availableVoices.length > 0 ? (
                                         <Form.Select
                                             value={modalSettings.elevenLabsVoice || ''}
-                                            onChange={(e) => handleModalSettingChange('elevenLabsVoice', e.target.value)}
+                                            onChange={(e) => {
+                                                const selectedVoiceId = e.target.value;
+                                                const selectedVoice = availableVoices.find(voice => 
+                                                    (voice.voice_id || voice.id) === selectedVoiceId
+                                                );
+                                                
+                                                handleModalSettingChange('elevenLabsVoice', selectedVoiceId);
+                                                handleModalSettingChange('elevenLabsVoiceName', selectedVoice?.name || '');
+                                            }}
                                         >
                                             <option value="">음성을 선택하세요</option>
                                             {availableVoices.map(voice => (
@@ -439,8 +445,8 @@ function StreamerManagement() {
                                     )}
                                     <Form.Text className="text-muted">
                                         {availableVoices.length > 0 
-                                            ? `${availableVoices.length}개의 한국인 음성 사용 가능` 
-                                            : '한국인 음성 목록을 불러올 수 없어 직접 입력이 필요합니다'
+                                            ? `${availableVoices.length}개의 음성 사용 가능` 
+                                            : '음성 목록을 불러올 수 없어 직접 입력이 필요합니다'
                                         }
                                     </Form.Text>
                                 </Form.Group>
@@ -583,14 +589,29 @@ function StreamerManagement() {
                         </Form.Group>
                     </Form>
                 </Modal.Body>
-                <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowModal(false)}>
+                <Modal.Footer style={{
+                    backgroundColor: 'var(--color-card-bg)',
+                    borderTop: '1px solid var(--color-border)',
+                    gap: 'clamp(8px, 2vw, 12px)'
+                }}>
+                    <Button 
+                        variant="secondary" 
+                        onClick={() => setShowModal(false)}
+                        style={{
+                            fontSize: 'clamp(0.85rem, 2.5vw, 1rem)',
+                            padding: 'clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 16px)'
+                        }}
+                    >
                         취소
                     </Button>
                     <Button 
                         variant="primary" 
                         onClick={handleSaveTtsSettings}
                         disabled={loading}
+                        style={{
+                            fontSize: 'clamp(0.85rem, 2.5vw, 1rem)',
+                            padding: 'clamp(6px, 1.5vw, 8px) clamp(12px, 3vw, 16px)'
+                        }}
                     >
                         {loading ? '저장 중...' : '저장'}
                     </Button>

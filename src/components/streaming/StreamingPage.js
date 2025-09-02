@@ -10,7 +10,7 @@ import DonationIsland from './DonationIsland';
 import { MediaSyncController } from '../../services/MediaSyncController';
 import { processTextForDisplay, debugVoiceTags } from '../../utils/textUtils';
 import donationTTSService from '../../services/donationTTSService';
-import { getDefaultIdleVideo } from '../../utils/videoConfig';
+import { getDefaultIdleVideo, getRandomIdleVideo } from '../../utils/videoConfig';
 // Hot Reload 테스트 주석 - 2025.08.26 - 최종 수정!
 import styles from './StreamingPage.module.css';
 
@@ -59,7 +59,10 @@ function StreamingPage({ isLoggedIn, username }) {
         generationTime: 0,
         error: null,
         requestedEngine: 'elevenlabs',
-        fallbackUsed: false
+        fallbackUsed: false,
+        aiModel: 'gpt-5-nano',
+        voiceModel: 'eleven_multilingual_v2',
+        voiceName: 'aneunjin'
     });
     const [showDebug, setShowDebug] = useState(true); // 개발용으로 기본값을 true로 변경
     
@@ -70,7 +73,6 @@ function StreamingPage({ isLoggedIn, username }) {
         ttsEngine: 'elevenlabs',
         elevenLabsVoice: 'aneunjin'
     });
-    const [showSettingsManager, setShowSettingsManager] = useState(false);
     
     // 서버 TTS 설정 상태 추가
     const [serverTtsSettings, setServerTtsSettings] = useState(null);
@@ -123,16 +125,16 @@ function StreamingPage({ isLoggedIn, username }) {
         }
     }, [roomId]);
 
-    // chatRoom 정보가 로딩된 후 기본 비디오 설정
+    // chatRoom 정보가 로딩된 후 기본 비디오 설정 (랜덤 idle)
     useEffect(() => {
         if (chatRoom?.streamer?.character_id && !currentVideo) {
             const characterId = chatRoom.streamer.character_id;
-            // video_assets.json에서 동적으로 기본 비디오 가져오기
-            const defaultVideo = getDefaultIdleVideo(characterId);
-            setCurrentVideo(defaultVideo);
-            console.log(`🎬 기본 비디오 설정 완료: ${defaultVideo} (character: ${characterId})`);
+            // 랜덤 idle 비디오로 시작
+            const initialVideo = getRandomIdleVideo(characterId);
+            setCurrentVideo(initialVideo);
+            console.log(`🎬 랜덤 초기 비디오 설정: ${initialVideo} (character: ${characterId})`);
         }
-    }, [chatRoom, currentVideo]);
+    }, [chatRoom]); // currentVideo 의존성 제거 - 무한루프 방지
 
     // 서버에서 TTS 설정 가져오기
     const fetchServerTtsSettings = useCallback(async () => {
@@ -151,6 +153,7 @@ function StreamingPage({ isLoggedIn, username }) {
             const result = await response.json();
             
             if (result.success) {
+                console.log('✅ 서버 TTS 설정 로드 성공:', result.settings);
                 setServerTtsSettings(result.settings);
                 setIsServerSettingsLoaded(true);
                 
@@ -159,6 +162,12 @@ function StreamingPage({ isLoggedIn, username }) {
                     ...prev,
                     ...result.settings
                 }));
+                
+                console.log('🎤 DB에서 로드된 음성 설정:', {
+                    elevenLabsVoice: result.settings.elevenLabsVoice,
+                    elevenLabsModel: result.settings.elevenLabsModel,
+                    ttsEngine: result.settings.ttsEngine
+                });
             } else {
                 console.error('❌ 서버 TTS 설정 로드 실패:', result.error);
             }
@@ -176,6 +185,23 @@ function StreamingPage({ isLoggedIn, username }) {
             fetchServerTtsSettings();
         }
     }, [isLoggedIn, streamerId, fetchServerTtsSettings]);
+
+    // TTS 설정이 로드된 후 디버그 정보 업데이트
+    useEffect(() => {
+        if (isServerSettingsLoaded && ttsSettings) {
+            setDebugInfo(prev => ({
+                ...prev,
+                voiceModel: ttsSettings.elevenLabsModel || prev.voiceModel,
+                voiceName: ttsSettings.elevenLabsVoiceName || ttsSettings.elevenLabsVoice || prev.voiceName,
+                ttsEngine: ttsSettings.ttsEngine || prev.ttsEngine
+            }));
+            console.log('🔧 디버그 정보 업데이트 (DB 설정 반영):', {
+                voiceModel: ttsSettings.elevenLabsModel,
+                voiceName: ttsSettings.elevenLabsVoice,
+                ttsEngine: ttsSettings.ttsEngine
+            });
+        }
+    }, [isServerSettingsLoaded, ttsSettings]);
 
     // 컴포넌트 언마운트 시 타이머 정리
     useEffect(() => {
@@ -237,6 +263,7 @@ function StreamingPage({ isLoggedIn, username }) {
     // 비디오 로딩 완료 핸들러
     const handleVideoLoaded = (videoSrc) => {
         console.log('✅ 비디오 전환 완료:', videoSrc);
+        // setCurrentVideo는 호출하지 않음 - 무한루프 방지
     };
 
     // Broadcasting 시스템에서 자막은 Backend에서 동기화 처리됨
@@ -262,6 +289,20 @@ function StreamingPage({ isLoggedIn, username }) {
                         const videoSrc = idle_video.replace(/^\/videos\//, '');
                         setCurrentVideo(videoSrc);
                         console.log(`😐 Idle 복귀 완료: ${videoSrc}`);
+                        
+                        // 재생 완료 상태로 업데이트
+                        setDebugInfo(prev => ({
+                            ...prev,
+                            isPlaying: false,
+                            textProgress: 100
+                        }));
+                        
+                        setSyncDebugInfo(prev => ({
+                            ...prev,
+                            isPlaying: false,
+                            sync_status: 'idle',
+                            active_broadcasts: Math.max(0, prev.active_broadcasts - 1)
+                        }));
                     },
                     onTalkStart: (talk_video, sync_id) => {
                         console.log(`🗣️ Talk 시작 요청 - 원본 경로: ${talk_video}, sync_id: ${sync_id}`);
@@ -270,6 +311,23 @@ function StreamingPage({ isLoggedIn, username }) {
                         console.log(`🗣️ 변환된 경로: ${videoSrc}`);
                         setCurrentVideo(videoSrc);
                         console.log(`🗣️ Talk 시작 완료: ${videoSrc}`);
+                    },
+                    onAudioProgress: (currentTime, duration, progress) => {
+                        // 오디오 진행률을 디버그 정보로 업데이트
+                        setDebugInfo(prev => ({
+                            ...prev,
+                            isPlaying: audioRef.current ? !audioRef.current.paused : false,
+                            currentTime: currentTime,
+                            audioDuration: duration,
+                            textProgress: progress,
+                            revealedChars: Math.floor((progress / 100) * (prev.totalChars || 0))
+                        }));
+                        
+                        // Broadcasting 상태도 업데이트
+                        setSyncDebugInfo(prev => ({
+                            ...prev,
+                            isPlaying: audioRef.current ? !audioRef.current.paused : false
+                        }));
                     },
                     onPlaybackError: (sync_id, error) => {
                         console.error('❌ 재생 오류:', error);
@@ -422,7 +480,7 @@ function StreamingPage({ isLoggedIn, username }) {
                         tts_info: audioTrack?.meta || { provider: 'queue_system' },
                         talk_video: videoTrack?.payload_ref || null,
                         idle_video: chatRoom?.streamer?.character_id ? 
-                            `/videos/${chatRoom.streamer.character_id}/${getDefaultIdleVideo(chatRoom.streamer.character_id)}` :
+                            `/videos/${chatRoom.streamer.character_id}/${getRandomIdleVideo(chatRoom.streamer.character_id)}` :
                             `/videos/hongseohyun/hongseohyun_idle_2.mp4` // 기본 idle 비디오
                     },
                     sync_id: packet.sync_id,
@@ -734,12 +792,16 @@ function StreamingPage({ isLoggedIn, username }) {
                 setDebugInfo(prev => ({
                     ...prev,
                     syncMode: syncMode,
-                    ttsEngine: data.content?.tts_info?.engine || 'elevenlabs',
+                    ttsEngine: data.content?.tts_info?.engine || data.content?.tts_info?.used_engine || 'elevenlabs',
                     audioDuration: data.content.audio_duration || 0,
                     totalChars: streamText.length,
                     isPlaying: true,
                     voiceSettings: data.metadata?.voice_settings || {},
-                    requestedEngine: data.metadata?.voice_settings?.ttsEngine || 'elevenlabs'
+                    requestedEngine: data.content?.tts_info?.requested_engine || data.metadata?.voice_settings?.ttsEngine || 'elevenlabs',
+                    fallbackUsed: data.content?.tts_info?.fallback_used || false,
+                    aiModel: data.content?.ai_model || data.metadata?.ai_model || 'gpt-5-nano',
+                    voiceModel: data.content?.tts_info?.voice_model || data.metadata?.voice_settings?.elevenLabsModel || ttsSettings.elevenLabsModel || 'eleven_multilingual_v2',
+                    voiceName: data.content?.tts_info?.voice_name || data.metadata?.voice_settings?.elevenLabsVoiceName || ttsSettings.elevenLabsVoiceName || ttsSettings.elevenLabsVoice || 'aneunjin'
                 }));
             }
 
@@ -792,9 +854,7 @@ function StreamingPage({ isLoggedIn, username }) {
             {/* 통합 설정 패널 - 리팩토링된 SettingsPanel 컴포넌트 */}
             <SettingsPanel 
                 showDebug={showDebug}
-                showSettingsManager={showSettingsManager}
                 setShowDebug={setShowDebug}
-                setShowSettingsManager={setShowSettingsManager}
                 debugInfo={debugInfo}
                 syncDebugInfo={syncDebugInfo}
                 revealedSubtitle={revealedSubtitle}
@@ -847,19 +907,6 @@ function StreamingPage({ isLoggedIn, username }) {
                                 }}
                             >
                                 🔧
-                            </Button>
-                            <Button 
-                                variant={showSettingsManager ? "warning" : "outline-light"}
-                                size="sm" 
-                                onClick={() => setShowSettingsManager(!showSettingsManager)}
-                                title="TTS 설정 패널 토글"
-                                style={{
-                                    backgroundColor: showSettingsManager ? '#ffc107' : 'rgba(0,0,0,0.6)',
-                                    border: showSettingsManager ? '1px solid #ffc107' : '1px solid rgba(255,255,255,0.3)',
-                                    color: showSettingsManager ? 'black' : 'white'
-                                }}
-                            >
-                                ⚙️
                             </Button>
                             <Button 
                                 variant={showQueuePanel ? "success" : "outline-light"}

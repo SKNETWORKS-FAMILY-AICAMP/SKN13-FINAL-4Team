@@ -3,6 +3,31 @@ import { Button, Alert } from 'react-bootstrap';
 import api from '../../utils/unifiedApiClient';
 
 
+// TTS 모델명을 사용자 친화적으로 변환하는 함수
+const formatTTSModel = (modelName) => {
+    const modelMapping = {
+        'eleven_multilingual_v2': 'Multilingual v2',
+        'eleven_turbo_v2_5': 'Turbo v2.5',
+        'eleven_turbo_v2': 'Turbo v2',
+        'eleven_monolingual_v1': 'Monolingual v1',
+        'eleven_multilingual_v1': 'Multilingual v1'
+    };
+    return modelMapping[modelName] || modelName;
+};
+
+// 음성 이름을 사용자 친화적으로 변환하는 함수
+const formatVoiceName = (voiceName) => {
+    const voiceMapping = {
+        'aneunjin': '안은진',
+        'kimtaeri': '김태리', 
+        'kimminjeong': '김민정',
+        'jinseonkyu': '진선규',
+        'parkchangwook': '박창욱',
+        'jiyoung': '지영'
+    };
+    return voiceMapping[voiceName] || voiceName;
+};
+
 const DebugPanel = ({ 
     debugInfo, 
     syncDebugInfo, 
@@ -54,6 +79,34 @@ const DebugPanel = ({
                     </span>
                     <small className="ms-2 text-muted">
                         (Chat Completion)
+                    </small>
+                </div>
+
+                {/* TTS 음성 모델 정보 */}
+                <div className="col-12 mb-2">
+                    <strong>🎤 음성 모델:</strong>
+                    <div className="d-flex flex-wrap gap-1 mt-1">
+                        {debugInfo.voiceModel && (
+                            <span className="badge bg-info text-white" title={`원본: ${debugInfo.voiceModel}`}>
+                                {formatTTSModel(debugInfo.voiceModel)}
+                            </span>
+                        )}
+                        {debugInfo.voiceName && (
+                            <span className="badge bg-secondary" title={`음성 ID: ${debugInfo.voiceName}`}>
+                                {formatVoiceName(debugInfo.voiceName)}
+                            </span>
+                        )}
+                        {!debugInfo.voiceModel && !debugInfo.voiceName && (
+                            <span className="badge bg-secondary">
+                                N/A
+                            </span>
+                        )}
+                    </div>
+                    <small className="text-muted">
+                        {debugInfo.voiceModel && debugInfo.voiceName ? 
+                            `${debugInfo.voiceModel} • ${debugInfo.voiceName}` : 
+                            '모델 버전 및 음성 ID'
+                        }
                     </small>
                 </div>
 
