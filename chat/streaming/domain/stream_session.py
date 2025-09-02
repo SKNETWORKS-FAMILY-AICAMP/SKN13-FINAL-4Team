@@ -77,6 +77,7 @@ class StreamSession:
         self.t0_ms = now_ms()  # 세션 시작 시점
         self.seq = 0  # 시퀀스 번호
         self._recent_hashes: List[str] = []  # 중복 패킷 방지용 (최근 50개 저장)
+        self.response_processor_task: Optional[asyncio.Task] = None # 소비자 연결시 할당
         
         # 🆕 Request Queue - MediaPacket 생성용
         self.request_queue = asyncio.Queue()  # 요청 대기열

@@ -1,6 +1,9 @@
+# backend/payments/views.py
 import httpx
 import os
 import base64
+import asyncio
+from datetime import datetime
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -16,28 +19,26 @@ from .serializers import (
 )
 from users.models import UserWallet, CashLog
 from chat.models import ChatRoom
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
+# from chat import agent_manager  # 최상위 import 제거
 import logging
 
 logger = logging.getLogger(__name__)
-channel_layer = get_channel_layer()
-
 
 class DonationAPIView(APIView):
     """
-    채팅방에 크레딧을 후원하는 API
+    채팅방에 크레딧을 후원하는 API (Agent 통합 버전)
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        # 함수 내에서 agent_manager를 import
+        from chat import agent_manager
+        
         logger.info(f"🚀 DonationAPIView.post 시작 - 사용자: {request.user}")
         room_id = request.data.get('roomId')
         amount = request.data.get('amount')
         message = request.data.get('message', '')
-        tts_enabled = request.data.get('tts_enabled', False)
-        logger.info(f"📝 후원 요청 데이터: roomId={room_id}, amount={amount}, message='{message}', tts_enabled={tts_enabled}")
-
+        
         if not all([room_id, amount]):
             return Response({'error': 'roomId와 amount는 필수입니다.'}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -56,11 +57,9 @@ class DonationAPIView(APIView):
             if wallet.balance < amount:
                 return Response({'error': '보유 크레딧이 부족합니다.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # DB 트랜잭션 시작
             with transaction.atomic():
                 wallet.balance -= amount
                 wallet.save()
-
                 CashLog.objects.create(
                     wallet=wallet,
                     log_type='use',
@@ -68,31 +67,27 @@ class DonationAPIView(APIView):
                     description=f"'{chatroom.name}' 방 후원"
                 )
 
-            # WebSocket으로 후원 메시지 전송
-            # 여기서 room_id는 채팅방의 pk(id)를 사용합니다.
-            room_group_name = f'streaming_chat_{chatroom.influencer.username}'
-            logger.info(f"🎯 후원 WebSocket 전송 시작:")
-            logger.info(f"  - chatroom: {chatroom}")
-            logger.info(f"  - chatroom.id: {chatroom.id}")
-            logger.info(f"  - chatroom.influencer: {chatroom.influencer}")
-            logger.info(f"  - chatroom.influencer.username: {chatroom.influencer.username if chatroom.influencer else 'None'}")
-            logger.info(f"  - room_group_name: {room_group_name}")
-            logger.info(f"  - donation_data: username={user.nickname or user.username}, amount={amount}")
-            
-            async_to_sync(channel_layer.group_send)(
-                room_group_name,
-                {
-                    'type': 'donation_message',
-                    'data': {
-                        'username': user.nickname or user.username,
-                        'amount': amount,
-                        'message': message,
-                        'tts_enabled': tts_enabled,
+            # --- Agent의 Superchat 큐로 직접 전달 ---
+            streamer_id = chatroom.influencer.username
+            agent = agent_manager.active_agents.get(streamer_id)
+
+            if agent:
+                superchat_data = {
+                    "type": "superchat",
+                    "content": message or f"{amount} 크레딧 후원!",
+                    "user_id": user.username,
+                    "chat_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "metadata": {
+                        "amount": amount,
+                        "username": user.nickname or user.username,
                     }
                 }
-            )
-            logger.info(f"✅ 후원 WebSocket 메시지 전송 완료: {room_group_name}")
-            
+                # 비동기 함수를 동기 컨텍스트에서 안전하게 호출
+                asyncio.run(agent.on_new_input_async(superchat_data))
+                logger.info(f"✅ Agent Superchat 큐에 후원 메시지 전달 완료: {streamer_id}")
+            else:
+                logger.warning(f"⚠️ Agent 인스턴스를 찾을 수 없어 Superchat 처리를 건너뜁니다: {streamer_id}")
+
             return Response({'success': '후원이 완료되었습니다.'}, status=status.HTTP_200_OK)
 
         except UserWallet.DoesNotExist:
@@ -102,6 +97,8 @@ class DonationAPIView(APIView):
         except Exception as e:
             logger.error(f"후원 처리 중 오류 발생: {e}")
             return Response({'error': '후원 처리 중 오류가 발생했습니다.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+# ... (이하 PaymentPrepareAPIView, PaymentConfirmAPIView는 변경 없음) ...
 
 
 class PaymentPrepareAPIView(APIView):
