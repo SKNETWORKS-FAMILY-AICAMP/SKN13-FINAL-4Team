@@ -1,28 +1,34 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { getDefaultIdleVideo } from '../../utils/videoConfig';
 import styles from './VideoPlayer.module.css';
 
 const VideoPlayer = React.forwardRef(({ 
     currentVideo, 
     onVideoLoaded,
     className = "",
-    donationOverlay
+    donationOverlay,
+    characterId = "hongseohyun"  // DB 연동: characterId prop 추가
 }, ref) => {
     const [isLoading, setIsLoading] = useState(false);
     const videoRef = useRef(null);
 
-    // 비디오 경로 정리 함수
+    // 비디오 경로 정리 함수 (DB 연동: characterId 기반 동적 경로)
     const cleanVideoPath = (videoPath) => {
-        if (!videoPath) return 'jammin-i/a_idle_0.mp4';
-        
-        // Backend에서 온 경로 정리: /videos/jammin-i/a_talk_0.mp4 -> jammin-i/a_talk_0.mp4
-        let cleanPath = videoPath.replace(/^\/videos\//, '');
-        
-        // jammin-i/ 경로가 없으면 추가
-        if (!cleanPath.startsWith('jammin-i/')) {
-            cleanPath = `jammin-i/${cleanPath}`;
+        if (!videoPath) {
+            const defaultVideo = getDefaultIdleVideo(characterId);
+            return `${characterId}/${defaultVideo}`;
         }
         
-        console.log('🔧 비디오 경로 정리:', {
+        // Backend에서 온 경로 정리: /videos/hongseohyun/hongseohyun_talk_1.mp4 -> hongseohyun/hongseohyun_talk_1.mp4
+        let cleanPath = videoPath.replace(/^\/videos\//, '');
+        
+        // characterId/ 경로가 없으면 추가 (하위 호환성)
+        if (!cleanPath.includes('/')) {
+            cleanPath = `${characterId}/${cleanPath}`;
+        }
+        
+        console.log('🔧 비디오 경로 정리 (DB 연동):', {
+            characterId,
             original: videoPath,
             cleaned: cleanPath
         });
@@ -80,6 +86,23 @@ const VideoPlayer = React.forwardRef(({
             
         } catch (error) {
             console.error('❌ 비디오 전환 실패:', error);
+            
+            // 폴백: video_assets.json에서 캐릭터별 기본 idle 비디오로 복귀
+            try {
+                const fallbackVideo = getDefaultIdleVideo(characterId);
+                const fallbackPath = `${characterId}/${fallbackVideo}`;
+                console.log(`🔄 폴백 비디오로 복귀: ${fallbackPath}`);
+                
+                const video = videoRef.current;
+                video.src = `/videos/${fallbackPath}`;
+                await video.play();
+                
+                if (onVideoLoaded) {
+                    onVideoLoaded(fallbackPath);
+                }
+            } catch (fallbackError) {
+                console.error('❌ 폴백 비디오도 실패:', fallbackError);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -100,13 +123,17 @@ const VideoPlayer = React.forwardRef(({
         }
     }, [currentVideo]);
 
-    // 초기 비디오 설정
+    // 초기 비디오 설정 (characterId 의존성 추가)
     useEffect(() => {
         if (videoRef.current) {
             const video = videoRef.current;
-            const initialVideo = cleanVideoPath(currentVideo || 'a_idle_0.mp4');
+            const defaultVideo = getDefaultIdleVideo(characterId);
+            const initialVideo = cleanVideoPath(currentVideo || defaultVideo);
             
-            console.log('🎬 초기 비디오 설정:', initialVideo);
+            console.log('🎬 초기 비디오 설정 (DB 연동):', {
+                characterId,
+                initialVideo
+            });
             
             video.muted = true;
             video.loop = true;
@@ -125,7 +152,7 @@ const VideoPlayer = React.forwardRef(({
             
             video.load();
         }
-    }, []);
+    }, [characterId]); // characterId 의존성 추가
 
     return (
         <div 

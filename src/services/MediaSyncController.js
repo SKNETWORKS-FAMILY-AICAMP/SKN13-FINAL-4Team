@@ -3,6 +3,7 @@
  * 지터버퍼 300ms 적용 + seq 기반 순차 재생
  * DDD StreamSession과 연계된 큐 시스템
  */
+import { getDefaultIdleVideo } from '../utils/videoConfig';
 
 export class MediaSyncController {
     constructor(videoTransitionManager, audioRef, options = {}) {
@@ -12,6 +13,7 @@ export class MediaSyncController {
         this.options = {
             autoReturnToIdle: true,
             debugLogging: true,
+            characterId: 'hongseohyun', // DB 연동: 기본 characterId 추가
             ...options
         };
         
@@ -19,7 +21,7 @@ export class MediaSyncController {
         this.currentPlayback = null;
         this.syncTimeouts = new Map();
         
-        console.log('🎬 간단한 MediaSyncController 초기화:', this.options);
+        console.log('🎬 DB 연동 MediaSyncController 초기화:', this.options);
     }
     
     /**
@@ -47,6 +49,9 @@ export class MediaSyncController {
             
         } catch (error) {
             console.error('❌ 간단한 미디어 처리 실패:', error);
+            
+            // 에러 발생 시 폴백: idle 비디오로 복귀
+            this._handlePlaybackError(error, syncData?.sync_id);
         }
     }
     
@@ -64,9 +69,9 @@ export class MediaSyncController {
                 state: 'playing'
             };
             
-            // 1. Talk 비디오로 즉시 전환
+            // 1. Talk 비디오로 즉시 전환 (DB 연동: 동적 경로 처리)
             if (content.talk_video && this.videoTransitionManager?.current?.changeVideo) {
-                const talkVideoPath = content.talk_video.replace(/^\/videos\//, '').replace(/^jammin-i\//, '');
+                const talkVideoPath = this._cleanVideoPath(content.talk_video);
                 const audioDuration = (content.audio_duration || 5) * 1000; // ms 변환
                 
                 console.log(`🗣️ Talk 시작: ${talkVideoPath} (${audioDuration}ms)`);
@@ -84,9 +89,9 @@ export class MediaSyncController {
                     await this._playAudio(content.audio_url);
                 }
                 
-                // Idle 복귀 스케줄링
+                // Idle 복귀 스케줄링 (DB 연동: 동적 경로 처리)
                 if (content.idle_video) {
-                    const idleVideoPath = content.idle_video.replace(/^\/videos\//, '').replace(/^jammin-i\//, '');
+                    const idleVideoPath = this._cleanVideoPath(content.idle_video);
                     
                     const idleTimeout = setTimeout(() => {
                         console.log(`🏠 Idle 복귀: ${idleVideoPath}`);
@@ -113,6 +118,7 @@ export class MediaSyncController {
             
         } catch (error) {
             console.error('❌ 간단한 재생 실행 실패:', error);
+            this._handlePlaybackError(error, sync_id);
         }
     }
     
@@ -155,14 +161,77 @@ export class MediaSyncController {
             audio.addEventListener('error', handleError);
             
             audio.load();
-            
-            // 3초 타임아웃
-            setTimeout(() => {
-                audio.removeEventListener('canplay', handleCanPlay);
-                audio.removeEventListener('error', handleError);
-                resolve();
-            }, 3000);
         });
+    }
+    
+    /**
+     * DB 연동: 비디오 경로 정리 함수
+     */
+    _cleanVideoPath(videoPath) {
+        if (!videoPath) {
+            const defaultVideo = getDefaultIdleVideo(this.options.characterId);
+            return `${this.options.characterId}/${defaultVideo}`;
+        }
+        
+        // Backend에서 온 경로 정리: /videos/hongseohyun/hongseohyun_talk_1.mp4 -> hongseohyun/hongseohyun_talk_1.mp4
+        let cleanPath = videoPath.replace(/^\/videos\//, '');
+        
+        // characterId가 포함되지 않은 경우 추가 (하위 호환성)
+        if (!cleanPath.includes('/')) {
+            cleanPath = `${this.options.characterId}/${cleanPath}`;
+        }
+        
+        if (this.options.debugLogging) {
+            console.log('🔧 MediaSyncController 비디오 경로 정리:', {
+                characterId: this.options.characterId,
+                original: videoPath,
+                cleaned: cleanPath
+            });
+        }
+        
+        return cleanPath;
+    }
+    
+    /**
+     * characterId 업데이트
+     */
+    updateCharacterId(characterId) {
+        this.options.characterId = characterId;
+        if (this.options.debugLogging) {
+            console.log('🔄 MediaSyncController characterId 업데이트:', characterId);
+        }
+    }
+    
+    /**
+     * 재생 에러 처리 및 폴백
+     */
+    _handlePlaybackError(error, sync_id) {
+        console.error('🚨 재생 에러 발생:', error);
+        
+        // 현재 재생 정리
+        this._clearCurrentPlayback();
+        
+        try {
+            // 폴백: 기본 idle 비디오로 복귀
+            if (this.videoTransitionManager?.current?.changeVideo) {
+                const fallbackVideo = getDefaultIdleVideo(this.options.characterId);
+                const fallbackPath = fallbackVideo;
+                console.log(`🔄 에러 복구: 폴백 비디오로 전환 - ${fallbackPath}`);
+                
+                this.videoTransitionManager.current.changeVideo(fallbackPath)
+                    .catch(fallbackError => {
+                        console.error('❌ 폴백 비디오 전환도 실패:', fallbackError);
+                    });
+            }
+            
+            // 에러 콜백 호출
+            if (this.options.onPlaybackError) {
+                this.options.onPlaybackError(sync_id, error);
+            }
+            
+        } catch (fallbackError) {
+            console.error('❌ 에러 처리 중 추가 에러 발생:', fallbackError);
+        }
     }
     
     /**
@@ -194,9 +263,10 @@ export class MediaSyncController {
         console.log('⏹️ 간단한 재생 강제 정지');
         this._clearCurrentPlayback();
         
-        // 비디오를 idle로 복귀
+        // 비디오를 idle로 복귀 (DB 연동: characterId 기반)
         if (this.videoTransitionManager?.current?.changeVideo) {
-            this.videoTransitionManager.current.changeVideo('a_idle_0.mp4');
+            const idleVideo = getDefaultIdleVideo(this.options.characterId);
+            this.videoTransitionManager.current.changeVideo(idleVideo);
         }
     }
     

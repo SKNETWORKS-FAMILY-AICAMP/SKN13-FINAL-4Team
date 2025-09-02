@@ -1,22 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Form, ButtonGroup, Badge } from 'react-bootstrap';
 
-function VideoControlPanel({ onVideoChange }) {
+// 비디오 설정 유틸리티 임포트
+import { getVideoAssetsConfig } from '../../utils/videoConfig';
+
+function VideoControlPanel({ onVideoChange, characterId = "hongseohyun" }) {
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
     const [isVisible, setIsVisible] = useState(false);
     
-    // 비디오 목록 정의 (실제 존재하는 파일들)
-    const videoFiles = [
-        { name: 'a_idle_0.mp4', label: 'Idle 기본', category: 'idle' },
-        { name: 'a_idle_1.mp4', label: 'Idle 1', category: 'idle' },
-        { name: 'a_idle_3.mp4', label: 'Idle 3', category: 'idle' },
-        { name: 'a_idle_4.mp4', label: 'Idle 4', category: 'idle' },
-        { name: 'a_talk_0.mp4', label: 'Talk 0', category: 'talk' },
-        { name: 'a_talk_1.mp4', label: 'Talk 1', category: 'talk' },
-        { name: 'a_nod_0.mp4', label: 'Nod', category: 'gesture' },
-        { name: 'a_laugh_0.mp4', label: 'Laugh', category: 'emotion' },
-        { name: 'a_angry_0.mp4', label: 'Angry', category: 'emotion' }
-    ];
+    // Backend API에서 가져온 설정으로 characterId에 따른 비디오 목록 생성
+    const getVideoFiles = (characterId) => {
+        const videoAssetsConfig = getVideoAssetsConfig();
+        const characterConfig = videoAssetsConfig.characters[characterId];
+        if (!characterConfig) {
+            console.warn(`⚠️ 캐릭터 '${characterId}' 설정을 찾을 수 없습니다.`);
+            return [];
+        }
+        
+        const videoFiles = [];
+        const videoCategories = characterConfig.videoCategories;
+        
+        // 각 카테고리별로 비디오 파일들을 수집
+        Object.entries(videoCategories).forEach(([category, categoryConfig]) => {
+            const files = categoryConfig.files || [];
+            files.forEach(filename => {
+                // 카테고리별 라벨 매핑
+                const categoryLabels = {
+                    'idle': '대기',
+                    'talk': '대화',
+                    'laugh': '웃음',
+                    'smile': '미소',
+                    'happy': '기쁨',
+                    'angry': '화남',
+                    'nod': '끄덕임',
+                    'thanks': '감사',
+                    'wondering': '궁금'
+                };
+                
+                // 파일명에서 번호 추출 (예: hongseohyun_idle_2.mp4 → 2)
+                const numberMatch = filename.match(/_(\d+)\.mp4$/);
+                const number = numberMatch ? numberMatch[1] : '';
+                
+                const label = categoryLabels[category] || category;
+                const displayLabel = number ? `${label} ${number}` : label;
+                
+                videoFiles.push({
+                    name: filename,
+                    label: displayLabel,
+                    category: category
+                });
+            });
+        });
+        
+        return videoFiles;
+    };
+    
+    const videoFiles = getVideoFiles(characterId);
+
+    // characterId 변경 시 인덱스 초기화 및 첫 번째 비디오 호출
+    useEffect(() => {
+        console.log('🔄 VideoControlPanel: characterId 변경됨', characterId);
+        setCurrentVideoIndex(0);
+        
+        // characterId에 맞는 첫 번째 비디오를 부모에게 알림
+        if (onVideoChange && videoFiles.length > 0) {
+            const firstVideo = videoFiles[0];
+            console.log('🎬 VideoControlPanel: characterId 변경으로 첫 번째 비디오 호출', firstVideo.name);
+            onVideoChange(firstVideo, 0);
+        }
+    }, [characterId, onVideoChange]);
 
     // 비디오 변경
     const changeVideo = (index) => {

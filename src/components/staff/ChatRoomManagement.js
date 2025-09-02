@@ -54,7 +54,7 @@ function ChatRoomManagement() {
             status: room.status,
         });
         // [수정] 썸네일 주소에 apiBaseUrl 변수 사용
-        setEditThumbnailPreview(room.thumbnail ? `${apiBaseUrl}${room.thumbnail}` : '');
+        setEditThumbnailPreview(room.thumbnail ? room.thumbnail : '');
         setShowEditModal(true);
     };
 
@@ -163,13 +163,18 @@ function ChatRoomManagement() {
                                 <td>{room.id}</td>
                                 <td>
                                     <img 
-                                        src={room.thumbnail ? `${apiBaseUrl}${room.thumbnail}` : 'https://via.placeholder.com/80x45'} 
+                                        src={room.thumbnail ? room.thumbnail : `data:image/svg+xml;base64,${btoa(`
+                                            <svg width="80" height="45" xmlns="http://www.w3.org/2000/svg">
+                                                <rect width="100%" height="100%" fill="#f0f0f0"/>
+                                                <text x="50%" y="50%" font-family="Arial" font-size="10" fill="#999" text-anchor="middle" dominant-baseline="middle">No Image</text>
+                                            </svg>
+                                        `)}`}
                                         alt={room.name} 
                                         style={{ width: '80px', height: '45px', objectFit: 'cover' }}
                                     />
                                 </td>
                                 <td>{room.name}</td>
-                                <td>{room.influencer?.nickname || 'N/A'}</td>
+                                <td>{room.streamer?.display_name || 'N/A'}</td>
                                 <td>{getStatusBadge(room.status)}</td>
                                 <td>{new Date(room.created_at).toLocaleString('ko-KR')}</td>
                                 <td>

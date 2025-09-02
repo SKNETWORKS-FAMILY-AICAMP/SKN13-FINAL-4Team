@@ -102,6 +102,34 @@ class VoiceValidationService {
     }
 
     /**
+     * ElevenLabs API에서 사용 가능한 모든 모델 목록 가져오기
+     * @returns {Promise<Array>} 모델 목록
+     */
+    async getAvailableModels() {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch(`${API_BASE_URL}/api/chat/voices/models/`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log('🤖 사용 가능한 모델 목록:', data);
+            return data;
+        } catch (error) {
+            console.error('❌ 모델 목록 가져오기 실패:', error);
+            throw error;
+        }
+    }
+
+    /**
      * 단일 Voice ID 유효성 검증
      * @param {string} voiceId - 검증할 Voice ID
      * @returns {Promise<boolean>} 유효 여부

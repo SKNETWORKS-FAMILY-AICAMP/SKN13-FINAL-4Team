@@ -58,8 +58,13 @@ function HomeTemporary() {
                         const isLive = room.status === 'live';
                         
                         const thumbnailUrl = room.thumbnail 
-                            ? `${apiBaseUrl}${room.thumbnail}`
-                            : `https://via.placeholder.com/400x225.png?text=No+Image`;
+                            ? room.thumbnail
+                            : `data:image/svg+xml;base64,${btoa(`
+                                <svg width="400" height="225" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="100%" height="100%" fill="#f0f0f0"/>
+                                    <text x="50%" y="50%" font-family="Arial" font-size="18" fill="#999" text-anchor="middle" dominant-baseline="middle">No Image</text>
+                                </svg>
+                            `)}`;
 
                         const cardContent = (
                             <div className={styles.card}>
@@ -70,7 +75,7 @@ function HomeTemporary() {
                                     </div>
                                 </div>
                                 <div className={styles.info}>
-                                    <p className={styles.streamerName}>{room.influencer_nickname || room.host_username}</p>
+                                    <p className={styles.streamerName}>{room.streamer?.display_name || room.host_username}</p>
                                     {isLive && <p className={styles.streamTitle}>{room.name}</p>}
                                     <div className={styles.bottomInfo}>
                                         {isLive && <p className={styles.viewerCount}>시청자 {room.viewer_count || 0}명</p>}

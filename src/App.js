@@ -15,6 +15,8 @@ import SuccessPage from './components/pages/SuccessPage';
 import FailPage from './components/pages/FailPage';
 import CreateChatRoom from './components/staff/CreateChatRoom';
 import ChatRoomManagement from './components/staff/ChatRoomManagement';
+import StreamerManagement from './components/staff/StreamerManagement';
+import { initializeVideoConfig } from './utils/videoConfig';
 import './App.css';
 
 function App() {
@@ -63,6 +65,11 @@ function App() {
     const token = localStorage.getItem('accessToken');
     console.log('🔍 localStorage에서 토큰 확인:', !!token);
     
+    // 비디오 설정 초기화
+    initializeVideoConfig()
+      .then(() => console.log('✅ 비디오 설정 초기화 완료'))
+      .catch(error => console.error('❌ 비디오 설정 초기화 실패:', error));
+    
     if (token) {
       console.log('📞 fetchAndSetUser 호출됨 (초기 로드)');
       fetchAndSetUser(); // 토큰 자동 갱신 로직 사용
@@ -109,6 +116,7 @@ function App() {
           {/* 스태프 페이지 */}
           <Route path="/staff/create" element={<CreateChatRoom />} />
           <Route path="/staff/management" element={<ChatRoomManagement />} />
+          <Route path="/staff/streamers" element={<StreamerManagement />} />
           
           {/* 개인 프로필 페이지 */}
           <Route path="/profile" element={<ProfilePage />} />

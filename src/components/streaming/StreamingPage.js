@@ -10,6 +10,7 @@ import DonationIsland from './DonationIsland';
 import { MediaSyncController } from '../../services/MediaSyncController';
 import { processTextForDisplay, debugVoiceTags } from '../../utils/textUtils';
 import donationTTSService from '../../services/donationTTSService';
+import { getDefaultIdleVideo } from '../../utils/videoConfig';
 // Hot Reload 테스트 주석 - 2025.08.26 - 최종 수정!
 import styles from './StreamingPage.module.css';
 
@@ -23,6 +24,8 @@ const DEFAULT_SETTINGS = {
     ttsEngine: 'elevenlabs'
 };
 
+// 캐릭터별 기본 idle 비디오 매핑 - utils/videoConfig.js로 이동됨
+
 function StreamingPage({ isLoggedIn, username }) {
     const { roomId } = useParams();
     const [chatRoom, setChatRoom] = useState(null);
@@ -32,7 +35,7 @@ function StreamingPage({ isLoggedIn, username }) {
     const videoTransitionRef = useRef(null);
     
     // 현재 비디오 상태
-    const [currentVideo, setCurrentVideo] = useState('a_idle_0.mp4');
+    const [currentVideo, setCurrentVideo] = useState(null);
     
     // 자막 상태 추가
     // const [currentSubtitle, setCurrentSubtitle] = useState(''); // Broadcasting 시스템에서 관리
@@ -106,8 +109,8 @@ function StreamingPage({ isLoggedIn, username }) {
                 const data = await response.json();
                 setChatRoom(data);
                 
-                // streamerId를 방 정보에서 파생하여 설정
-                const derivedStreamerId = data?.influencer?.username || null;
+                // streamerId를 방 정보에서 파생하여 설정 (DB 연동: streamer 필드 사용)
+                const derivedStreamerId = data?.streamer?.character_id || data?.influencer?.username || null;
                 setStreamerId(derivedStreamerId);
             } catch (error) {
                 console.error('Error fetching chat room:', error);
@@ -119,6 +122,17 @@ function StreamingPage({ isLoggedIn, username }) {
             fetchChatRoom();
         }
     }, [roomId]);
+
+    // chatRoom 정보가 로딩된 후 기본 비디오 설정
+    useEffect(() => {
+        if (chatRoom?.streamer?.character_id && !currentVideo) {
+            const characterId = chatRoom.streamer.character_id;
+            // video_assets.json에서 동적으로 기본 비디오 가져오기
+            const defaultVideo = getDefaultIdleVideo(characterId);
+            setCurrentVideo(defaultVideo);
+            console.log(`🎬 기본 비디오 설정 완료: ${defaultVideo} (character: ${characterId})`);
+        }
+    }, [chatRoom, currentVideo]);
 
     // 서버에서 TTS 설정 가져오기
     const fetchServerTtsSettings = useCallback(async () => {
@@ -242,15 +256,18 @@ function StreamingPage({ isLoggedIn, username }) {
                     networkLatencyBuffer: 100,
                     autoReturnToIdle: true,
                     debugLogging: true,
+                    characterId: streamerId || "hongseohyun", // DB 연동: characterId 설정
                     onIdleReturn: (idle_video, sync_id) => {
-                        // Idle 복귀 시 상태 업데이트
-                        const videoSrc = idle_video.replace(/^\/videos\//, '').replace('jammin-i/', '');
+                        // Idle 복귀 시 상태 업데이트 (DB 연동: 동적 경로 처리)
+                        const videoSrc = idle_video.replace(/^\/videos\//, '');
                         setCurrentVideo(videoSrc);
                         console.log(`😐 Idle 복귀 완료: ${videoSrc}`);
                     },
                     onTalkStart: (talk_video, sync_id) => {
-                        // Talk 시작 시 상태 업데이트
-                        const videoSrc = talk_video.replace(/^\/videos\//, '').replace('jammin-i/', '');
+                        console.log(`🗣️ Talk 시작 요청 - 원본 경로: ${talk_video}, sync_id: ${sync_id}`);
+                        // Talk 시작 시 상태 업데이트 (DB 연동: 동적 경로 처리)
+                        const videoSrc = talk_video.replace(/^\/videos\//, '');
+                        console.log(`🗣️ 변환된 경로: ${videoSrc}`);
                         setCurrentVideo(videoSrc);
                         console.log(`🗣️ Talk 시작 완료: ${videoSrc}`);
                     },
@@ -260,9 +277,18 @@ function StreamingPage({ isLoggedIn, username }) {
                 }
             );
             
-            console.log('✅ MediaSyncController 초기화 완료');
+            console.log('✅ MediaSyncController 초기화 완료 (DB 연동)', {
+                characterId: streamerId || "hongseohyun"
+            });
         }
-    }, []);
+    }, [videoTransitionRef, audioRef, streamerId]); // streamerId 의존성 추가
+    
+    // streamerId 변경 시 MediaSyncController의 characterId 업데이트
+    useEffect(() => {
+        if (syncMediaPlayerRef.current && streamerId) {
+            syncMediaPlayerRef.current.updateCharacterId(streamerId);
+        }
+    }, [streamerId]);
 
     // WebSocket 메시지 처리 (TTS 설정 변경 및 새로운 Broadcasting 포함)
     const handleWebSocketMessage = (data) => {
@@ -313,6 +339,11 @@ function StreamingPage({ isLoggedIn, username }) {
         // 🆕 MediaPacket 처리
         else if (data.type === 'media_packet' && data.packet) {
             console.log('📦 MediaPacket 수신:', data.packet);
+            console.log('📦 Tracks 정보:', data.packet.tracks?.map(track => ({
+                kind: track.kind,
+                codec: track.codec,
+                payload_ref: track.payload_ref
+            })));
             
             // 🆕 기존 오디오 재생 중단 (새 패킷 수신 시)
             if (audioRef.current && !audioRef.current.paused) {
@@ -389,8 +420,10 @@ function StreamingPage({ isLoggedIn, username }) {
                         audio_url: audioTrack?.payload_ref,
                         audio_duration: audioTrack ? (audioTrack.dur || audioTrack.dur_ms || 0) / 1000 : 0,
                         tts_info: audioTrack?.meta || { provider: 'queue_system' },
-                        talk_video: videoTrack?.payload_ref ? `/videos/${videoTrack.payload_ref}` : null,
-                        idle_video: `/videos/jammin-i/a_idle_0.mp4` // 기본 idle 비디오
+                        talk_video: videoTrack?.payload_ref || null,
+                        idle_video: chatRoom?.streamer?.character_id ? 
+                            `/videos/${chatRoom.streamer.character_id}/${getDefaultIdleVideo(chatRoom.streamer.character_id)}` :
+                            `/videos/hongseohyun/hongseohyun_idle_2.mp4` // 기본 idle 비디오
                     },
                     sync_id: packet.sync_id,
                     sequence_number: packet.sequence_number,
@@ -398,6 +431,7 @@ function StreamingPage({ isLoggedIn, username }) {
                 };
                 
                 console.log('🔄 MediaPacket → synchronized_media 변환:', convertedData);
+                console.log('🎬 Talk Video 경로:', convertedData.content?.talk_video);
                 
                 // 기존 동기화된 미디어 브로드캐스트 핸들러로 처리
                 handleSynchronizedMediaBroadcast(convertedData);
@@ -842,13 +876,14 @@ function StreamingPage({ isLoggedIn, username }) {
                             </Button>
                         </div>
 
-                        {/* 비디오 플레이어 (간단한 전환) */}
+                        {/* 비디오 플레이어 (간단한 전환) - DB 연동: characterId 전달 */}
                         <VideoPlayer
                             ref={videoTransitionRef}
                             currentVideo={currentVideo}
                             onVideoLoaded={handleVideoLoaded}
                             className="streaming-video-container"
                             donationOverlay={donationOverlay}
+                            characterId={streamerId || "hongseohyun"}
                         />
                         
                         {/* 비디오 로딩 실패 시 플레이스홀더 */}
@@ -965,7 +1000,10 @@ function StreamingPage({ isLoggedIn, username }) {
                         </div>
                         
                         {/* 비디오 제어 패널 */}
-                        <VideoControlPanel onVideoChange={handleVideoChange} />
+                        <VideoControlPanel 
+                            onVideoChange={handleVideoChange} 
+                            characterId={streamerId || "hongseohyun"} 
+                        />
                     </div>
                     <div className="stream-info mt-3">
                         <h3>{chatRoom?.name || '스트림'}</h3>
@@ -977,13 +1015,23 @@ function StreamingPage({ isLoggedIn, username }) {
                         <div className="d-flex align-items-center my-3">
                             {(() => {
                                 const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-                                const imageUrl = chatRoom?.influencer?.profile_image 
-                                    ? `${apiBaseUrl}${chatRoom.influencer.profile_image}` 
-                                    : 'https://via.placeholder.com/50';
+                                const imageUrl = chatRoom?.streamer?.display_name
+                                    ? `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(`
+                                        <svg width="50" height="50" xmlns="http://www.w3.org/2000/svg">
+                                            <circle cx="25" cy="25" r="24" fill="#e3f2fd" stroke="#1976d2" stroke-width="1"/>
+                                            <text x="50%" y="55%" font-family="Arial" font-size="12" fill="#1976d2" text-anchor="middle" dominant-baseline="middle">${chatRoom.streamer.display_name.charAt(0)}</text>
+                                        </svg>
+                                    `)))}`
+                                    : `data:image/svg+xml;base64,${btoa(`
+                                        <svg width="50" height="50" xmlns="http://www.w3.org/2000/svg">
+                                            <circle cx="25" cy="25" r="24" fill="#f0f0f0" stroke="#ccc" stroke-width="1"/>
+                                            <text x="50%" y="55%" font-family="Arial" font-size="12" fill="#999" text-anchor="middle" dominant-baseline="middle">?</text>
+                                        </svg>
+                                    `)}`;
                                 return <Image src={imageUrl} roundedCircle />;
                             })()}
                             <div className="ms-3">
-                                <h5 className="mb-0">{chatRoom?.influencer?.nickname || chatRoom?.host?.username || '-'}</h5>
+                                <h5 className="mb-0">{chatRoom?.streamer?.display_name || chatRoom?.host?.username || '-'}</h5>
                                 <p className="mb-0">{chatRoom?.description || ''}</p>
                             </div>
                         </div>

@@ -509,10 +509,9 @@ class MediaPacketSyncController {
       this.audioRef.current.currentTime = 0;
     }
     
-    // 비디오를 idle로 복귀
-    if (this.videoTransitionManager?.current?.changeVideo) {
-      this.videoTransitionManager.current.changeVideo('a_idle_0.mp4');
-    }
+    // 비디오를 idle로 복귀는 StreamingPage에서 처리
+    // (기본 비디오는 character_id에 따라 동적으로 설정됨)
+    console.log('🎬 MediaPacketSyncController: idle 복귀는 StreamingPage에서 처리');
     
     // 큐 초기화
     this.reset();

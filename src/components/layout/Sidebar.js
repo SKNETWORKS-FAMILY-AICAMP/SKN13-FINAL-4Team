@@ -23,6 +23,11 @@ function Sidebar() {
                         방송 관리
                     </NavLink>
                 </li>
+                <li>
+                    <NavLink to="/staff/streamers" className={({ isActive }) => `${styles.sidebarLink} ${isActive ? styles.active : ''}`}>
+                        인플루언서 관리
+                    </NavLink>
+                </li>
             </ul>
         </nav>
     );
