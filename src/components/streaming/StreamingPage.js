@@ -282,11 +282,23 @@ function StreamingPage({ isLoggedIn, username }) {
             setQueueStatus(data.session_info);
         }
         // 🆕 상세 Queue 디버그 정보 처리
-        else if (data.type === 'queue_debug_update' && data.detailed_queue_info) {
-            console.log('🔍 상세 Queue 정보 수신:', data.detailed_queue_info);
-            console.log('🔍 Request Queue:', data.detailed_queue_info.request_queue);
-            console.log('🔍 Response Queue:', data.detailed_queue_info.response_queue);
-            setDetailedQueueInfo(data.detailed_queue_info);
+        else if (data.type === 'queue_debug_update') {
+            console.log('🔍 Queue 정보 수신:', data);
+            
+            if (data.detailed_queue_info) {
+                console.log('🔍 상세 Queue 정보:', data.detailed_queue_info);
+                setDetailedQueueInfo(data.detailed_queue_info);
+            }
+            
+            if (data.session_info) {
+                console.log('🔍 Session 정보:', data.session_info);
+                setSessionInfo(data.session_info);
+            }
+            
+            if (data.queue_status) {
+                console.log('🔍 Queue 상태:', data.queue_status);
+                setQueueStatus(data.queue_status);
+            }
         }
         // 🆕 후원 오버레이 처리
         else if (data.type === 'donation_overlay' && data.data) {
