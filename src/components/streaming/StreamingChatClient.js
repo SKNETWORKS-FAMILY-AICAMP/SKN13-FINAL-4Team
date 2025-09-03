@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Form, Button, Badge } from 'react-bootstrap';
+import { Form, Button } from 'react-bootstrap';
 import { getValidToken } from '../../utils/tokenUtils';
 // Broadcasting 시스템: Backend에서 TTS 설정 및 오디오 처리 관리
 const DEFAULT_SETTINGS = {
@@ -9,6 +9,29 @@ const DEFAULT_SETTINGS = {
     syncMode: 'after_complete',
     autoPlay: true,
     ttsEngine: 'elevenlabs'
+};
+
+// Display name resolver – prefers nickname-like fields
+const resolveDisplayName = (data) => {
+    if (!data) return '';
+    return (
+        data.nickname ||
+        data.sender_nickname ||
+        data.user_nickname ||
+        data.userNickname ||
+        data.nick ||
+        data.name ||
+        data.display_name ||
+        (data.sender && (data.sender.nickname || data.sender.display_name || data.sender.username)) ||
+        (data.author && (data.author.nickname || data.author.display_name || data.author.username)) ||
+        (data.user && (data.user.nickname || data.user.display_name || data.user.username)) ||
+        data.sender_username ||
+        data.user_name ||
+        data.username ||
+        (data.user && data.user.username) ||
+        data.sender ||
+        ''
+    );
 };
 
 const StreamingChatWithTTS = ({ 
@@ -21,7 +44,8 @@ const StreamingChatWithTTS = ({
     externalSettings,
     onSettingsChange,
     externalShowSettings,
-    onShowSettingsChange
+    onShowSettingsChange,
+    onOpenDonation
 }) => {
     const [messages, setMessages] = useState([]);
     const MAX_MESSAGES = 100; // 최대 메시지 개수 제한
@@ -260,12 +284,13 @@ const StreamingChatWithTTS = ({
                             // 후원 메시지를 채팅에 표시
                             const donationMessage = {
                                 id: Date.now() + Math.random(),
-                                message: data.data.message || '',
+                                message: data.message || '',
                                 message_type: 'donation',
-                                sender: data.data.username,
-                                timestamp: data.timestamp || Date.now(),
-                                donation_amount: data.data.amount,
-                                tts_enabled: data.data.tts_enabled
+                                sender: data.user,
+                                sender_display: data.user,
+                                timestamp: data.timestamp || new Date().toISOString(),
+                                donation_amount: data.amount,
+                                tts_enabled: true
                             };
                             
                             addMessage(donationMessage);
@@ -274,7 +299,12 @@ const StreamingChatWithTTS = ({
                             if (onWebSocketMessage) {
                                 onWebSocketMessage({
                                     type: 'donation_overlay',
-                                    data: data.data
+                                    data: {
+                                        message: data.message,
+                                        username: data.user,
+                                        amount: data.amount,
+                                        timestamp: data.timestamp
+                                    }
                                 });
                             }
                             
@@ -399,6 +429,9 @@ const StreamingChatWithTTS = ({
                         const newMessage = {
                             id: Date.now() + Math.random(),
                             ...data,
+                            // Normalize sender display to nickname
+                            sender_display: resolveDisplayName(data),
+                            sender_id: data.user_id || data.sender_id || null,
                             timestamp: data.timestamp || Date.now()
                         };
                         
@@ -541,6 +574,7 @@ const StreamingChatWithTTS = ({
         try {
             const messageText = inputValue.trim();
             const messageData = {
+                type: "chat_message",
                 message: messageText
             };
 
@@ -569,9 +603,9 @@ const StreamingChatWithTTS = ({
         if (msg.message_type === 'system') {
             return (
                 <div key={msg.id} className="chat-message system-message compact-message">
-                    <span className="message-badge">📢</span>
-                    <strong className="message-sender text-info">System</strong>
-                    <span className="message-text text-info">{msg.message}</span>
+                    <span className="message-badge">📢</span>{' '}
+                    <strong className="message-sender text-info">System</strong>{' '}
+                    <span className="message-text text-info">{msg.message}</span>{' '}
                     <small className="message-time">[{messageTime}]</small>
                 </div>
             );
@@ -581,9 +615,9 @@ const StreamingChatWithTTS = ({
         if (msg.message_type === 'ai') {
             return (
                 <div key={msg.id} className="chat-message ai-message compact-message">
-                    <span className="message-badge">🤖</span>
-                    <strong className="message-sender">AI</strong>
-                    <span className="message-text">{msg.message}</span>
+                    <span className="message-badge">🤖</span>{' '}
+                    <strong className="message-sender">AI</strong>{' '}
+                    <span className="message-text">{msg.message}</span>{' '}
                     <small className="message-time">[{messageTime}]</small>
                 </div>
             );
@@ -640,15 +674,15 @@ const StreamingChatWithTTS = ({
         }
 
         // 사용자 메시지
-        const isMyMessage = msg.sender === username;
+        const isMyMessage = (msg.username === username) || (msg.sender === username) || (msg.sender_display === username);
         
         return (
             <div key={msg.id} className={`chat-message user-message compact-message ${isMyMessage ? 'my-message' : ''}`}>
-                <span className="message-badge">👤</span>
+                <span className="message-badge">👤</span>{' '}
                 <strong className={`message-sender ${isMyMessage ? 'text-success' : 'text-primary'}`}>
-                    {msg.sender}
-                </strong>
-                <span className="message-text">{msg.message}</span>
+                    {msg.sender_display || msg.sender}
+                </strong>{' '}
+                <span className="message-text">{msg.message}</span>{' '}
                 <small className="message-time">[{messageTime}]</small>
             </div>
         );
@@ -660,12 +694,12 @@ const StreamingChatWithTTS = ({
             <audio ref={audioRef} style={{ display: 'none' }} />
             
             {/* 채팅 헤더 */}
-            <div className="chat-header bg-dark border-bottom border-secondary p-2">
+            <div className="chat-header p-2">
                 <div className="d-flex justify-content-between align-items-center">
                     <div>
-                        <small className="text-light fw-bold">💬 {streamerId} 채팅방</small>
+                        <small className="fw-bold" style={{ color: 'var(--color-text)' }}>💬 {streamerId} 채팅방</small>
                         {onlineUsers > 0 && (
-                            <span className="ms-2 text-muted">👥 {onlineUsers}명</span>
+                            <span className="ms-2" style={{ color: 'var(--color-text)', opacity: 0.7 }}>👥 {onlineUsers}명</span>
                         )}
                     </div>
                     <div className="d-flex align-items-center gap-2">
@@ -695,23 +729,20 @@ const StreamingChatWithTTS = ({
                                 />
                             )}
                         </div>
-                        <Badge 
-                            bg={isConnected ? "success" : "warning"} 
-                            className="connection-status"
-                        >
+                        <span className="connection-status" style={{ backgroundColor: 'var(--color-bg)', border: '1px solid rgba(0,0,0,0.15)', borderRadius: '999px', padding: '2px 8px' }}>
                             {connectionStatus}
-                        </Badge>
+                        </span>
                     </div>
                 </div>
             </div>
 
             {/* AI 사용법 안내 */}
             {isLoggedIn && (
-                <div className="chat-help bg-primary bg-opacity-10 border-bottom border-primary p-2">
-                    <small className="text-light">
-                        <strong className="text-warning">🤖 AI 어시스턴트 사용법:</strong><br/>
-                        <code className="text-success bg-dark px-1 rounded">@메시지</code> <span className="text-light">- 스트리머 멘션으로 AI 호출</span>
-                        {audioEnabled && <span className="ms-2 text-info">| 🔊 AI 음성 자동 재생 ({
+                <div className="chat-help p-2">
+                    <small style={{ color: 'var(--color-text)' }}>
+                        <strong style={{ color: 'var(--brand)' }}>🤖 AI 어시스턴트:</strong><br/>
+                        <span style={{ color: 'var(--color-text)' }}>메시지를 보내면 AI가 자동으로 응답합니다</span>
+                        {audioEnabled && <span className="ms-2" style={{ color: 'var(--color-text)', opacity: 0.85 }}>| 🔊 AI 음성 자동 재생 ({
                             settings.ttsEngine === 'elevenlabs' ? 'ElevenLabs TTS' : 
                             settings.ttsEngine === 'elevenlabs' ? 'ElevenLabs' :
                             settings.ttsEngine === 'melotts' ? 'MeloTTS' :
@@ -719,7 +750,7 @@ const StreamingChatWithTTS = ({
                             settings.ttsEngine.toUpperCase()
                         })</span>}
                         {isSettingsSynced && serverSettings && (
-                            <span className="ms-2 text-success">| 📡 서버 설정 동기화됨 ({serverSettings.lastUpdatedBy || 'System'})</span>
+                            <span className="ms-2" style={{ color: 'var(--brand)' }}>| 📡 서버 설정 동기화됨 ({serverSettings.lastUpdatedBy || 'System'})</span>
                         )}
                     </small>
                 </div>
@@ -728,12 +759,12 @@ const StreamingChatWithTTS = ({
 
             {/* 채팅 메시지 영역 */}
             <div 
-                className="chat-messages flex-grow-1 overflow-auto p-3 bg-dark"
+                className="chat-messages flex-grow-1 overflow-auto p-3"
                 ref={chatContainerRef}
                 style={{ 
                     scrollbarWidth: 'thin',
                     scrollbarColor: '#495057 #212529',
-                    minHeight: '500px'
+                    minHeight: '400px'
                 }}
             >
                 {messages.length === 0 ? (
@@ -747,35 +778,57 @@ const StreamingChatWithTTS = ({
             </div>
 
             {/* 채팅 입력 영역 */}
-            <div className="chat-input-section bg-dark border-top border-secondary p-3">
+            <div className="chat-input-section p-3">
                 <div className="input-group">
                     <Form.Control
                         as="textarea"
-                        rows={3}
+                        rows={2}
                         placeholder={
                             !isLoggedIn 
                                 ? "로그인 후 채팅에 참여할 수 있습니다..." 
                                 : !isConnected 
                                 ? "연결을 기다리는 중..." 
-                                : "메시지를 입력하세요... (AI 호출: @메시지)"
+                                : "AI에게 메시지를 보내보세요..."
                         }
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         onKeyPress={handleKeyPress}
                         disabled={!isLoggedIn || !isConnected}
-                        className="bg-secondary text-light border-secondary"
+                        className="chat-input"
                         style={{ 
                             resize: 'none',
-                            minHeight: '80px',
+                            minHeight: '50px',
                             fontSize: '14px',
                             lineHeight: '1.4'
                         }}
                     />
+                </div>
+                
+                {/* 버튼 영역 */}
+                <div className="d-flex justify-content-between align-items-center mt-2">
+                    <Button 
+                        variant="outline-primary"
+                        size="sm"
+                        onClick={() => onOpenDonation && onOpenDonation()}
+                        disabled={!isLoggedIn || !isConnected}
+                        style={{
+                            backgroundColor: 'var(--brand)',
+                            borderColor: 'var(--brand)',
+                            color: 'white'
+                        }}
+                    >
+                        💰 후원
+                    </Button>
+                    
                     <Button 
                         variant="primary"
+                        size="sm"
                         onClick={sendMessage}
                         disabled={!isLoggedIn || !isConnected || !inputValue.trim()}
-                        className="px-3"
+                        style={{
+                            backgroundColor: 'var(--brand)',
+                            borderColor: 'var(--brand)'
+                        }}
                     >
                         전송
                     </Button>

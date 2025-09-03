@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+// import { jwtDecode } from 'jwt-decode';
+//import api from './utils/unifiedApiClient';
 import api from './api';
+import { getValidToken } from './utils/tokenUtils';
 import Navbar from './components/layout/Navbar';
 import SignupForm from './components/auth/SignupForm';
 import LoginForm from './components/auth/LoginForm';
@@ -9,11 +12,13 @@ import UserListPage from './components/user/UserListPage';
 import ProfilePage from './components/user/ProfilePage';
 import StreamingPage from './components/streaming/StreamingPage';
 import HomeTemporary from './components/pages/HomeTemporary';
+import FindId from './components/auth/FindId';
+import FindPassword from './components/auth/FindPassword';
+import SuccessPage from './components/pages/SuccessPage';
+import FailPage from './components/pages/FailPage';
 import CreateChatRoom from './components/staff/CreateChatRoom';
 import ChatRoomManagement from './components/staff/ChatRoomManagement';
 import InfluencerManagementPage from './components/staff/InfluencerManagementPage';
-import FindId from './components/auth/FindId';
-import FindPassword from './components/auth/FindPassword';
 import TTSDebugTool from './components/tts/TTSDebugTool';
 import './App.css';
 
@@ -80,6 +85,9 @@ function App() {
         <Navbar isLoggedIn={isLoggedIn} user={user} onLogout={handleLogout} userBalance={userBalance} />
         <Routes>
           <Route path="/" element={<HomeTemporary />} />
+          {/* 결제 결과 페이지 */}
+          <Route path="/success" element={<SuccessPage />} />
+          <Route path="/fail" element={<FailPage />} />
           <Route path="/signup/terms" element={<TermsPage />} />
           <Route path="/signup" element={<SignupForm />} />
           <Route path="/login" element={<LoginForm onLogin={handleLogin} />} />
@@ -92,8 +100,9 @@ function App() {
             <>
               <Route path="/management" element={<UserListPage />} />
               <Route path="/management/userlist" element={<UserListPage />} />
-              <Route path="/staff/create" element={<CreateChatRoom />} />
-              <Route path="/staff/management" element={<ChatRoomManagement />} />
+          {/* 스태프 페이지 */}
+            <Route path="/staff/create" element={<CreateChatRoom />} />
+            <Route path="/staff/management" element={<ChatRoomManagement />} />
               <Route path="/staff/influencers" element={<InfluencerManagementPage />} />
               <Route path="/debug/tts" element={<TTSDebugTool />} />
             </>
@@ -105,6 +114,8 @@ function App() {
               <Route path="/profile" element={<ProfilePage refreshUserData={fetchAndSetUser} />} />
             </>
           )}
+          {/* 호환 라우트: 과거 링크 대응 */}
+          <Route path="/chat/lobby" element={<HomeTemporary />} />
         </Routes>
       </div>
     </Router>

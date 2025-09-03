@@ -1,4 +1,5 @@
 import React from 'react';
+import panelStyles from './Panels.module.css';
 import { Button } from 'react-bootstrap';
 import DebugPanel from './DebugPanel';
 import TTSConfigManager from '../tts/TTSConfigManager';
@@ -54,8 +55,8 @@ const SettingsPanel = ({
     };
 
     return (
-        <div className="settings-panel-overlay">
-            <div className="settings-panel-floating">
+        <div className={panelStyles.overlay}>
+            <div className={panelStyles.floating}>
                 {/* 탭 헤더 */}
                 <div className="d-flex justify-content-between align-items-center mb-3">
                     <div className="d-flex gap-2">

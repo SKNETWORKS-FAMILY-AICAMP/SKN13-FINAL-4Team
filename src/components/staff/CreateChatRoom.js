@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../layout/Sidebar';
 import api from '../../api'; 
-import '../auth/SignupForm.css';
+import signupStyles from '../auth/SignupForm.module.css';
 
 function CreateChatRoom() {
     const [formData, setFormData] = useState({
@@ -92,21 +92,22 @@ function CreateChatRoom() {
     return (
         <div className="admin-page-wrapper">
             <Sidebar />
-            <div className="signup-container">
-                <div className="signup-header">
+            <div className={signupStyles.signupContainer}>
+                <div className={signupStyles.signupHeader}>
                     <h1>방송 생성</h1>
                     <p>새로운 방송의 정보를 입력해주세요.</p>
                 </div>
-                <form className="signup-form" onSubmit={handleSubmit}>
+                <form className={signupStyles.signupForm} onSubmit={handleSubmit}>
                     {error && <p className="error-message" style={{color: 'red', textAlign: 'center'}}>{error}</p>}
                     
-                    <div className="form-group thumbnail-group">
+                    {/* 썸네일 이미지 설정 UI */}
+                    <div className={`${signupStyles.formGroup} ${signupStyles.thumbnailGroup}`}>
                         <label className="form-label text-start d-block">썸네일 이미지</label>
-                        <div className="thumbnail-preview">
+                        <div className={signupStyles.thumbnailPreview}>
                             {thumbnailPreview ? (
                                 <img src={thumbnailPreview} alt="썸네일 미리보기" />
                             ) : (
-                                <div className="thumbnail-placeholder">이미지 없음</div>
+                                <div className={signupStyles.thumbnailPlaceholder}>이미지 없음</div>
                             )}
                         </div>
                         <input
@@ -116,12 +117,13 @@ function CreateChatRoom() {
                             accept="image/*"
                             style={{ display: 'none' }} 
                         />
-                        <button type="button" className="thumbnail-upload-btn" onClick={handleThumbnailButtonClick}>
+                        <button type="button" className={signupStyles.thumbnailUploadBtn} onClick={handleThumbnailButtonClick}>
                             이미지 선택
                         </button>
                     </div>
 
-                    <div className="form-group">
+                    {/* 방송 제목 */}
+                    <div className={signupStyles.formGroup}>
                         <label htmlFor="name" className="form-label text-start d-block">방송 제목</label>
                         <input
                             type="text"
@@ -134,7 +136,8 @@ function CreateChatRoom() {
                         />
                     </div>
 
-                    <div className="form-group">
+                    {/* 방송 설명 */}
+                    <div className={signupStyles.formGroup}>
                         <label htmlFor="description" className="form-label text-start d-block">방송 설명</label>
                         <textarea
                             id="description"
@@ -146,7 +149,8 @@ function CreateChatRoom() {
                         />
                     </div>
 
-                    <div className="form-group">
+                    {/* 인플루언서 선택 */}
+                    <div className={signupStyles.formGroup}>
                         <label htmlFor="influencer" className="form-label text-start d-block">인플루언서</label>
                         <select id="influencer" name="influencer" value={formData.influencer} onChange={handleChange} required>
                             <option value="" disabled>인플루언서를 선택하세요</option>
@@ -158,7 +162,8 @@ function CreateChatRoom() {
                         </select>
                     </div>
 
-                    <div className="form-group">
+                    {/* 방송상태 */}
+                    <div className={signupStyles.formGroup}>
                         <label htmlFor="status" className="form-label text-start d-block">방송상태</label>
                         <select id="status" name="status" value={formData.status} onChange={handleChange}>
                             <option value="pending">준비중</option>
@@ -167,7 +172,7 @@ function CreateChatRoom() {
                         </select>
                     </div>
 
-                    <button type="submit" className="signup-btn">
+                    <button type="submit" className={signupStyles.signupBtn}>
                         생성하기
                     </button>
                 </form>

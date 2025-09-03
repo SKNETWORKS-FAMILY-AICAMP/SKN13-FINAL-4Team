@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { loadTossPayments, ANONYMOUS } from "@tosspayments/tosspayments-sdk";
 import api from '../../utils/unifiedApiClient';
-import './CreditChargeModal.css';
+import styles from './CreditChargeModal.module.css';
 
 // 클라이언트 키는 노출되어도 괜찮은 값입니다.
 const clientKey = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
@@ -130,37 +130,37 @@ const CreditChargeModal = ({ show, onClose }) => {
   }
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
+    <div className={styles.overlay}>
+      <div className={styles.content}>
         <h2>크레딧 충전</h2>
-        <div className="amount-input-container">
+        <div className={styles.amountInputContainer}>
           <input
             type="number"
             value={amount.value}
             onChange={handleAmountChange}
             step="100"
             min="1000"
-            className="amount-input"
+            className={styles.amountInput}
           />
           <span>크레딧</span>
         </div>
-        <div className="preset-buttons">
+        <div className={styles.presetButtons}>
           <button onClick={() => handlePresetAmount(1000)}>1,000</button>
           <button onClick={() => handlePresetAmount(5000)}>5,000</button>
           <button onClick={() => handlePresetAmount(10000)}>10,000</button>
           <button onClick={() => handlePresetAmount(50000)}>50,000</button>
         </div>
-        <div className="price-display">
+        <div className={styles.priceDisplay}>
           <p>{amount.value.toLocaleString()} 크레딧 = {amount.value.toLocaleString()} 원</p>
         </div>
-        {error && <p className="error-message">{error}</p>}
+        {error && <p className={styles.errorMessage}>{error}</p>}
         
         <div id="payment-method" />
         <div id="agreement" />
 
-        <div className="modal-actions">
-          <button onClick={onClose} className="cancel-button">취소</button>
-          <button onClick={handleCharge} disabled={!!error || !ready} className="charge-button">
+        <div className={styles.actions}>
+          <button onClick={onClose} className={styles.cancelButton}>취소</button>
+          <button onClick={handleCharge} disabled={!!error || !ready} className={styles.chargeButton}>
             {amount.value.toLocaleString()}원 결제하기
           </button>
         </div>

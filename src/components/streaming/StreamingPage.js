@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Container, Row, Col, Image, Button, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Image, Button } from 'react-bootstrap';
 import { StreamingChatClient } from './StreamingChatClient';
 import VideoControlPanel from './VideoControlPanel';
 import VideoPlayer from './VideoPlayer';
@@ -11,7 +11,7 @@ import { MediaSyncController } from '../../services/MediaSyncController';
 import { processTextForDisplay, debugVoiceTags } from '../../utils/textUtils';
 import donationTTSService from '../../services/donationTTSService';
 // Hot Reload 테스트 주석 - 2025.08.26 - 최종 수정!
-import './StreamingPage.css';
+import styles from './StreamingPage.module.css';
 
 // Backend에서 TTS 설정 관리, fallback 기본값만 정의
 const DEFAULT_SETTINGS = {
@@ -121,7 +121,7 @@ function StreamingPage({ isLoggedIn, username }) {
     }, [roomId]);
 
     // 서버에서 TTS 설정 가져오기
-    const fetchServerTtsSettings = async () => {
+    const fetchServerTtsSettings = useCallback(async () => {
         if (!streamerId || !isLoggedIn) return;
         
         try {
@@ -151,7 +151,7 @@ function StreamingPage({ isLoggedIn, username }) {
         } catch (error) {
             console.error('❌ 서버 TTS 설정 로드 오류:', error);
         }
-    };
+    }, [streamerId, isLoggedIn]);
 
     // Broadcasting 시스템에서 TTS 설정 관리됨
     // const handleTtsSettingChange = (key, value) => { ... }
@@ -161,7 +161,7 @@ function StreamingPage({ isLoggedIn, username }) {
         if (isLoggedIn && streamerId) {
             fetchServerTtsSettings();
         }
-    }, [isLoggedIn, streamerId]);
+    }, [isLoggedIn, streamerId, fetchServerTtsSettings]);
 
     // 컴포넌트 언마운트 시 타이머 정리
     useEffect(() => {
@@ -183,8 +183,7 @@ function StreamingPage({ isLoggedIn, username }) {
         action();
     };
 
-    const handleDonation = () => handleAction(() => setIsDonationIslandOpen(true));
-    const handleEmoji = () => handleAction(() => alert('준비중입니다.'));
+
 
     const handleMuteToggle = () => {
         if (!audioRef.current) return;
@@ -263,7 +262,7 @@ function StreamingPage({ isLoggedIn, username }) {
             
             console.log('✅ MediaSyncController 초기화 완료');
         }
-    }, [videoTransitionRef.current]);
+    }, []);
 
     // WebSocket 메시지 처리 (TTS 설정 변경 및 새로운 Broadcasting 포함)
     const handleWebSocketMessage = (data) => {
@@ -283,11 +282,23 @@ function StreamingPage({ isLoggedIn, username }) {
             setQueueStatus(data.session_info);
         }
         // 🆕 상세 Queue 디버그 정보 처리
-        else if (data.type === 'queue_debug_update' && data.detailed_queue_info) {
-            console.log('🔍 상세 Queue 정보 수신:', data.detailed_queue_info);
-            console.log('🔍 Request Queue:', data.detailed_queue_info.request_queue);
-            console.log('🔍 Response Queue:', data.detailed_queue_info.response_queue);
-            setDetailedQueueInfo(data.detailed_queue_info);
+        else if (data.type === 'queue_debug_update') {
+            console.log('🔍 Queue 정보 수신:', data);
+            
+            if (data.detailed_queue_info) {
+                console.log('🔍 상세 Queue 정보:', data.detailed_queue_info);
+                setDetailedQueueInfo(data.detailed_queue_info);
+            }
+            
+            if (data.session_info) {
+                console.log('🔍 Session 정보:', data.session_info);
+                setSessionInfo(data.session_info);
+            }
+            
+            if (data.queue_status) {
+                console.log('🔍 Queue 상태:', data.queue_status);
+                setQueueStatus(data.queue_status);
+            }
         }
         // 🆕 후원 오버레이 처리
         else if (data.type === 'donation_overlay' && data.data) {
@@ -745,7 +756,7 @@ function StreamingPage({ isLoggedIn, username }) {
     // streamInfo 미사용으로 제거
 
     return (
-        <Container fluid className="streaming-container mt-4">
+        <Container fluid className={`${styles['streaming-container']} mt-4`}>
             
             {/* 후원 아일랜드 */}
             {isDonationIslandOpen && chatRoom && (
@@ -789,7 +800,7 @@ function StreamingPage({ isLoggedIn, username }) {
 
             <Row>
                 <Col md={8}>
-                    <div className="video-player-wrapper" ref={videoContainerRef} style={{ position: 'relative' }}>
+                    <div className={styles['video-player-wrapper']} ref={videoContainerRef} style={{ position: 'relative' }}>
                         {/* 패널 토글 버튼 - 좌측 상단 고정 */}
                         <div 
                             className="panel-toggle-buttons"
@@ -905,26 +916,64 @@ function StreamingPage({ isLoggedIn, username }) {
                         
                         {/* AI 자막 표시 - 스트리밍 텍스트 */}
                         {showSubtitle && revealedSubtitle && (
-                            <div className="ai-subtitle">
-                                <div className="subtitle-background">
-                                    <span className="subtitle-text">{revealedSubtitle}</span>
+                            <div className={styles['ai-subtitle']}>
+                                <div className={styles['subtitle-background']}>
+                                    <span className={styles['subtitle-text']}>{revealedSubtitle}</span>
                                 </div>
                             </div>
                         )}
-                        <div className="video-controls">
-                            <Button variant="secondary" size="sm" onClick={handleMuteToggle}>
-                                {isMuted ? 'Unmute' : 'Mute'}
+                        <div className={styles['video-controls']}>
+                            <Button 
+                                variant="secondary" 
+                                size="sm" 
+                                onClick={handleMuteToggle}
+                                style={{
+                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    minWidth: '60px'
+                                }}
+                            >
+                                {isMuted ? '🔇' : '🔊'}
                             </Button>
-                            <input 
-                                type="range" 
-                                min="0" 
-                                max="1" 
-                                step="0.01" 
-                                value={volume} 
-                                onChange={handleVolumeChange} 
-                                className="volume-slider" 
-                            />
-                            <Button variant="secondary" size="sm" onClick={handleFullscreen}>Fullscreen</Button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '120px' }}>
+                                <span style={{ color: 'white', fontSize: '12px', minWidth: '30px' }}>
+                                    {Math.round(volume * 100)}%
+                                </span>
+                                <input 
+                                    type="range" 
+                                    min="0" 
+                                    max="1" 
+                                    step="0.01" 
+                                    value={volume} 
+                                    onChange={handleVolumeChange} 
+                                    className="volume-slider" 
+                                    style={{
+                                        width: '80px',
+                                        height: '6px',
+                                        borderRadius: '3px',
+                                        background: 'rgba(255, 255, 255, 0.3)',
+                                        outline: 'none',
+                                        cursor: 'pointer'
+                                    }}
+                                />
+                            </div>
+                            <div style={{ flex: 1 }}></div>
+                            <Button 
+                                variant="secondary" 
+                                size="sm" 
+                                onClick={handleFullscreen}
+                                style={{
+                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                                    color: 'white',
+                                    fontWeight: 'bold',
+                                    minWidth: '80px'
+                                }}
+                            >
+                                ⛶ 전체화면
+                            </Button>
                         </div>
                         
                         {/* 비디오 제어 패널 */}
@@ -953,9 +1002,9 @@ function StreamingPage({ isLoggedIn, username }) {
                     </div>
                 </Col>
                 <Col md={4}>
-                    <div className="chat-section-wrapper d-flex flex-column h-100">
+                    <div className={`${styles['chat-section-wrapper']} d-flex flex-column h-100`}>
                         {/* 채팅 컨테이너 - 대부분의 공간 사용, 입력창 포함 */}
-                        <div className="chat-container-with-input flex-grow-1 d-flex flex-column">
+                        <div className={`${styles['chat-container-with-input']} flex-grow-1 d-flex flex-column`}>
                             {streamerId ? (
                                 <StreamingChatClient 
                                         streamerId={streamerId}
@@ -975,17 +1024,7 @@ function StreamingPage({ isLoggedIn, username }) {
                             )}
                         </div>
                         
-                        {/* 후원 버튼 영역 - 다시 활성화 */}
-                        <div className="external-actions-wrapper flex-shrink-0">
-                            <div className="external-actions">
-                                <Button variant="warning" size="sm" onClick={handleDonation}>
-                                    💰 후원
-                                </Button>
-                                <Button variant="light" size="sm" onClick={handleEmoji}>
-                                    😊 이모티콘
-                                </Button>
-                            </div>
-                        </div>
+
                     </div>
                 </Col>
             </Row>
