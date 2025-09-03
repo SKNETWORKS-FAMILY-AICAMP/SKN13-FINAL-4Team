@@ -239,3 +239,37 @@ class StreamerTTSSettings(models.Model):
             }
         )
         return settings, created
+
+
+# ============================================
+# 임시 기능: AI 스트리머 사연 처리 모델
+# - DB 담당자와 협의 후 확정될 예정입니다.
+# ============================================
+import uuid
+
+class Story(models.Model):
+    """
+    AI 스트리머가 읽을 사연 모델 (임시)
+    """
+    STATUS_CHOICES = (
+        ('pending', '대기'),
+        ('reading', '읽는 중'),
+        ('done', '완료'),
+    )
+    story_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey('users.User', on_delete=models.CASCADE, help_text='사연을 제출한 사용자')
+    title = models.CharField(max_length=255, help_text='사연 제목')
+    body = models.TextField(help_text='사연 본문')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending', help_text='사연 처리 상태')
+    submitted_at = models.DateTimeField(auto_now_add=True, help_text='제출 시간')
+
+    class Meta:
+        verbose_name = 'Story'
+        verbose_name_plural = 'Stories'
+        ordering = ['submitted_at']
+
+    def __str__(self):
+        return f"Story by {self.user.username}: {self.title}"
+# ============================================
+# 임시 기능 종료
+# ============================================

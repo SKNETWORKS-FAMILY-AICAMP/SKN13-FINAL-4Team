@@ -14,7 +14,7 @@ from datetime import datetime
 from django.conf import settings
 from django.core.cache import cache
 import openai
-import requests
+import httpx
 from .video_manager import VideoSelector
 from .streaming.domain.stream_session import StreamSession, MediaTrack, MediaPacket
 
@@ -505,8 +505,9 @@ class MediaProcessingHub:
                 logger.info(f"🚫 HTTP 요청 전 취소 확인됨: {text[:30]}...")
                 return None
             
-            # 동기 HTTP 요청 with timeout
-            response = requests.post(url, json=data, headers=headers, timeout=10.0)
+            # 비동기 HTTP 요청 with timeout
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(url, json=data, headers=headers)
             
             # 취소 확인
             if cancel_event and cancel_event.is_set():

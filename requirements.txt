@@ -23,6 +23,10 @@ openai
 python-dotenv
 httpx  # ElevenLabs API 호출용
 requests  # HTTP 요청용
+langchain
+langchain-core
+langgraph
+langchain-openai
 
 # Audio Processing
 soundfile  # 오디오 파일 처리
