@@ -4,18 +4,21 @@ import asyncio
 from collections import deque
 from threading import Lock
 from typing import Callable, Optional
+from datetime import datetime
 from .topic import TopicThreading
 from .classifiers import LiteClassifier
+from langchain_core.messages import HumanMessage
 
 class QueueManager:
     """일반 큐 관리 + 자동 트리거 판단"""
-    def __init__(self, topic: TopicThreading, trigger_graph_cb: Callable[[str], None]):
+    def __init__(self, topic: TopicThreading, trigger_graph_cb: Callable[[str], None], broadcast_cb: Callable[[], None] = None):
         self.topic = topic
         self.general_queue = deque(maxlen=200)
         self.last_event_ts = time.time()
         self._runner_lock = Lock()
         self._graph_busy = False
         self.trigger_graph_cb = trigger_graph_cb
+        self.broadcast_cb = broadcast_cb
         self.MAX_THREAD_CANDIDATES = 5
         self._q_lock = Lock()
 
@@ -80,6 +83,10 @@ class QueueManager:
         with self._q_lock:
             self.general_queue.append({**msg, "thread_id": tid, "topic": label, "salience": salience, "intent": {"love": lite_res.get("love", 0.0), "greeting": lite_res.get("greeting", 0.0), "trivia": lite_res.get("trivia", 0.0)}, "categories": categories, "ts": now_mono})
             snapshot = list(self.general_queue)
+        
+        # 큐 상태 브로드캐스트 (비동기)
+        if self.broadcast_cb:
+            asyncio.create_task(self.broadcast_cb())
 
         reasons = []
         if self.topic.topic_ctx["score"] >= self.topic.TOPIC_SCORE_TRIGGER:
@@ -156,7 +163,8 @@ class QueueManager:
                 top_tid, _ = max(counts.items(), key=lambda kv: kv[1])
                 top_label = self.topic.topic_threads.get(top_tid, {}).get("label") or next((mm.get("topic") for mm in snapshot if mm.get("thread_id") == top_tid), "일반")
                 self.topic.topic_ctx.update({"active_tid": top_tid, "active_label": top_label, "score": self.topic.TOPIC_SCORE_TRIGGER, "started_at": time.monotonic()})
-                self.trigger_graph_cb("takeover_after_drain")
+                if not self.is_busy():
+                    self.trigger_graph_cb("takeover_after_drain")
         content = best.get("content", "")
         user_id = best.get("user_id", "guest")
         chat_date = best.get("chat_date", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))

@@ -66,7 +66,8 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             agent_manager.active_agents[self.streamer_id] = LoveStreamerAgent(
                 api_key=settings.OPENAI_API_KEY,
                 story_repo=story_repo,
-                chat_repo=chat_repo
+                chat_repo=chat_repo,
+                streamer_id=self.streamer_id
             )
             agent_manager.connection_counts[self.streamer_id] = 0
             
@@ -86,9 +87,12 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         self.agent = agent_manager.active_agents[self.streamer_id]
         self.session = self.agent.responder.stream_session
         
-        # Response Queue 처리 태스크 시작 (세션마다 하나씩)
-        if not self.session.response_processor_task or self.session.response_processor_task.done():
-            self.session.response_processor_task = asyncio.create_task(self.process_response_queue())
+        # Response Queue 처리 태스크 시작 (각 연결마다 독립적으로)
+        self.response_processor_task = asyncio.create_task(self.process_response_queue())
+        logger.info(f"✅ New response processor started for connection {self.channel_name}")
+        
+        # 정기 큐 브로드캐스트 태스크 시작 (각 연결마다 독립적으로)
+        self.periodic_broadcast_task = asyncio.create_task(self._periodic_queue_broadcast())
 
         agent_manager.connection_counts[self.streamer_id] += 1
 
@@ -104,6 +108,15 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         logger.info(f"User {self.user.username} connected to room {self.streamer_id}. Total connections: {agent_manager.connection_counts[self.streamer_id]}")
 
     async def disconnect(self, close_code):
+        # 개별 연결의 태스크들 정리
+        if hasattr(self, 'response_processor_task') and not self.response_processor_task.done():
+            self.response_processor_task.cancel()
+            logger.info(f"🗑️ Response processor cancelled for connection {self.channel_name}")
+            
+        if hasattr(self, 'periodic_broadcast_task') and not self.periodic_broadcast_task.done():
+            self.periodic_broadcast_task.cancel()
+            logger.info(f"🗑️ Periodic broadcast cancelled for connection {self.channel_name}")
+            
         if hasattr(self, 'room_group_name'):
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
             
@@ -117,8 +130,6 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
                     if self.streamer_id in agent_manager.active_agents:
                         del agent_manager.active_agents[self.streamer_id]
                     del agent_manager.connection_counts[self.streamer_id]
-                    if self.session and self.session.response_processor_task:
-                        self.session.response_processor_task.cancel()
                     logger.info(f"Agent for {self.streamer_id} has been shut down.")
 
             if hasattr(self, 'user'):
@@ -156,41 +167,88 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
 
     async def process_response_queue(self):
         """Response Queue를 처리하여 MediaPacket을 모든 클라이언트에게 브로드캐스트"""
-        if not self.session: return
-        logger.info(f"Response Queue Processor started for {self.room_group_name}")
+        if not self.session: 
+            logger.error("❌ No session available for response queue processing")
+            return
+        logger.info(f"🚀 Response Queue Processor started for {self.room_group_name}")
         try:
             async for media_packet in self.session.process_response_queue():
                 if media_packet:
+                    logger.info(f"📦 Broadcasting MediaPacket: seq={media_packet.seq}, hash={media_packet.hash[:8]}")
                     await self.channel_layer.group_send(
                         self.room_group_name,
                         {'type': 'mediapacket_broadcast', 'packet': media_packet.to_dict()}
                     )
+                    logger.info(f"✅ MediaPacket broadcast sent to {self.room_group_name}")
+                else:
+                    logger.warning("⚠️ Received empty MediaPacket from response queue")
         except asyncio.CancelledError:
             logger.info(f"Response Queue Processor for {self.room_group_name} cancelled.")
         except Exception as e:
-            logger.error(f"Response Queue Processor error for {self.room_group_name}: {e}")
+            logger.error(f"❌ Response Queue Processor error for {self.room_group_name}: {e}")
+            import traceback
+            traceback.print_exc()
 
     # --- WebSocket 메시지 핸들러들 ---
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({
             'type': 'chat_message', 'message': event['message'], 'sender': event['sender'],
-            'message_type': 'user', 'timestamp': time.time()
+            'message_type': 'user', 'timestamp': datetime.now().isoformat()
         }))
 
     async def system_message(self, event):
         await self.send(text_data=json.dumps({
             'type': 'system_message', 'message': event['message'],
-            'message_type': 'system', 'timestamp': time.time()
+            'message_type': 'system', 'timestamp': datetime.now().isoformat()
         }))
 
     async def mediapacket_broadcast(self, event):
         await self.send(text_data=json.dumps({
             'type': 'media_packet', 'packet': event['packet'],
-            'message_type': 'ai_mediapacket', 'timestamp': time.time()
+            'message_type': 'ai_mediapacket', 'timestamp': datetime.now().isoformat()
         }))
 
     async def donation_message(self, event):
-        # 이 핸들러는 payments 앱에서 직접 agent.on_new_input_async를 호출하는 방식으로 대체될 예정
-        # 호환성을 위해 남겨두지만, 로직은 비활성화
-        logger.info("Legacy donation_message handler called, but logic is now handled by agent.")
-        pass
+        await self.send(text_data=json.dumps({
+            'type': 'donation_message', 
+            'message': event['message'], 
+            'user': event['user'],
+            'amount': event['amount'],
+            'message_type': 'donation', 
+            'timestamp': event.get('timestamp', datetime.now().isoformat())
+        }))
+
+    async def queue_debug_update(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'queue_debug_update',
+            'detailed_queue_info': event.get('detailed_queue_info'),
+            'session_info': event.get('session_info'),
+            'queue_status': event.get('queue_status'),
+            'timestamp': event.get('timestamp')
+        }))
+
+    async def _periodic_queue_broadcast(self):
+        """2초마다 큐 상태를 정기적으로 브로드캐스트"""
+        logger.info(f"🔄 정기 큐 상태 브로드캐스트 시작: {self.room_group_name}")
+        
+        try:
+            while True:
+                await asyncio.sleep(2.0)  # 2초마다 실행
+                
+                # 에이전트가 존재하는지 확인
+                if (hasattr(self, 'agent') and self.agent and 
+                    hasattr(self.agent, 'broadcast_queue_state')):
+                    try:
+                        await self.agent.broadcast_queue_state()
+                        logger.debug(f"🔄 정기 큐 상태 브로드캐스트 완료: {self.room_group_name}")
+                    except Exception as e:
+                        logger.error(f"❌ 정기 큐 브로드캐스트 오류: {e}")
+                else:
+                    # 에이전트가 없으면 루프 종료
+                    logger.info("Agent not available, stopping periodic broadcast")
+                    break
+                    
+        except asyncio.CancelledError:
+            logger.info(f"🚫 정기 큐 브로드캐스트 취소됨: {self.room_group_name}")
+        except Exception as e:
+            logger.error(f"❌ 정기 큐 브로드캐스트 예외: {e}")

@@ -25,11 +25,11 @@ class GraphPipeline:
     def node_passthrough(self, state: AgentState):
         return state
 
-    def node_select_best(self, state: AgentState):
+    async def node_select_best(self, state: AgentState):
         new_state = self.queue_mgr.select_best_general(state)
         user_id = new_state.get("user_id", "") or "guest"
         now_str = new_state.get("chat_date", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        info = self.user_db.lookup_user(user_id, now_str)
+        info = await self.user_db.lookup_user(user_id, now_str)
         return {**new_state, "db_greeting_info": info}
 
     async def node_final_responder(self, state: AgentState):

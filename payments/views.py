@@ -88,6 +88,27 @@ class DonationAPIView(APIView):
             else:
                 logger.warning(f"⚠️ Agent 인스턴스를 찾을 수 없어 Superchat 처리를 건너뜁니다: {streamer_id}")
 
+            # --- 채팅 UI에 후원 메시지 브로드캐스트 ---
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            
+            channel_layer = get_channel_layer()
+            room_group_name = f'streaming_chat_{streamer_id}'
+            
+            donation_message = {
+                'type': 'donation_message',
+                'message': message or f"{amount} 크레딧 후원!",
+                'user': user.nickname or user.username,
+                'amount': amount,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            async_to_sync(channel_layer.group_send)(
+                room_group_name,
+                donation_message
+            )
+            logger.info(f"✅ UI 후원 메시지 브로드캐스트 완료: {streamer_id}")
+
             return Response({'success': '후원이 완료되었습니다.'}, status=status.HTTP_200_OK)
 
         except UserWallet.DoesNotExist:
