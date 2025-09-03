@@ -156,14 +156,14 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
                 {'type': 'chat_message', 'message': message, 'sender': self.user.username}
             )
 
-            # AI 에이전트에게 모든 메시지 전달
+            # AI 에이전트에게 모든 메시지 전달 (백그라운드 작업으로)
             if self.agent:
-                await self.agent.on_new_input_async({
+                asyncio.create_task(self.agent.on_new_input_async({
                     "type": "normal",
                     "content": message,
                     "user_id": self.user.username,
                     "chat_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                })
+                }))
 
     async def process_response_queue(self):
         """Response Queue를 처리하여 MediaPacket을 모든 클라이언트에게 브로드캐스트"""

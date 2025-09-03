@@ -39,13 +39,13 @@ class QueueManager:
         with self._runner_lock:
             return self._graph_busy
 
-    def wait_graph_idle(self, timeout: float = 2.5) -> bool:
+    async def wait_graph_idle(self, timeout: float = 2.5) -> bool:
         start = time.monotonic()
         while time.monotonic() - start < timeout:
             with self._runner_lock:
                 busy = self._graph_busy
             if not busy: return True
-            time.sleep(0.02)
+            await asyncio.sleep(0.02)
         return False
 
     def recent_count_in_thread(self, tid: Optional[str], within_sec: float = 10.0) -> int:
@@ -171,4 +171,19 @@ class QueueManager:
         msg_categories = best.get("categories")
         category_fallback = self.topic.coarse_category_from_label(best.get("topic", ""))
         categories = msg_categories if msg_categories else [category_fallback]
-        return {**state, "type": "normal", "categories": categories, "best_chat": content, "user_id": user_id, "chat_date": chat_date, "messages": [HumanMessage(content=content)], "__no_selection": False, "msg_id": best.get("msg_id")}
+        
+        # LangSmith 추적을 위해 선택된 메시지의 모든 주요 정보를 상태에 추가
+        return {
+            **state,
+            "type": "normal",
+            "categories": categories,
+            "best_chat": content,
+            "user_id": user_id,
+            "chat_date": chat_date,
+            "messages": [HumanMessage(content=content)],
+            "__no_selection": False,
+            "msg_id": best.get("msg_id"),
+            "thread_id": best.get("thread_id"),  # 누락된 thread_id 추가
+            "topic": best.get("topic"),          # topic 정보 추가
+            "salience": best.get("salience")     # salience 점수 추가
+        }

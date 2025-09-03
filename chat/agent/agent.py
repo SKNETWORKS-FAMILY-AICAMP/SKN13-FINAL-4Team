@@ -62,7 +62,7 @@ class LoveStreamerAgent:
             self.queue.mark_event()
             await self.queue.enqueue_general_chat(input_msg, self.lite)
             await asyncio.sleep(0.1)
-            self.queue.wait_graph_idle(1.0)
+            await self.queue.wait_graph_idle(1.0)
 
         state = self.graph.agent_state
         return {"state": state, "result": self._compact_result_from_state(state)}
