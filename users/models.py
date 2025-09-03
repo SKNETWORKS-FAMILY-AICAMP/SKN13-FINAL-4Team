@@ -37,6 +37,8 @@ class User(AbstractUser):
     # [추가] 생년월일 필드
     birth_date = models.DateField(verbose_name='생년월일', default='2000-01-01')
 
+    verification_code = models.CharField(max_length=6, null=True, blank=True)
+    
     sanctioned_until = models.DateTimeField(
         null=True,
         blank=True,

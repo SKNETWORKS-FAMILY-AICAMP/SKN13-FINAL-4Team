@@ -14,7 +14,11 @@ from .views import (
     PasswordChangeAPIView,
     MyTokenObtainPairView,
     UserWalletAPIView,
-    DevAddCreditsAPIView
+    DevAddCreditsAPIView,
+    DevAddCreditsAPIView,
+    FindUsernameAPIView,
+    PasswordResetRequestAPIView,
+    PasswordResetConfirmAPIView,
 )
 
 
@@ -32,6 +36,9 @@ urlpatterns = [
     path('change-password/', PasswordChangeAPIView.as_view(), name='change-password-api'),
     path('upload-image/', MyProfileAPIView.as_view(), name='upload-image-api'),
     path('api/token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('find-username/', FindUsernameAPIView.as_view(), name='find-username-api'),
+    path('password-reset/request/', PasswordResetRequestAPIView.as_view(), name='password-reset-request-api'),
+    path('password-reset/confirm/', PasswordResetConfirmAPIView.as_view(), name='password-reset-confirm-api'),
     
     # 개발용 API
     path('dev/add-credits/', DevAddCreditsAPIView.as_view(), name='dev-add-credits'),

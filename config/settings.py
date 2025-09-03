@@ -210,3 +210,18 @@ AI_CHATBOT_SETTINGS = {
 - 자연스럽게 대화에 어울리는 태그만 사용하고, 과도하게 사용하지 마세요
 - 한 응답에 1-2개 정도의 태그가 적당합니다''',
 }
+
+
+#if DEBUG:
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# else:
+#     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+# SMTP 서버 정보
+# EMAIL_HOST = 'smtp.gmail.com'       # Gmail SMTP 예시
+# EMAIL_PORT = 587                     # TLS 포트
+# EMAIL_USE_TLS = True
+# EMAIL_USE_SSL = False
+# EMAIL_HOST_USER = 'your_email@gmail.com'      # 실제 발신자 이메일
+# EMAIL_HOST_PASSWORD = 'your_app_password'    # Gmail 앱 비밀번호
+# DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

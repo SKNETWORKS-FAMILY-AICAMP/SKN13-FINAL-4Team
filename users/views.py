@@ -6,8 +6,13 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.views import APIView
 from django.db.models import Q
 from django.conf import settings 
+import random 
+from django.utils import timezone
+from datetime import timedelta
+from django.core.mail import send_mail
 
 from .models import User, UserWallet, CashLog
 from .serializers import MyTokenObtainPairSerializer, UserRegistrationSerializer, UserSerializer,CustomTokenObtainPairSerializer, PasswordChangeSerializer, ProfileUpdateSerializer, UserWalletSerializer
@@ -203,3 +208,102 @@ class DevAddCreditsAPIView(APIView):
             return Response({'error': '올바른 숫자를 입력해주세요.'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': f'서버 오류: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            
+class FindUsernameAPIView(APIView):
+    """
+    이메일을 기반으로 사용자 아이디를 찾아 반환하는 API
+    """
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({"error": "이메일을 입력해주세요."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email=email)
+            username = user.username
+            # 보안을 위해 username의 뒤 3자리를 '*'로 마스킹
+            masked_username = username[:-3] + '***' if len(username) > 3 else username[0] + '***'
+            return Response({"username": masked_username}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({"error": "해당 이메일로 가입된 사용자를 찾을 수 없습니다."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class PasswordResetRequestAPIView(APIView):
+    """
+    사용자 확인 후, 비밀번호 재설정 인증번호를 이메일로 발송합니다.
+    """
+    def post(self, request):
+        username = request.data.get('username')
+        email = request.data.get('email')
+
+        try:
+            user = User.objects.get(username=username, email=email)
+            
+            # 6자리 인증번호 생성
+            code = str(random.randint(100000, 999999))
+            
+            # 인증번호 만료 시간 설정 (예: 10분 후)
+            expires_at = timezone.now() + timedelta(minutes=10)
+            
+            # 사용자 정보에 인증번호와 만료시간 저장
+            user.verification_code = code
+            user.code_expires_at = expires_at
+            user.save()
+            
+            # 이메일 발송
+            send_mail(
+                subject='[MyService] 비밀번호 재설정 인증번호 안내',
+                message=f'회원님의 인증번호는 [{code}] 입니다. 10분 이내에 입력해주세요.',
+                from_email='noreply@myservice.com', # settings.py에 설정된 발신자
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+            
+            return Response({"message": "가입하신 이메일로 인증번호가 발송되었습니다."}, status=status.HTTP_200_OK)
+        
+        except User.DoesNotExist:
+            # 사용자가 존재하지 않더라도, 계정 존재 여부를 알려주지 않기 위해 동일한 메시지를 반환합니다.
+            return Response({"message": "가입하신 이메일로 인증번호가 발송되었습니다."}, status=status.HTTP_200_OK)
+
+# users/views.py
+
+class PasswordResetConfirmAPIView(APIView):
+    """
+    인증번호를 확인하고 새 비밀번호로 재설정합니다.
+    """
+    def post(self, request):
+        username = request.data.get('username')
+        code = request.data.get('code')
+        new_password = request.data.get('new_password')
+        # --- 새 비밀번호 확인 필드 추가 ---
+        new_password_confirm = request.data.get('new_password_confirm')
+        
+        # --- 새 비밀번호와 확인 필드가 일치하는지 검사 ---
+        if new_password != new_password_confirm:
+            return Response({"error": "새 비밀번호가 일치하지 않습니다."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not all([username, code, new_password, new_password_confirm]):
+            return Response({"error": "모든 필드를 입력해주세요."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = User.objects.get(username=username)
+            
+            if user.verification_code != code or timezone.now() > user.code_expires_at:
+                return Response({"error": "인증번호가 유효하지 않거나 만료되었습니다."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            serializer = UserRegistrationSerializer()
+            try:
+                serializer.validate_password(new_password)
+            except serializers.ValidationError as e:
+                return Response({"error": e.detail[0]}, status=status.HTTP_400_BAD_REQUEST)
+
+            user.set_password(new_password)
+            user.verification_code = None
+            user.code_expires_at = None
+            user.save()
+            
+            return Response({"message": "비밀번호가 성공적으로 재설정되었습니다."}, status=status.HTTP_200_OK)
+            
+        except User.DoesNotExist:
+            return Response({"error": "사용자를 찾을 수 없습니다."}, status=status.HTTP_404_NOT_FOUND)

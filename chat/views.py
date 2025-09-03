@@ -15,6 +15,7 @@ from .models import StreamerTTSSettings, ChatRoom
 from .serializers import ChatRoomSerializer, ChatRoomCreateSerializer
 from debugging.models import TTSLog 
 from influencers.models import Influencer 
+from rest_framework.views import APIView
 
 logger = logging.getLogger(__name__)
 channel_layer = get_channel_layer()
@@ -197,3 +198,4 @@ class ChatRoomViewSet(viewsets.ModelViewSet):
             logger.info(f"✅ Cache invalidated due to room deletion.")
         except Exception as e:
             logger.error(f"Cache invalidation failed during destroy: {e}")
+
