@@ -12,6 +12,8 @@ import HomeTemporary from './components/pages/HomeTemporary';
 import CreateChatRoom from './components/staff/CreateChatRoom';
 import ChatRoomManagement from './components/staff/ChatRoomManagement';
 import InfluencerManagementPage from './components/staff/InfluencerManagementPage';
+import FindId from './components/auth/FindId';
+import FindPassword from './components/auth/FindPassword';
 import TTSDebugTool from './components/tts/TTSDebugTool';
 import './App.css';
 
@@ -81,9 +83,10 @@ function App() {
           <Route path="/signup/terms" element={<TermsPage />} />
           <Route path="/signup" element={<SignupForm />} />
           <Route path="/login" element={<LoginForm onLogin={handleLogin} />} />
-          <Route path="/find-id" element={<div>아이디 찾기 페이지</div>} />
-          <Route path="/find-password" element={<div>비밀번호 찾기 페이지</div>} />
-          
+          <Route path="/find-id" element={<FindId />} />
+          <Route path="/find-password" element={<FindPassword />} />
+          <Route path="/stream/:roomId" element={<StreamingPage isLoggedIn={isLoggedIn} user={user} />} />
+
           {/* is_staff가 true일 때만 렌더링되도록 보호 */}
           {user?.is_staff && (
             <>
@@ -100,7 +103,6 @@ function App() {
           {isLoggedIn && (
             <>
               <Route path="/profile" element={<ProfilePage refreshUserData={fetchAndSetUser} />} />
-              <Route path="/stream/:roomId" element={<StreamingPage isLoggedIn={isLoggedIn} user={user} />} />
             </>
           )}
         </Routes>
