@@ -55,19 +55,94 @@ class LiteClassifier:
         return cats or ["기타"]
 
 class EmotionClassifier:
-    """답변 텍스트의 감정 레이블 분류기"""
+    """HuggingFace 기반 한국어 감정 분류기"""
     LABELS = ("neutral", "happy", "sad", "mad")
 
-    def __init__(self, fast_llm: ChatOpenAI):
+    def __init__(self, fast_llm: ChatOpenAI = None):
+        # fast_llm은 호환성을 위해 받지만 사용하지 않음
+        self.model = None
+        self.tokenizer = None
         self.fast_llm = fast_llm
+        
+        try:
+            from transformers import AutoModelForSequenceClassification, AutoTokenizer
+            import torch
+            
+            # 모델 개발자 테스트 코드 기반으로 수정
+            tokenizer_name = "monologg/kobert"
+            model_name = "rkdaldus/ko-sent5-classification"
+            
+            print(f"🔄 토크나이저 로드 시도: {tokenizer_name}")
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                tokenizer_name,
+                trust_remote_code=True
+            )
+            
+            print(f"🔄 감정 분류 모델 로드 시도: {model_name}")
+            self.model = AutoModelForSequenceClassification.from_pretrained(
+                model_name,
+                trust_remote_code=True
+            )
+            
+            # 인덱스에서 시스템 라벨로 직접 매핑
+            # 0: Angry, 1: Fear, 2: Happy, 3: Tender, 4: Sad
+            self.index_to_system_label = {
+                0: "mad",      # Angry
+                1: "sad",      # Fear  
+                2: "happy",    # Happy
+                3: "neutral",  # Tender
+                4: "sad"       # Sad
+            }
+            
+            print(f"✅ HuggingFace 감정 분류 모델 로드 완료: {model_name}")
+            
+        except ImportError as e:
+            print(f"❌ 필수 라이브러리 설치 필요: {e}")
+            print("📦 다음 명령으로 설치하세요:")
+            print("   pip install transformers torch protobuf")
+            print("🔄 룰 기반 폴백 모드로 전환합니다.")
+            
+        except Exception as e:
+            print(f"❌ HuggingFace 모델 로드 실패: {e}")
+            print("🔄 룰 기반 폴백 모드로 전환합니다.")
+            
+        # 최종 상태 확인
+        if self.model is None or self.tokenizer is None:
+            print("⚠️ HF 모델 사용 불가: 룰 기반 분류만 사용됩니다.")
 
     def classify(self, text: str) -> str:
-        sys = SystemMessage(content=(
-            "You are an emotion classifier. "
-            "Given a chat reply, output EXACTLY one label from: neutral, happy, sad, mad. "
-            "No extra words, no punctuation."
-        ))
-        user = HumanMessage(content=f'Text: \"\"\"{text}\"\"\"')
+        """텍스트의 감정을 분류하여 라벨 반환"""
+        if self.model is None or self.tokenizer is None:
+            # 모델 로드 실패 시 기존 룰 기반 폴백
+            return self._fallback_classify(text)
+        
+        try:
+            # 개발자 테스트 코드 방식으로 추론
+            import torch
+            inputs = self.tokenizer(
+                text, 
+                return_tensors="pt", 
+                padding=True, 
+                truncation=True
+            )
+            
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+            
+            # 가장 높은 확률의 라벨 인덱스 선택
+            predicted_index = torch.argmax(outputs.logits, dim=1).item()
+            
+            # 인덱스에서 시스템 라벨로 직접 매핑
+            system_label = self.index_to_system_label.get(predicted_index, "neutral")
+            
+            return system_label
+            
+        except Exception as e:
+            print(f"⚠️ HF 모델 추론 실패: {e}, 폴백 모드 사용")
+            return self._fallback_classify(text)
+    
+    def _fallback_classify(self, text: str) -> str:
+        """모델 실패 시 기존 룰 기반 분류"""
         try:
             low = (text or "").lower()
             if any(k in low for k in ["기뻐", "행복", "좋아", "고마워", "감사", "yay", "great", "awesome", "😊", "😀"]):
@@ -78,7 +153,4 @@ class EmotionClassifier:
                 return "mad"
             return "neutral"
         except Exception:
-            r = self.fast_llm.invoke([sys, user])
-            s = (Utils.text_of(r) or "").strip().lower()
-            s = re.sub(r'[^a-z]', '', s)
-            return s if s in self.LABELS else "neutral"
+            return "neutral"
