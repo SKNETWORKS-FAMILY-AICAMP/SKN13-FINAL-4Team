@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from .models import (
     Influencer, CoreValue, InfluencerCoreValue, 
-    CommunicationStyle, PersonalityTrait, MoralCompass
+    CommunicationStyle, PersonalityTrait, MoralCompass, Story
 )
+from users.serializers import UserSerializer
 
 class CommunicationStyleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -31,13 +32,23 @@ class InfluencerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Influencer
         # API 응답에 포함될 필드 목록
-        fields = [
-            'id',  'name', 'age', 'gender', 'mbti', 'job', 
-            'social_status', 'audience_term', 'origin_story', 'profile_image',
-            'core_values', 'communication_style', 'personality_trait', 'moral_compass'
-        ]
+        fields = '__all__'
 
 class InfluencerWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Influencer
-        fields = ['name', 'age', 'gender', 'mbti']
+        fields = '__all__'
+
+class StorySerializer(serializers.ModelSerializer):
+    author_nickname = serializers.CharField(source='author.nickname', read_only=True)
+
+    class Meta:
+        model = Story
+        fields = ['id', 'title', 'content', 'is_anonymous', 'created_at', 'author', 'author_nickname', 'influencer']
+        read_only_fields = ['author', 'author_nickname']
+
+class DonationRankingSerializer(serializers.Serializer):
+    """열혈 순위 응답을 위한 커스텀 시리얼라이저"""
+    rank = serializers.IntegerField()
+    donor_nickname = serializers.CharField()
+    total_amount = serializers.IntegerField()
