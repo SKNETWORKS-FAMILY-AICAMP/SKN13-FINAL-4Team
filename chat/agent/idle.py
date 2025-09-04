@@ -11,11 +11,21 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 class IdleManager:
     """무채팅 자동 멘트/리캡 + 정체 구제 + 프리아이들"""
-    def __init__(self, llm: ChatOpenAI, queue_mgr: QueueManager, story_repo: StoryRepository, chat_repo: ChatRepository):
+    def __init__(self, llm: ChatOpenAI, queue_mgr: QueueManager, story_repo: StoryRepository, chat_repo: ChatRepository, streamer_id: str = None):
         self.llm = llm
         self.queue_mgr = queue_mgr
         self.story_repo = story_repo
         self.chat_repo = chat_repo
+        self.streamer_id = streamer_id
+        
+        # 추론 서버 클라이언트 설정
+        self.inference_client = None
+        if streamer_id:
+            try:
+                from ..services.inference_client import InferenceClient
+                self.inference_client = InferenceClient(streamer_id)
+            except ImportError:
+                pass  # 추론 서버 미사용 시 무시
         self.IDLE_RECAP_COOLDOWN_SEC = 120
         self._last_idle_recap_ts = 0.0
         self.FORCE_GRAPH_RUN_IF_STALE_SEC = 10
@@ -51,11 +61,46 @@ class IdleManager:
         sys = SystemMessage(content="너는 밝고 따뜻한 AI 연애 상담 스트리머다. 이전 대화를 1~2문장으로 간단히 상기시키고, 이어서 얘기하고 싶게 만드는 단일 질문 1개를 붙여라. 라디오 톤, 과장 금지, 20~40초 내외.")
         user = HumanMessage(content=f"[현재 토픽 힌트]: {topic_label or '일반'}\n[최근 대화 요약용 원문]\n{hist}\n\n[출력 형식]\n- 1~2문장 요약 + 1문장 질문(하나)\n- 복붙 금지, 새로운 표현 사용")
         try:
-            res = await self.llm.ainvoke([sys, user]); text = getattr(res, "content", str(res)).strip()
+            # 강화된 LLM 호출 로직 (추론 서버 → OpenAI 폴백)
+            text = None
+            
+            # 1차: 추론 서버 시도
+            if self.inference_client:
+                try:
+                    text = await self.inference_client.generate_text(
+                        system_prompt=sys.content,
+                        user_prompt=user.content if hasattr(user, 'content') else str(user)
+                    )
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.info(f"자율행동 추론서버 성공: {self.streamer_id}")
+                    
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"자율행동 추론서버 실패: {self.streamer_id} - {e}")
+                    text = None
+            
+            # 2차: OpenAI API 폴백
+            if text is None:
+                try:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.info(f"자율행동 OpenAI 폴백 사용: {self.streamer_id}")
+                    res = await self.llm.ainvoke([sys, user])
+                    text = getattr(res, "content", str(res)).strip()
+                    
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"자율행동 추론서버와 OpenAI 모두 실패: {self.streamer_id} - {e}")
+                    return ""
+            
             if not text: return ""
             self._last_idle_recap_ts = time.time()
-            return text
-        except Exception: return ""
+            return text.strip()
+        except Exception: 
+            return ""
 
     async def _play_story_readout(self, story: Story, is_resume: bool = False):
         body = " ".join((story.body or "").strip().split())

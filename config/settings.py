@@ -208,3 +208,18 @@ AI_CHATBOT_SETTINGS = {
 - 자연스럽게 대화에 어울리는 태그만 사용하고, 과도하게 사용하지 마세요
 - 한 응답에 1-2개 정도의 태그가 적당합니다''',
 }
+
+# --- LLM 추론 서버 설정 ---
+INFERENCE_SERVERS = {
+    'streamer1': os.getenv('INFERENCE_SERVER_1', 'http://localhost:8001'),
+    'streamer2': os.getenv('INFERENCE_SERVER_2', 'http://localhost:8002'),
+    'streamer3': os.getenv('INFERENCE_SERVER_3', 'http://localhost:8003'),
+    'streamer4': os.getenv('INFERENCE_SERVER_4', 'http://localhost:8004'),
+}
+
+# 추론 서버 연결 설정
+INFERENCE_CONFIG = {
+    'TIMEOUT': int(os.getenv('INFERENCE_TIMEOUT', '30')),  # 초
+    'RETRY_COUNT': int(os.getenv('INFERENCE_RETRY_COUNT', '2')),
+    'FALLBACK_TO_OPENAI': os.getenv('INFERENCE_FALLBACK', 'true').lower() == 'true',
+}

@@ -25,8 +25,8 @@ class LoveStreamerAgent:
         self.topic = TopicThreading(self.fast_llm, self.embeddings)
         self.queue = QueueManager(self.topic, trigger_graph_cb=self.trigger_graph_async, broadcast_cb=self.broadcast_queue_state)
         self.emotion_cls = EmotionClassifier(self.fast_llm)
-        self.responder = Responder(self.llm, self.emotion_cls)
-        self.idle = IdleManager(self.llm, self.queue, story_repo, chat_repo)
+        self.responder = Responder(self.llm, self.emotion_cls, streamer_id=streamer_id)
+        self.idle = IdleManager(self.llm, self.queue, story_repo, chat_repo, streamer_id=streamer_id)
         self.graph = GraphPipeline(self.responder, self.queue, UserDB()).build()
         self.superchat_q = asyncio.Queue()
         self.streamer_id = streamer_id
