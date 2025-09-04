@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../utils/unifiedApiClient';
 import styles from './HomeTemporary.module.css';
+import InfluencerSidebar from '../layout/InfluencerSidebar'; 
 
 function HomeTemporary() {
     const [rooms, setRooms] = useState([]);
@@ -46,57 +47,67 @@ function HomeTemporary() {
         };
     }, []);
 
-    if (loading) return <div className="loading-message">로딩 중...</div>;
-    if (error) return <div className="loading-message">{error}</div>;
-
+    // 2. 새로운 레이아웃 구조로 감싸줍니다.
     return (
-        <div className={styles.container}>
-            <h2>스트리밍 목록</h2>
-            <div className={styles.broadcastList}>
-                {rooms.length > 0 ? (
-                    rooms.map((room) => {
-                        const isLive = room.status === 'live';
-                        
-                        // 정의된 apiBaseUrl 변수를 사용하여 썸네일 전체 주소를 만듭니다.
-                        const thumbnailUrl = room.thumbnail && (room.thumbnail.startsWith('http') || room.thumbnail.startsWith('/media'))
-                            ? room.thumbnail.startsWith('http') ? room.thumbnail : `${apiBaseUrl}${room.thumbnail}`
-                            : `https://via.placeholder.com/400x225.png?text=No+Image`;
+        <div className={styles.homeLayout}>
+            {/* 사이드바 컴포넌트를 왼쪽에 배치합니다. */}
+            <InfluencerSidebar />
 
-                        const cardContent = (
-                            <div className={styles.card}>
-                                <div className={styles.thumb}>
-                                    <img src={thumbnailUrl} alt={`${room.name} 방송 썸네일`} />
-                                    <div className={`${styles.statusBadge} ${isLive ? styles.statusLive : styles.statusOff}`}>
-                                        {isLive ? 'LIVE' : (room.status === 'pending' ? '준비중' : 'OFF')}
-                                    </div>
-                                </div>
-                                <div className={styles.info}>
-                                    <p className={styles.streamerName}>{room.influencer_nickname || room.host_username}</p>
-                                    {isLive && <p className={styles.streamTitle}>{room.name}</p>}
-                                    <div className={styles.bottomInfo}>
-                                        {isLive && <p className={styles.viewerCount}>시청자 {room.viewer_count || 0}명</p>}
-                                        <p className={styles.timeInfo}>
-                                            {isLive ? `방송 시작: ${new Date(room.created_at).toLocaleTimeString()}` : `생성: ${new Date(room.created_at).toLocaleDateString()}`}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-
-                        if (room.status === 'live' || room.status === 'pending') {
-                            return (
-                                <Link to={`/stream/${room.id}`} key={room.id} className="broadcast-card-link">
-                                    {cardContent}
-                                </Link>
-                            );
-                        }
+            {/* 기존 콘텐츠를 <main> 태그로 감싸 오른쪽에 배치합니다. */}
+            <main className={styles.mainContent}>
+                {loading && <div className="loading-message">로딩 중...</div>}
+                {error && <div className="loading-message">{error}</div>}
+                {!loading && !error && (
+                    <>
+                        <h2>스트리밍 목록</h2>
+                        <div className={styles.broadcastList}>
+                            {rooms.length > 0 ? (
+                                rooms.map((room) => {
+                                    // ... 기존 map 로직은 그대로 둡니다 ...
+                                    const isLive = room.status === 'live';
                         
-                        return <div key={room.id}>{cardContent}</div>;
-                    })
-                ) : (
-                    <p>현재 진행중인 방송이 없습니다.</p>
+                                    const thumbnailUrl = room.thumbnail && (room.thumbnail.startsWith('http') || room.thumbnail.startsWith('/media'))
+                                        ? room.thumbnail.startsWith('http') ? room.thumbnail : `${apiBaseUrl}${room.thumbnail}`
+                                        : `https://via.placeholder.com/400x225.png?text=No+Image`;
+            
+                                    const cardContent = (
+                                        <div className={styles.card}>
+                                            <div className={styles.thumb}>
+                                                <img src={thumbnailUrl} alt={`${room.name} 방송 썸네일`} />
+                                                <div className={`${styles.statusBadge} ${isLive ? styles.statusLive : styles.statusOff}`}>
+                                                    {isLive ? 'LIVE' : (room.status === 'pending' ? '준비중' : 'OFF')}
+                                                </div>
+                                            </div>
+                                            <div className={styles.info}>
+                                                <p className={styles.streamerName}>{room.influencer?.name_ko || room.influencer_nickname || room.host_username}</p>
+                                                {isLive && <p className={styles.streamTitle}>{room.name}</p>}
+                                                <div className={styles.bottomInfo}>
+                                                    {isLive && <p className={styles.viewerCount}>시청자 {room.viewer_count || 0}명</p>}
+                                                    <p className={styles.timeInfo}>
+                                                        {isLive ? `방송 시작: ${new Date(room.created_at).toLocaleTimeString()}` : `생성: ${new Date(room.created_at).toLocaleDateString()}`}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+            
+                                    if (room.status === 'live' || room.status === 'pending') {
+                                        return (
+                                            <Link to={`/stream/${room.id}`} key={room.id} className="broadcast-card-link">
+                                                {cardContent}
+                                            </Link>
+                                        );
+                                    }
+                                    
+                                    return <div key={room.id}>{cardContent}</div>;
+                                })
+                            ) : (
+                                <p>현재 진행중인 방송이 없습니다.</p>
+                            )}
+                        </div>
+                    </>
                 )}
-            </div>
+            </main>
         </div>
     );
 };

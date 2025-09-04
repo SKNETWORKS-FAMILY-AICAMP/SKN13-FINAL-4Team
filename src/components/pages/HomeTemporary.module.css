@@ -15,5 +15,16 @@
 .viewerCount { margin: 0; }
 .timeInfo { margin: 0; text-align: right; }
 
+.homeLayout {
+  display: flex;
+  min-height: 100vh; 
+}
+
+.mainContent {
+  flex-grow: 1; 
+  padding: 2rem;
+  background-color: #f9f9f9;
+}
+
 @media (max-width: 768px) { .broadcastList { grid-template-columns: 1fr; } }
 

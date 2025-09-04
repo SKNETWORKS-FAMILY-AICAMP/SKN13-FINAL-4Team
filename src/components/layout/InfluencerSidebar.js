@@ -1,19 +1,20 @@
 // src/components/layout/InfluencerSidebar.js
-
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import api from '../../utils/unifiedApiClient';
-import './Sidebar.css';
+import styles from './Sidebar.module.css';
 
 function InfluencerSidebar() {
     const [influencers, setInfluencers] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || '';
+
     useEffect(() => {
         const fetchInfluencers = async () => {
             try {
-                const response = await api.get('/influencers/api/');
-                setInfluencers(response.data);
+                const response = await api.get('/api/influencers/'); 
+                setInfluencers(response.data.results || response.data);
             } catch (error) {
                 console.error("인플루언서 목록을 불러오는 데 실패했습니다:", error);
             } finally {
@@ -24,24 +25,38 @@ function InfluencerSidebar() {
         fetchInfluencers();
     }, []);
 
+    const getProfileImageUrl = (influencer) => {
+        const imageUrl = influencer.profile_image || influencer.profile_pic_url; 
+        
+        if (imageUrl) {
+            return imageUrl.startsWith('http') ? imageUrl : `${apiBaseUrl}${imageUrl}`;
+        }
+        return 'https://via.placeholder.com/40/C0C0C0?text=';
+    };
+
+
     return (
-        <nav className="sidebar">
-            <div className="sidebar-header">
-                스트리머 목록
+        <nav className={styles.sidebar}>
+            <div className={styles.sidebarHeader}> 
+                방송국
             </div>
-            <ul className="sidebar-nav">
+            <ul className={styles.sidebarNav}>
                 {loading ? (
-                    <li className="sidebar-item">
-                        <span className="sidebar-link">로딩 중...</span>
+                    <li>
+                        <span className={styles.sidebarLinkIn}>로딩 중...</span>
                     </li>
                 ) : (
                     influencers.map(influencer => (
-                        <li className="sidebar-item" key={influencer.id}>
-                            {/* NavLink를 사용하여 클릭 시 해당 방송국 페이지로 이동합니다. */}
+                        <li key={influencer.id}>
                             <NavLink 
                                 to={`/influencers/${influencer.id}`} 
-                                className="sidebar-link"
+                                className={({ isActive }) => `${styles.sidebarLinkIn} ${isActive ? styles.active : ''}`}
                             >
+                                <img 
+                                    src={getProfileImageUrl(influencer)} 
+                                    alt={`${influencer.name} 프로필`} 
+                                    className={styles.profilePic} 
+                                />
                                 {influencer.name}
                             </NavLink>
                         </li>

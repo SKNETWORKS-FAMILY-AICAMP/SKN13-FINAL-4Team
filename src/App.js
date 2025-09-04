@@ -20,6 +20,7 @@ import CreateChatRoom from './components/staff/CreateChatRoom';
 import ChatRoomManagement from './components/staff/ChatRoomManagement';
 import InfluencerManagementPage from './components/staff/InfluencerManagementPage';
 import TTSDebugTool from './components/tts/TTSDebugTool';
+import InfluencerPage from './components/pages/InfluencerPage';
 import './App.css';
 
 function App() {
@@ -94,7 +95,7 @@ function App() {
           <Route path="/find-id" element={<FindId />} />
           <Route path="/find-password" element={<FindPassword />} />
           <Route path="/stream/:roomId" element={<StreamingPage isLoggedIn={isLoggedIn} user={user} />} />
-
+          <Route path="/influencers/:id" element={<InfluencerPage />} />
           {/* is_staff가 true일 때만 렌더링되도록 보호 */}
           {user?.is_staff && (
             <>
