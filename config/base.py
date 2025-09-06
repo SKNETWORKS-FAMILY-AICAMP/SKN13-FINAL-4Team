@@ -12,9 +12,11 @@ class InferenceConfig:
     streamer_id: str = os.getenv('STREAMER_ID', 'default')
     
     # 모델 설정
-    model_path: str = os.getenv('MODEL_PATH', './omar_exaone_4.0_1.2b')
+    model_path: str = os.getenv('MODEL_PATH', './omar_exaone_4.0_1.2b')  # 하위 호환성
+    base_model_name: str = os.getenv('BASE_MODEL_NAME', 'LGAI/EXAONE-4.0-1.2B')
+    adapter_path: Optional[str] = os.getenv('ADAPTER_PATH', None)
     max_tokens: int = int(os.getenv('MAX_TOKENS', '512'))
-    temperature: float = float(os.getenv('TEMPERATURE', '0.2'))
+    temperature: float = float(os.getenv('TEMPERATURE', '0.7'))
     
     # GPU 설정
     gpu_device: int = int(os.getenv('GPU_DEVICE', '0'))

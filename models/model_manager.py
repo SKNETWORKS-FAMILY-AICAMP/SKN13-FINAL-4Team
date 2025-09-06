@@ -1,7 +1,9 @@
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from peft import PeftModel, PeftConfig
 from typing import Optional
 import logging
+import os
 from ..config.base import config
 
 logger = logging.getLogger(__name__)
@@ -11,33 +13,58 @@ class ModelManager:
     
     def __init__(self):
         self.model: Optional[AutoModelForCausalLM] = None
+        self.base_model: Optional[AutoModelForCausalLM] = None
         self.tokenizer: Optional[AutoTokenizer] = None
         self.is_loaded = False
+        self.model_name = ""
         
     def load_model(self):
-        """모델 로드"""
+        """모델 로드 - HuggingFace Hub + LoRA Adapter 지원"""
         try:
-            logger.info(f"Loading model from {config.model_path}")
+            # 기본 모델 이름 결정 (하위 호환성)
+            base_model_name = getattr(config, 'base_model_name', config.model_path)
+            adapter_path = getattr(config, 'adapter_path', None)
             
-            # 토크나이저 로드
-            self.tokenizer = AutoTokenizer.from_pretrained(config.model_path)
+            logger.info(f"Loading base model: {base_model_name}")
             
-            # 모델 로드
-            self.model = AutoModelForCausalLM.from_pretrained(
-                config.model_path,
-                device_map="auto",
-                torch_dtype=torch.float16,  # 메모리 절약
-                low_cpu_mem_usage=True
-            )
+            # 1. 토크나이저 로드 (HuggingFace Hub에서)
+            self.tokenizer = AutoTokenizer.from_pretrained(base_model_name)
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
             
             # GPU 메모리 제한 설정
-            if config.gpu_memory_limit and torch.cuda.is_available():
+            if hasattr(config, 'gpu_memory_limit') and config.gpu_memory_limit and torch.cuda.is_available():
                 torch.cuda.set_per_process_memory_fraction(
                     config.gpu_memory_limit / 1024 / 8  # 8GB 기준 비율 계산
                 )
             
+            # 2. 기본 모델 로드 (HuggingFace Hub에서)
+            self.base_model = AutoModelForCausalLM.from_pretrained(
+                base_model_name,
+                device_map="auto" if torch.cuda.is_available() else None,
+                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                low_cpu_mem_usage=True,
+                trust_remote_code=True
+            )
+            
+            # 3. LoRA Adapter 적용 (있는 경우)
+            if adapter_path and os.path.exists(adapter_path):
+                logger.info(f"Loading LoRA adapter: {adapter_path}")
+                self.model = PeftModel.from_pretrained(
+                    self.base_model, 
+                    adapter_path
+                )
+                self.model_name = f"{base_model_name} + {adapter_path}"
+            else:
+                logger.info("No adapter found or specified, using base model only")
+                self.model = self.base_model
+                self.model_name = base_model_name
+            
+            self.model.eval()  # 추론 모드로 설정
             self.is_loaded = True
-            logger.info(f"Model loaded successfully for streamer: {config.streamer_id}")
+            
+            logger.info(f"Model loaded successfully: {self.model_name}")
+            logger.info(f"Streamer ID: {config.streamer_id}")
             
         except Exception as e:
             logger.error(f"Failed to load model: {e}")

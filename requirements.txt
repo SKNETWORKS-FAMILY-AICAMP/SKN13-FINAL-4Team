@@ -16,6 +16,9 @@ transformers
 # 모델 로딩 및 추론 가속화를 위한 라이브러리
 accelerate
 
+# LoRA/Adapter 지원을 위한 PEFT
+peft>=0.7.0
+
 # 시스템 모니터링
 psutil
 
