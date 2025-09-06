@@ -6,6 +6,9 @@ import os
 import sys
 import uvicorn
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # 프로젝트 루트를 Python path에 추가
 project_root = Path(__file__).parent.parent
