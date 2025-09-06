@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 프로젝트 루트를 Python path에 추가
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+# project_root = Path(__file__).parent.parent
+# sys.path.insert(0, str(project_root))
 
 # 환경 설정
 os.environ.setdefault('ENVIRONMENT', 'development')
