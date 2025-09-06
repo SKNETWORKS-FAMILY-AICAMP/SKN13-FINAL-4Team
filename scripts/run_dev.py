@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# 'python -m'으로 실행할 때는 sys.path 조작이 필요 없으므로 주석 처리합니다.
 # 프로젝트 루트를 Python path에 추가
 # project_root = Path(__file__).parent.parent
 # sys.path.insert(0, str(project_root))
@@ -20,7 +21,8 @@ os.environ.setdefault('STREAMER_ID', 'streamer1')
 os.environ.setdefault('PORT', '8001')
 
 if __name__ == "__main__":
-    from config.base import config
+    # 'python -m' 실행을 위해 절대 경로 임포트로 변경
+    from inference.config.base import config
     
     print(f"🚀 추론 서버 시작 중...")
     print(f"📋 스트리머 ID: {config.streamer_id}")
@@ -29,7 +31,8 @@ if __name__ == "__main__":
     print(f"💾 GPU 메모리 제한: {config.gpu_memory_limit}MB" if config.gpu_memory_limit else "💾 GPU 메모리: 무제한")
     
     uvicorn.run(
-        "api.main:app",
+        # 'python -m' 실행을 위해 절대 경로로 변경
+        "inference.api.main:app",
         host=config.host,
         port=config.port,
         log_level=config.log_level.lower(),
