@@ -1,40 +1,43 @@
 #!/usr/bin/env python3
-"""
-개발 환경용 추론 서버 실행 스크립트
-"""
+"""개발용 단일 추론 서버 실행"""
+
 import os
 import sys
+import logging
 import uvicorn
-from pathlib import Path
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# 'python -m'으로 실행할 때는 sys.path 조작이 필요 없으므로 주석 처리합니다.
-# 프로젝트 루트를 Python path에 추가
-# project_root = Path(__file__).parent.parent
-# sys.path.insert(0, str(project_root))
-
-# 환경 설정
-os.environ.setdefault('ENVIRONMENT', 'development')
-os.environ.setdefault('STREAMER_ID', 'streamer1')
-os.environ.setdefault('PORT', '8001')
+def main():
+    # 환경 설정
+    os.environ.setdefault('ENVIRONMENT', 'development')
+    os.environ.setdefault('STREAMER_ID', 'streamer1')
+    os.environ.setdefault('PORT', '8002')
+    
+    # 로깅 설정
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
+    logger = logging.getLogger(__name__)
+    
+    try:
+        logger.info("Starting development inference server...")
+        logger.info(f"Streamer ID: {os.getenv('STREAMER_ID')}")
+        logger.info(f"Port: {os.getenv('PORT')}")
+        
+        uvicorn.run(
+            "api.main:app",
+            host="0.0.0.0",
+            port=int(os.getenv('PORT', '8002')),
+            reload=False,  # 개발용 핫 리로드 비활성화
+            log_level="info"
+        )
+        
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+    except Exception as e:
+        logger.error(f"Server failed to start: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    # 'python -m' 실행을 위해 절대 경로 임포트로 변경
-    from inference.config.base import config
-    
-    print(f"🚀 추론 서버 시작 중...")
-    print(f"📋 스트리머 ID: {config.streamer_id}")
-    print(f"🔌 포트: {config.port}")
-    print(f"📁 모델 경로: {config.model_path}")
-    print(f"💾 GPU 메모리 제한: {config.gpu_memory_limit}MB" if config.gpu_memory_limit else "💾 GPU 메모리: 무제한")
-    
-    uvicorn.run(
-        # 'python -m' 실행을 위해 절대 경로로 변경
-        "inference.api.main:app",
-        host=config.host,
-        port=config.port,
-        log_level=config.log_level.lower(),
-        reload=True
-    )
+    main()
