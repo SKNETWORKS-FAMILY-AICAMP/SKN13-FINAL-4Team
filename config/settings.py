@@ -38,6 +38,8 @@ INSTALLED_APPS = [
     'users',
     'chat',
     'payments',  # Keep payments app from HEAD
+    'influencers',
+    'debugging',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -223,3 +225,18 @@ INFERENCE_CONFIG = {
     'RETRY_COUNT': int(os.getenv('INFERENCE_RETRY_COUNT', '2')),
     'FALLBACK_TO_OPENAI': os.getenv('INFERENCE_FALLBACK', 'true').lower() == 'true',
 }
+
+
+#if DEBUG:
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# else:
+#     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+# SMTP 서버 정보
+# EMAIL_HOST = 'smtp.gmail.com'       # Gmail SMTP 예시
+# EMAIL_PORT = 587                     # TLS 포트
+# EMAIL_USE_TLS = True
+# EMAIL_USE_SSL = False
+# EMAIL_HOST_USER = 'your_email@gmail.com'      # 실제 발신자 이메일
+# EMAIL_HOST_PASSWORD = 'your_app_password'    # Gmail 앱 비밀번호
+# DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

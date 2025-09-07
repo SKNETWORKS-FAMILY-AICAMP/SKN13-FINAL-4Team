@@ -4,6 +4,7 @@
 Django>=4.2
 djangorestframework
 djangorestframework-simplejwt
+drf-nested-routers
 
 # Channels
 channels>=4.0.0
