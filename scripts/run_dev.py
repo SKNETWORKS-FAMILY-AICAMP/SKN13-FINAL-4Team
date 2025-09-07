@@ -26,7 +26,7 @@ def main():
         logger.info(f"Port: {os.getenv('PORT')}")
         
         uvicorn.run(
-            "api.main:app",
+            "inference.api.main:app",
             host="0.0.0.0",
             port=int(os.getenv('PORT', '8002')),
             reload=False,  # 개발용 핫 리로드 비활성화
