@@ -1,194 +1,216 @@
-.streaming-container {
-    height: calc(100vh - 120px);
-    overflow-y: auto;
+/* --- 페이지 기본 레이아웃 --- */
+.pageContainer {
+    display: flex;
+    background-color: #f0f2f5;
+    padding: 24px;
+    padding-top: 88px; /* Navbar 높이 고려 */
+    min-height: 100vh;
+    gap: 24px;
+    max-width: 1800px;
+    margin: 0 auto;
 }
 
-.video-player-wrapper {
+/* --- 왼쪽 메인 콘텐츠 --- */
+.streamMainContent {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    min-width: 0;
+}
+
+/* --- 비디오 플레이어 --- */
+.videoPlayerContainer {
     position: relative;
-    background-color: var(--color-bg);
-    border-radius: 8px;
+    background-color: #000;
+    border-radius: 16px;
     overflow: hidden;
-    height: calc(100vh - 300px);
-    max-height: calc(100vh - 300px);
-    min-height: 400px;
-    z-index: 1;
+    width: 100%;
+    padding-top: 56.25%; /* 16:9 비율 */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
-
-.video-controls {
+.videoPlayer {
     position: absolute;
-    bottom: 0;
+    top: 0;
     left: 0;
     width: 100%;
+    height: 100%;
+}
+.liveIndicator {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    background-color: #e91e63;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    z-index: 10;
     display: flex;
     align-items: center;
-    gap: 15px;
-    background-color: rgba(0, 0, 0, 0.6);
-    padding: 10px;
-    box-sizing: border-box;
-    z-index: 1000;
-    pointer-events: auto;
-    backdrop-filter: blur(5px);
-    transition: opacity 0.3s ease;
 }
-
-.video-controls:hover {
-    background-color: rgba(0, 0, 0, 0.8);
-}
-
-.volume-slider {
-    width: 100px;
-    -webkit-appearance: none;
-    appearance: none;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 3px;
-    outline: none;
-    cursor: pointer;
-}
-
-.volume-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 16px;
-    height: 16px;
+.liveDot {
+    width: 8px;
+    height: 8px;
+    background-color: white;
     border-radius: 50%;
-    background: #ffffff;
-    cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    margin-right: 6px;
 }
 
-.volume-slider::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
+/* --- 스트림 정보 --- */
+.streamInfoContainer {
+    background-color: #fff;
+    padding: 24px;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.streamTitle {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: #1c1e21;
+}
+.streamTitle span { color: #888; }
+.streamerInfo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.streamerProfilePic {
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
-    background: #ffffff;
+    object-fit: cover;
+}
+.streamerText { flex-grow: 1; }
+.streamerName { font-size: 1.1rem; font-weight: 600; }
+.likesCount { font-size: 0.9rem; color: #65676b; }
+.likeButton {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #f0f2f5;
+    color: #606770;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     cursor: pointer;
     border: none;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
 }
 
-.stream-info h3 {
-    font-weight: bold;
-}
-
-.stream-info {
-    margin-bottom: 20px;
-    padding-bottom: 20px;
-}
-
-.chat-section-wrapper {
-    height: calc(100vh - 80px);
-    max-height: calc(100vh - 80px);
-    min-height: 600px;
-    border-radius: 8px;
-    background-color: var(--color-surface);
-    overflow: visible;
-    position: relative;
+/* --- 광고 배너 --- */
+.adBanner {
     display: flex;
-    flex-direction: column;
-    visibility: visible;
-    z-index: 1;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px;
+    background-color: #fff1f5;
+    border-radius: 16px;
 }
-
-.chat-container-with-input {
-    flex: 1 1 auto;
-    overflow: visible;
-    min-height: 350px;
-    display: flex;
-    flex-direction: column;
-    background-color: var(--color-bg);
-    margin-bottom: 0;
-}
-
-
-
-
-.ai-subtitle {
-    position: absolute;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 90%;
-    max-width: 600px;
-    text-align: center;
-    pointer-events: none;
-    z-index: 100;
-    animation: fadeIn 0.3s ease-in;
-}
-
-.subtitle-background {
-    display: inline-block;
-    background-color: rgba(0, 0, 0, 0.6);
+.adText h2 { margin: 0 0 4px 0; font-size: 1.2rem; font-weight: 600; color: #d81b60; }
+.adText p { margin: 0; color: #555; font-size: 0.9rem; }
+.adButton {
+    background-color: #e91e63;
+    color: white;
+    border: none;
     padding: 10px 20px;
-    border-radius: 8px;
-    backdrop-filter: blur(5px);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-}
-
-.subtitle-text {
-    color: #F5F5F5;
-    font-size: 18px;
+    border-radius: 20px;
     font-weight: 500;
-    line-height: 1.4;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    transition: background-color 0.2s;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* --- 오른쪽 채팅 사이드바 --- */
+.chatSidebar {
+    width: 360px;
+    flex-shrink: 0;
+    background-color: #fff;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+}
+.chatTitle {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f0f2f5;
+}
+.chatMessages {
+    flex-grow: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.chatMessage {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.95rem;
+}
+.messageAuthor { font-weight: 600; color: #65676b; }
+.messageContent { color: #1c1e21; word-break: break-all; }
+.donationMessage {
+    background-color: #fffbe6; /* 연노랑 배경 */
+    border: 1px solid #ffe58f;
+    padding: 12px;
+    border-radius: 8px;
+    display: block;
+}
+.donationAmount { font-weight: bold; color: #faad14; margin-right: 8px; }
+.donorName { font-weight: bold; margin-right: 4px; }
+
+/* --- 채팅 입력부 --- */
+.chatInputSection {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.chatInputForm {
+    display: flex;
+    gap: 10px;
+    background-color: #f0f2f5;
+    border-radius: 20px;
+    padding: 4px;
+}
+.messageInput {
+    flex-grow: 1;
+    border: none;
+    background-color: transparent;
+    outline: none;
+    padding: 8px 12px;
+}
+.sendButton {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #e91e63;
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.sponsorButton {
+    background-color: #faad14;
+    color: #1c1e21;
+    border: none;
+    padding: 10px;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
-/* removed empty ruleset: .panel-toggle-buttons */
-
-
-/* Themed Chat (global selectors to target existing classNames) */
-:global(.streaming-chat-container) {
-    background-color: var(--color-surface);
-    color: var(--color-text);
+/* 반응형 */
+@media (max-width: 1200px) {
+    .pageContainer { flex-direction: column; }
+    .chatSidebar { width: 100%; max-height: 500px; }
 }
-
-:global(.chat-header) {
-    background-color: var(--color-surface);
-    border-bottom: 1px solid rgba(0,0,0,0.15);
-    color: var(--color-text);
-}
-
-:global(.chat-help) {
-    background-color: var(--color-bg);
-    border-bottom: 1px solid rgba(0,0,0,0.1);
-    color: var(--color-text);
-}
-
-:global(.chat-messages) {
-    background-color: var(--color-bg) !important;
-    color: var(--color-text);
-    scrollbar-color: rgba(0,0,0,0.3) var(--color-surface);
-}
-
-:global(.chat-input-section) {
-    background-color: var(--color-surface);
-    border-top: 1px solid rgba(0,0,0,0.15);
-}
-
-:global(.chat-input) {
-    background-color: var(--color-bg) !important;
-    color: var(--color-text) !important;
-    border: 1px solid rgba(0,0,0,0.15) !important;
-}
-
-:global(.connection-status) {
-    color: var(--color-text);
-}
-
-.chatTitle { color: var(--color-text); font-weight: 700; }
-.mutedText { color: var(--color-text); opacity: 0.7; }
-.accentText { color: var(--brand); }
-.infoText { color: var(--color-text); opacity: 0.85; }
-.successText { color: var(--brand); opacity: 0.9; }
-.codeTag { background-color: rgba(0,0,0,0.08); color: var(--color-text); border: 1px solid rgba(0,0,0,0.15); padding: 0 4px; border-radius: 4px; }
-.connectionStatus { background-color: var(--color-bg); color: var(--color-text); border: 1px solid rgba(0,0,0,0.15); padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; }
-
-/* Ensure minimal spacing between chat inline items even if gap fails */
-:global(.compact-message) .message-badge { margin-right: 6px; }
-:global(.compact-message) .message-sender { margin-right: 6px; }
-:global(.compact-message) .message-time { margin-left: 8px; }
-
