@@ -1,10 +1,11 @@
+from django.db.models import Sum 
 from rest_framework import viewsets
 from rest_framework.permissions import IsAdminUser, IsAuthenticated ,IsAuthenticatedOrReadOnly 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Influencer, Story, Like, Donation
-from .serializers import InfluencerSerializer, InfluencerWriteSerializer, StorySerializer
+from .serializers import InfluencerSerializer, InfluencerWriteSerializer, StorySerializer, DonationRankingSerializer
 
 class InfluencerViewSet(viewsets.ModelViewSet):
     """인플루언서 관리용 뷰 셋"""

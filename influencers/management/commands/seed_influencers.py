@@ -150,13 +150,13 @@ class Command(BaseCommand):
             # 1. 인플루언서 생성 또는 가져오기
             influencer_data = data['influencer']
             influencer, created = Influencer.objects.get_or_create(
-                name_ko=influencer_data['name_ko'],
+                name=influencer_data['name'],
                 defaults=influencer_data
             )
             if created:
-                self.stdout.write(self.style.SUCCESS(f"Successfully created Influencer: {influencer.name_ko}"))
+                self.stdout.write(self.style.SUCCESS(f"Successfully created Influencer: {influencer.name}"))
             else:
-                self.stdout.write(f"Influencer already exists: {influencer.name_ko}")
+                self.stdout.write(f"Influencer already exists: {influencer.name}")
 
             # 2. 핵심 가치 생성 및 연결
             for value_data in data['core_values']:
