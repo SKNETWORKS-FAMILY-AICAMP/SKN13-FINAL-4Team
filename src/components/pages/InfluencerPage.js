@@ -48,7 +48,7 @@ function InfluencerPage() {
             try {
                 const response = await api.get(`/api/influencers/${id}/`);
                 setInfluencer(response.data);
-                setIsLiked(!!response.data.is_liked_by_user); 
+                setIsLiked(response.data.is_liked_by_user); 
                 setLikeCount(response.data.like_count)
                 await Promise.all([fetchStories(), fetchRankings()]);
             } catch (err) {
@@ -100,12 +100,12 @@ function InfluencerPage() {
         const originalLikeCount = likeCount;
 
         setIsLiked(prev => !prev);
-        setLikeCount(prev => (isLiked ? prev -1 : prev + 1));
+        setLikeCount(prev => (isLiked ? prev - 1 : prev + 1));
 
         try {
             await api.post(`/api/influencers/${id}/like/`);
         } catch (err) {
-            alert("좋아요 처리에 실패했습니다.")
+            alert("좋아요 처리에 실패했습니다.");
             setIsLiked(originalIsLiked);
             setLikeCount(originalLikeCount);
             console.error(err);
@@ -155,9 +155,11 @@ function InfluencerPage() {
             <section className={styles.infoSection}>
                 <div className={styles.writeStoryButton} onClick={handleShowStoryModal}>사연쓰기</div>
                 <h2 className={styles.channelName}>{influencer.name}의 방송국</h2>
-                <div className={`${styles.likeButton} ${isLiked ? styles.likeButtonActive : ''}`} 
-                    onClick={handleLikeClick}>
-                    ❤️ {likeCount.toLocaleString()}
+                <div 
+                    className={`${styles.likeButton} ${isLiked ? styles.likeButtonActive : ''}`} 
+                    onClick={handleLikeClick}
+                >
+                    ❤️{likeCount.toLocaleString()}
                 </div>
             </section>
 
