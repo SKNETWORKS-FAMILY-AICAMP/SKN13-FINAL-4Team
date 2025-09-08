@@ -10,14 +10,14 @@ from .queue_manager import QueueManager
 from .responder import Responder
 from .pipeline import GraphPipeline
 from .idle import IdleManager
-from .story import StoryRepository, ChatRepository
+from .story import StoryRepository
 from .db import UserDB, Utils
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.messages import HumanMessage
 
 class LoveStreamerAgent:
     """통합 에이전트"""
-    def __init__(self, api_key: str, story_repo: StoryRepository, chat_repo: ChatRepository, streamer_id: str = None):
+    def __init__(self, api_key: str, story_repo: StoryRepository, streamer_id: str = None):
         self.llm = ChatOpenAI(model="gpt-4o", temperature=0.2, api_key=api_key)
         self.fast_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2, api_key=api_key)
         self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small", api_key=api_key)
@@ -26,10 +26,11 @@ class LoveStreamerAgent:
         self.queue = QueueManager(self.topic, trigger_graph_cb=self.trigger_graph_async, broadcast_cb=self.broadcast_queue_state)
         self.emotion_cls = EmotionClassifier(self.fast_llm)
         self.responder = Responder(self.llm, self.emotion_cls, streamer_id=streamer_id)
-        self.idle = IdleManager(self.llm, self.queue, story_repo, chat_repo, streamer_id=streamer_id)
+        self.idle = IdleManager(self.llm, self.queue, story_repo, self.responder, streamer_id=streamer_id)
         self.graph = GraphPipeline(self.responder, self.queue, UserDB()).build()
         self.superchat_q = asyncio.Queue()
         self.streamer_id = streamer_id
+        self._idle_loop_started = False
 
         self.idle.set_graph_trigger(self.trigger_graph_async)
         self.idle.set_bootstrap_helpers(

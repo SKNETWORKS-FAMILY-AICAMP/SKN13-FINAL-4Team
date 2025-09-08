@@ -18,7 +18,7 @@ from users.models import User
 
 from . import agent_manager
 from .agent.agent import LoveStreamerAgent
-from .agent.story import DjangoStoryRepository, DjangoChatRepository
+from .agent.story import DjangoStoryRepository
 from .streaming.domain.stream_session import StreamSession
 from .media_orchestrator import MediaProcessingHub
 from .models import ChatRoom, StreamerTTSSettings, ChatMessage
@@ -105,11 +105,9 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         # --- Agent & Session 초기화 ---
         if self.streamer_id not in agent_manager.active_agents:
             story_repo = DjangoStoryRepository()
-            chat_repo = DjangoChatRepository()
             agent_manager.active_agents[self.streamer_id] = LoveStreamerAgent(
                 api_key=settings.OPENAI_API_KEY,
                 story_repo=story_repo,
-                chat_repo=chat_repo,
                 streamer_id=self.streamer_id
             )
             agent_manager.connection_counts[self.streamer_id] = 0
