@@ -35,7 +35,6 @@ function Navbar({ isLoggedIn, initialUser, onLogout }) {
     navigate('/');
   };
 
-  // Custom Dropdown Toggle
   const CustomToggle = forwardRef(({ children, onClick }, ref) => (
     <button
       type="button"
@@ -49,13 +48,16 @@ function Navbar({ isLoggedIn, initialUser, onLogout }) {
   ));
 
   return (
-    <nav className="navbar navbar-expand" style={{ backgroundColor: 'var(--color-surface)' }}>
-      <div className="container-fluid">
-        <Link className="navbar-brand" to="/" style={{ color: 'var(--brand)' }}>
-          Love Language Model
-        </Link>
-        <ul className="navbar-nav ms-auto align-items-center">
-          <li className="nav-item me-3">
+    <nav className={styles.navbar}>
+      <div className={styles.containerFluid}>
+        <div className={styles.logoGroup}>
+          <Link className={styles.logoLink} to="/">
+            <div className={styles.logoLlm}>LLM</div>
+            <div className={styles.logoText}>Love Language Model</div>
+          </Link>
+        </div>
+        <ul className={styles.navbarNav}>
+          <li className={styles.navItem}>
             <button
               className={`${styles.themeToggleBtn} ${styles.iconBtn}`}
               onClick={() => {
@@ -86,9 +88,8 @@ function Navbar({ isLoggedIn, initialUser, onLogout }) {
               )}
             </button>
           </li>
-
           {isLoggedIn ? (
-            <Dropdown as="li" className="nav-item" align="end">
+            <Dropdown as="li" className={styles.navItem} align="end">
               <Dropdown.Toggle as={CustomToggle} id="profile-dropdown-toggle">
                 {user ? (
                   <img
@@ -102,13 +103,12 @@ function Navbar({ isLoggedIn, initialUser, onLogout }) {
                     title="프로필"
                   />
                 ) : (
-                  <span
+                  <div
                     className="placeholder rounded-circle"
                     style={{ display: 'inline-block', width: '32px', height: '32px', backgroundColor: 'rgba(0,0,0,0.1)' }}
                   />
                 )}
               </Dropdown.Toggle>
-
               <Dropdown.Menu className={`p-3 ${styles.profileMenu}`} style={{ width: '280px', top: '120%' }}>
                 {user ? (
                   <>
@@ -152,8 +152,8 @@ function Navbar({ isLoggedIn, initialUser, onLogout }) {
               </Dropdown.Menu>
             </Dropdown>
           ) : (
-            <li className="nav-item">
-              <Link className="nav-link" to="/login" style={{ color: 'var(--color-text)' }}>
+            <li className={styles.navItem}>
+              <Link to="/login" className={styles.loginBtn}>
                 로그인
               </Link>
             </li>
