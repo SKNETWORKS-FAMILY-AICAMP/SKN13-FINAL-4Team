@@ -21,6 +21,7 @@ from .agent.agent import LoveStreamerAgent
 from .agent.story import DjangoStoryRepository, DjangoChatRepository
 from .streaming.domain.stream_session import StreamSession
 from .media_orchestrator import MediaProcessingHub
+from .models import ChatRoom, StreamerTTSSettings, ChatMessage
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,17 @@ def get_user_from_token(token_key):
         return User.objects.get(id=user_id)
     except (InvalidToken, TokenError, User.DoesNotExist):
         return AnonymousUser()
+
+@database_sync_to_async
+def get_streamer_id_from_room(room_id):
+    try:
+        room = ChatRoom.objects.select_related('influencer').get(id=room_id)
+        if room.influencer:
+            return room.influencer.name
+        return None
+    except ChatRoom.DoesNotExist:
+        return None
+
 
 
 class StreamingChatConsumer(AsyncWebsocketConsumer):
@@ -68,8 +80,14 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             return None
 
     async def connect(self):
-        self.streamer_id = self.scope['url_route']['kwargs']['streamer_id']
-        self.room_group_name = f'streaming_chat_{self.streamer_id}'
+        self.room_id = self.scope['url_route']['kwargs']['room_id']
+        self.room_group_name = f'streaming_chat_{self.room_id}'
+
+        self.streamer_id = await get_streamer_id_from_room(self.room_id)
+        if not self.streamer_id:
+            logger.error(f"Streamer ID not found for room {self.room_id}. Closing connection.")
+            await self.close(code=4004)
+            return
 
         query_string = self.scope.get('query_string', b'').decode()
         query_params = parse_qs(query_string)
@@ -128,7 +146,7 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             {'type': 'system_message', 'message': f'{self.user.username}님이 채팅에 참여했습니다.'}
         )
-        logger.info(f"User {self.user.username} connected to room {self.streamer_id}. Total connections: {agent_manager.connection_counts[self.streamer_id]}")
+        logger.info(f"User {self.user.username} connected to room {self.room_id}. Total connections: {agent_manager.connection_counts[self.streamer_id]}")
 
 
     async def disconnect(self, close_code):
@@ -251,6 +269,54 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             'timestamp': event.get('timestamp')
         }))
 
+    @database_sync_to_async
+    def save_message(self, user, message):
+        try:
+            room = ChatRoom.objects.get(id=self.room_id)
+            ChatMessage.objects.create(room=room, sender=user, content=message)
+            logger.info(f"💾 메시지 저장 완료: {user.username} -> room {self.room_id}")
+        except ChatRoom.DoesNotExist:
+            logger.error(f"❌ 메시지 저장 실패: ChatRoom(id={self.room_id})을 찾을 수 없습니다.")
+        except Exception as e:
+            logger.error(f"❌ 메시지 저장 중 알 수 없는 오류 발생: {e}")
+
+    @database_sync_to_async
+    def get_streamer_tts_settings(self, streamer_id):
+        try:
+            settings, created = StreamerTTSSettings.get_or_create_for_streamer(streamer_id)
+            return settings.to_dict()
+        except Exception as e:
+            logger.warning(f"TTS 설정 조회 실패: {e}")
+            return None
+
+    async def receive(self, text_data):
+        data = json.loads(text_data)
+        message_type = data.get('type')
+
+        if message_type == 'playback_completed' and self.session:
+            self.session.mark_playback_completed(data.get('seq'))
+            return
+
+        if message_type == 'chat_message':
+            message = data.get('message', '').strip()
+            if not message: return
+
+            # 사용자 메시지 브로드캐스트
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {'type': 'chat_message', 'message': message, 'sender': self.user.username}
+            )
+
+            # AI 에이전트에게 모든 메시지 전달 (백그라운드 작업으로)
+            if self.agent:
+                asyncio.create_task(self.agent.on_new_input_async({
+                    "type": "normal",
+                    "content": message,
+                    "user_id": self.user.username,
+                    "chat_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "room_id": self.room_id
+                }))
+
     async def _periodic_queue_broadcast(self):
         """2초마다 큐 상태를 정기적으로 브로드캐스트"""
         logger.info(f"🔄 정기 큐 상태 브로드캐스트 시작: {self.room_group_name}")
@@ -263,7 +329,7 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
                 if (hasattr(self, 'agent') and self.agent and 
                     hasattr(self.agent, 'broadcast_queue_state')):
                     try:
-                        await self.agent.broadcast_queue_state()
+                        await self.agent.broadcast_queue_state(self.room_id)
                         logger.debug(f"🔄 정기 큐 상태 브로드캐스트 완료: {self.room_group_name}")
                     except Exception as e:
                         logger.error(f"❌ 정기 큐 브로드캐스트 오류: {e}")

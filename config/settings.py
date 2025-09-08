@@ -213,10 +213,10 @@ AI_CHATBOT_SETTINGS = {
 
 # --- LLM 추론 서버 설정 ---
 INFERENCE_SERVERS = {
-    'streamer1': os.getenv('INFERENCE_SERVER_1', 'http://localhost:8001'),
-    'streamer2': os.getenv('INFERENCE_SERVER_2', 'http://localhost:8002'),
-    'streamer3': os.getenv('INFERENCE_SERVER_3', 'http://localhost:8003'),
-    'streamer4': os.getenv('INFERENCE_SERVER_4', 'http://localhost:8004'),
+    '강시현': os.getenv('INFERENCE_SERVER_KANGSIHYUN', 'http://localhost:8001'),
+    '김춘기': os.getenv('INFERENCE_SERVER_KIMCHUNGI', 'http://localhost:8002'),
+    '오율': os.getenv('INFERENCE_SERVER_OHYUL', 'http://localhost:8003'),
+    '홍세현': os.getenv('INFERENCE_SERVER_HONGSEHYUN', 'http://localhost:8004'),
 }
 
 # 추론 서버 연결 설정

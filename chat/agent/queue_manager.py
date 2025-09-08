@@ -86,7 +86,7 @@ class QueueManager:
         
         # 큐 상태 브로드캐스트 (비동기)
         if self.broadcast_cb:
-            asyncio.create_task(self.broadcast_cb())
+            asyncio.create_task(self.broadcast_cb(msg.get("room_id")))
 
         reasons = []
         if self.topic.topic_ctx["score"] >= self.topic.TOPIC_SCORE_TRIGGER:

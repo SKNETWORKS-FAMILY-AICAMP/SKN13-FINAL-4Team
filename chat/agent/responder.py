@@ -88,6 +88,7 @@ class Responder:
         echo_rule = f"[출력 규칙(구조만 지정)]\n- 답변의 첫 줄에 아래 형식의 한 줄을 반드시 말해:\n{self.echo_prefix} — {user_line}\"{quoted}\"\n- 위 한 줄 다음부터는 네 말투로 자연스럽게 상담 답변을 이어가.\n- 인용부호 안의 댓글은 수정/요약/의역 없이 그대로 읽어. 톤 가이드에 영향 주지 마." if self.echo_in_prompt else ""
         sys = SystemMessage(content=f"{cat['system_prompt']}\n\n[사용자 정보]\n{user_status}\n\n[질문 분류]\n카테고리: {categories_str}\n\n[사용자 질문]\n『{user_text}』\n\n{echo_rule}".strip())
         user_msg = state["messages"][0] if state.get("messages") else HumanMessage(content=user_text or "")
+        
         # 강화된 LLM 호출 로직 (추론 서버 → OpenAI 폴백)
         assistant_text = None
         
@@ -123,23 +124,58 @@ class Responder:
                 logger.error(f"추론서버와 OpenAI 모두 실패: {self.streamer_id} - {e}")
                 # 최후 수단: 기본 응답
                 assistant_text = "죄송합니다. 현재 답변을 생성할 수 없습니다. 잠시 후 다시 시도해주세요."
-        assistant = AIMessage(content=assistant_text)
-        
-        # --- 2. 감정 분류 ---
-        emotion = await asyncio.to_thread(self.emotion_cls.classify, assistant_text) if self.emotion_cls else "neutral"
 
-        # --- 3. MediaPacket 생성 요청 ---
+        # --- 2. 후처리: 인용구 필터링 및 병합 ---
+        import re
+
+        def is_meaningless(text: str) -> bool:
+            text = text.strip()
+            if not text: return True
+            # "ㅋㅋ", "ㅎㅎㅎ", "ㅜㅜ" 등 자음/모음만으로 된 짧은 메시지
+            if len(text) < 4 and re.fullmatch(r'^[ㅋㅎㅇㅠㅜ!?~. ]+' , text)\
+                : return True
+            # "........" 처럼 한 문자로만 반복되는 경우
+            if len(set(text.replace(" ", ""))) == 1: return True
+            return False
+
+        original_user_message = state.get("best_chat", "")
+        # 정규표현식: "지금 읽은 댓글 - [사용자명]: \"[인용문\"\n\n[AI 답변]" 형식을 찾음
+        prefix_pattern = re.compile(r"지금 읽은 댓글.*?:*\s*\"(.*?)\"\s*\n*(.*)", re.DOTALL)
+        match = prefix_pattern.match(assistant_text)
+        
+        final_text = assistant_text
+        if match:
+            ai_response_body = match.group(2).strip()
+            if is_meaningless(original_user_message):
+                # 의미 없는 메시지는 인용 생략
+                final_text = ai_response_body
+            else:
+                # 의미 있는 메시지는 앞부분의 무의미한 자음/모음 제거 후 자연스럽게 연결
+                cleaned_user_message = re.sub(r'^[ㅋㅎㅠㅜ!?~\s]+', '', original_user_message).strip()
+                final_text = f"{cleaned_user_message}. {ai_response_body}"
+        
+        assistant = AIMessage(content=final_text)
+        
+        # --- 3. 감정 분류 ---
+        emotion = await asyncio.to_thread(self.emotion_cls.classify, final_text) if self.emotion_cls else "neutral"
+
+        # --- 4. MediaPacket 생성 요청 ---
         if self.media_processor and self.stream_session:
             request_data = {
-                'message': assistant_text,
-                'streamer_config': {'streamer_id': 'jammin-i'}, # TODO: streamer_id를 동적으로 받아와야 함
+                'message': final_text,
+                'streamer_config': {'streamer_id': self.streamer_id},
                 'emotion': emotion
             }
+            # 1. 트랙 생성을 기다리고 결과를 받습니다.
             tracks = await self.media_processor.generate_tracks_no_cancellation(request_data)
+            
+            # 2. 트랙이 성공적으로 생성되었는지 확인합니다.
             if tracks:
+                # 3. 트랙으로 미디어 패킷을 만듭니다.
                 media_packet = self.stream_session.build_packet(tracks)
+                # 4. 생성된 패킷을 송출 큐에 넣습니다.
                 await self.stream_session.enqueue_response(media_packet)
 
-        # --- 4. 최종 상태 반환 ---
+        # --- 5. 최종 상태 반환 ---
         return {**state, "messages": [assistant], "assistant_emotion": emotion}
 

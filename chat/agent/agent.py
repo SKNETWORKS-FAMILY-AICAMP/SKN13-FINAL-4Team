@@ -154,16 +154,16 @@ class LoveStreamerAgent:
             finally:
                 self.superchat_q.task_done()
 
-    async def broadcast_queue_state(self):
+    async def broadcast_queue_state(self, room_id: str):
         """큐 상태를 프론트엔드에 브로드캐스트"""
-        if not self.streamer_id:
+        if not self.streamer_id or not room_id:
             return
             
         try:
             from channels.layers import get_channel_layer
             
             channel_layer = get_channel_layer()
-            room_group_name = f'streaming_chat_{self.streamer_id}'
+            room_group_name = f'streaming_chat_{room_id}'
             
             # 실제 큐 상태 정보 구성 (QueueManager + StreamSession 통합)
             detailed_info = self._build_real_queue_info()

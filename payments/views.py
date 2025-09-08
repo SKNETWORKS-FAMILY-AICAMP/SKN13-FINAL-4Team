@@ -68,7 +68,7 @@ class DonationAPIView(APIView):
                 )
 
             # --- Agent의 Superchat 큐로 직접 전달 ---
-            streamer_id = chatroom.influencer.username
+            streamer_id = chatroom.influencer.name
             agent = agent_manager.active_agents.get(streamer_id)
 
             if agent:
@@ -80,7 +80,8 @@ class DonationAPIView(APIView):
                     "metadata": {
                         "amount": amount,
                         "username": user.nickname or user.username,
-                    }
+                    },
+                    "room_id": chatroom.id
                 }
                 # 비동기 함수를 동기 컨텍스트에서 안전하게 호출
                 asyncio.run(agent.on_new_input_async(superchat_data))
