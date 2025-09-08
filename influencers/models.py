@@ -147,7 +147,9 @@ class Story(models.Model):
     content = models.TextField(verbose_name="내용")
     is_anonymous = models.BooleanField(default=True, verbose_name="익명 여부")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="작성일")
-    
+    relationship_stage = models.CharField(max_length=50, blank=True, verbose_name="관계 단계")
+    nickname = models.CharField(max_length=50, blank=True, verbose_name="닉네임")
+
     class Meta:
         ordering = ['-created_at']
         verbose_name = "사연"
