@@ -149,7 +149,8 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         try:
             data = json.loads(text_data)
             message_type = data.get('type', 'chat_message')
-
+        except Exception as e:
+            logger.info(e)
         if message_type == 'chat_message':
             message = data.get('message', '').strip()
             if not message: return
