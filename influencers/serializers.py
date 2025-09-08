@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import (
     Influencer, CoreValue, InfluencerCoreValue, 
-    CommunicationStyle, PersonalityTrait, MoralCompass, Story
+    CommunicationStyle, PersonalityTrait, MoralCompass, 
+    Story, Like, Donation
 )
 from users.serializers import UserSerializer
 
@@ -26,13 +27,21 @@ class InfluencerSerializer(serializers.ModelSerializer):
     personality_trait = PersonalityTraitSerializer(read_only=True)
     moral_compass = MoralCompassSerializer(read_only=True)
     
-    # core_values는 이름만 보이도록 간단하게 설정
     core_values = serializers.StringRelatedField(many=True, read_only=True)
+
+    is_liked_by_user = serializers.SerializerMethodField()
 
     class Meta:
         model = Influencer
-        # API 응답에 포함될 필드 목록
         fields = '__all__'
+
+    def get_is_liked_by_user(self, obj):
+        user = self.context.get('request').user
+        
+        if user and user.is_authenticated: # 유저 로그인 상태 확인
+            return Like.objects.filter(influencer=obj, user=user).exists()
+        
+        return False
 
 class InfluencerWriteSerializer(serializers.ModelSerializer):
     class Meta:
