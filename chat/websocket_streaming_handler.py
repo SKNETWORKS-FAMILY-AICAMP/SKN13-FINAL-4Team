@@ -72,16 +72,16 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         # URL에서 한글이 포함된 streamer_id를 가져옵니다.
-        streamer_id_unicode = self.scope['url_route']['kwargs']['streamer_id']
+        if 'room_id' in self.scope['url_route']['kwargs']:
+            room_id = self.scope['url_route']['kwargs']['room_id']
+        elif 'streamer_id' in self.scope['url_route']['kwargs']:
+            room_id = self.scope['url_route']['kwargs']['streamer_id']
+        else:
+            await self.close()
+            return
         
-        # 한글 ID를 ASCII 문자로 된 고유한 해시값으로 변환합니다.
-        safe_streamer_id = hashlib.md5(streamer_id_unicode.encode('utf-8')).hexdigest()
-
-        # 안전하게 변환된 ID로 채널 그룹 이름을 설정합니다.
-        self.room_group_name = f'streaming_chat_{safe_streamer_id}'
-        
-        # 다른 로직에서는 원래의 한글 ID를 사용해야 하므로, self.streamer_id에는 원래 값을 유지합니다.
-        self.streamer_id = streamer_id_unicode
+        self.streamer_id = room_id  # Use a consistent internal variable name
+        self.room_group_name = f'chat_{self.streamer_id}'
         
         print(f"✅ WebSocket 연결 시도 감지! Group: {self.room_group_name}")
 

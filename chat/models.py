@@ -75,6 +75,14 @@ class ChatRoom(models.Model):
         help_text='채팅방이 종료된 시간'
     )
 
+    hls_url = models.URLField(
+        max_length=512, 
+        blank=True, 
+        null=True, 
+        verbose_name="HLS 스트림 URL",
+        help_text="라이브 스트리밍을 위한 HLS 주소입니다."
+    )
+    
     def __str__(self):
         return self.name
 
