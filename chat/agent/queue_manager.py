@@ -55,13 +55,15 @@ class QueueManager:
             return sum(1 for m in self.general_queue if m.get("thread_id") == tid and (now_mono - float(m.get("ts", now_mono))) <= within_sec)
 
     async def enqueue_general_chat(self, msg: dict, lite: LiteClassifier):
-        self.mark_event()
         now_mono = time.monotonic()
         content = msg.get("content", "")
 
         # 임시 장치: 메시지 길이가 10 미만인 경우 AI 응답 후보에서 제외
         if len(content) < 10:
             return
+
+        # 10글자 이상 메시지만 이벤트로 마킹 (자율 행동 타이밍에 영향)
+        self.mark_event()
 
         lite_res = await asyncio.to_thread(lite.classify, content)
         label_hint = lite_res.get("group_key") or lite_res.get("topic") or "일반"
