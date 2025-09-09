@@ -53,7 +53,7 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def save_message(self, user, message):
         try:
-            room = ChatRoom.objects.get(name=self.streamer_id)
+            room = ChatRoom.objects.get(id=self.streamer_id)
             ChatMessage.objects.create(room=room, sender=user, content=message)
             logger.info(f"💾 메시지 저장 완료: {user.username} -> room {self.streamer_id}")
         except ChatRoom.DoesNotExist:
@@ -82,7 +82,7 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         
         self.streamer_id = room_id  # Use a consistent internal variable name
         self.room_group_name = f'chat_{self.streamer_id}'
-        
+
         print(f"✅ WebSocket 연결 시도 감지! Group: {self.room_group_name}")
 
         query_string = self.scope.get('query_string', b'').decode()
@@ -118,7 +118,7 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_send(
             self.room_group_name,
-            {'type': 'system_message', 'message': f'{user.username}님이 채팅에 참여했습니다.'}
+            {'type': 'system_message', 'message': f'{user.nickname}님이 채팅에 참여했습니다.'}
         )
 
     async def send_initial_data(self):
@@ -157,12 +157,15 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
 
                 logger.info(f"📨 메시지 수신: {self.user.username} -> '{message[:50]}...'")
                 
+                profile_image_url = self.user.profile_image.url if self.user.profile_image else None
+                
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
                         'type': 'chat_message',
                         'message': message,
-                        'sender': self.user.username,
+                        'sender': self.user.nickname,
+                        'profile_image_url': profile_image_url
                     }
                 )
                 
@@ -260,7 +263,8 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             'type': 'chat_message',
             'message': event['message'],
             'sender': event['sender'],
-            'timestamp': time.time()
+            'timestamp': time.time(),
+            'profile_image_url': event.get('profile_image_url')
         }))
 
     async def system_message(self, event):

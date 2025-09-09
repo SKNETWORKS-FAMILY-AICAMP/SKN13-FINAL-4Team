@@ -82,7 +82,7 @@ class ChatRoom(models.Model):
         verbose_name="HLS 스트림 URL",
         help_text="라이브 스트리밍을 위한 HLS 주소입니다."
     )
-    
+
     def __str__(self):
         return self.name
 
@@ -141,6 +141,12 @@ class StreamerTTSSettings(models.Model):
         default='aneunjin',
         help_text='ElevenLabs 음성 ID'
     )
+    elevenlabs_voice_name = models.CharField(
+        max_length=100,
+        default='안은진', # 기본값을 설정해주는 것이 좋습니다.
+        help_text='ElevenLabs 음성 이름 (표시용)'
+    )
+
     elevenlabs_model = models.CharField(
         max_length=100,
         default='eleven_multilingual_v2',
@@ -234,6 +240,7 @@ class StreamerTTSSettings(models.Model):
             defaults={
                 'tts_engine': 'elevenlabs',
                 'elevenlabs_voice': 'aneunjin',
+                'elevenlabs_voice_name': '안은진',
                 'elevenlabs_model': 'eleven_multilingual_v2',
                 'elevenlabs_stability': 0.5,
                 'elevenlabs_similarity': 0.8,
