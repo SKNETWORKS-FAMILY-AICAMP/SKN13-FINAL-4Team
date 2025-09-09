@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 // import { jwtDecode } from 'jwt-decode';
-import api from './utils/unifiedApiClient';
+//import api from './utils/unifiedApiClient';
+import api from './api';
 import { getValidToken } from './utils/tokenUtils';
 import Navbar from './components/layout/Navbar';
 import SignupForm from './components/auth/SignupForm';
@@ -11,11 +12,16 @@ import UserListPage from './components/user/UserListPage';
 import ProfilePage from './components/user/ProfilePage';
 import StreamingPage from './components/streaming/StreamingPage';
 import HomeTemporary from './components/pages/HomeTemporary';
+import FindId from './components/auth/FindId';
+import FindPassword from './components/auth/FindPassword';
 import SuccessPage from './components/pages/SuccessPage';
 import FailPage from './components/pages/FailPage';
 import CreateChatRoom from './components/staff/CreateChatRoom';
 import ChatRoomManagement from './components/staff/ChatRoomManagement';
-import StreamerManagement from './components/staff/StreamerManagement';
+import InfluencerManagementPage from './components/staff/InfluencerManagementPage';
+import TTSDebugTool from './components/tts/TTSDebugTool';
+import InfluencerPage from './components/pages/InfluencerPage';
+//import StreamerManagement from './components/staff/StreamerManagement';
 import { initializeVideoConfig } from './utils/videoConfig';
 import './App.css';
 
@@ -101,7 +107,7 @@ function App() {
   return (
     <Router>
       <div className="App">
-        <Navbar isLoggedIn={isLoggedIn} user={user} onLogout={handleLogout} />
+        <Navbar isLoggedIn={isLoggedIn} user={user} onLogout={handleLogout} userBalance={userBalance} />
         <Routes>
           <Route path="/" element={<HomeTemporary />} />
           {/* 결제 결과 페이지 */}
@@ -110,18 +116,20 @@ function App() {
           <Route path="/signup/terms" element={<TermsPage />} />
           <Route path="/signup" element={<SignupForm />} />
           <Route path="/login" element={<LoginForm onLogin={handleLogin} />} />
-          <Route path="/find-id" element={<div>아이디 찾기 페이지</div>} />
-          <Route path="/find-password" element={<div>비밀번호 찾기 페이지</div>} />
-          
+          <Route path="/find-id" element={<FindId />} />
+          <Route path="/find-password" element={<FindPassword />} />
+          <Route path="/stream/:roomId" element={<StreamingPage isLoggedIn={isLoggedIn} user={user} />} />
+          <Route path="/influencers/:id" element={<InfluencerPage />} />
           {/* is_staff가 true일 때만 렌더링되도록 보호 */}
           {user?.is_staff && (
             <>
               <Route path="/management" element={<UserListPage />} />
               <Route path="/management/userlist" element={<UserListPage />} />
           {/* 스태프 페이지 */}
-          <Route path="/staff/create" element={<CreateChatRoom />} />
-          <Route path="/staff/management" element={<ChatRoomManagement />} />
-          <Route path="/staff/streamers" element={<StreamerManagement />} />
+            <Route path="/staff/create" element={<CreateChatRoom />} />
+            <Route path="/staff/management" element={<ChatRoomManagement />} />
+              <Route path="/staff/influencers" element={<InfluencerManagementPage />} />
+              <Route path="/debug/tts" element={<TTSDebugTool />} />
             </>
           )}
 
@@ -129,8 +137,9 @@ function App() {
           {isLoggedIn && (
             <>
               <Route path="/profile" element={<ProfilePage refreshUserData={fetchAndSetUser} />} />
-              <Route path="/stream/:roomId" element={<StreamingPage isLoggedIn={isLoggedIn} user={user} />} />
-          {/* 호환 라우트: 과거 링크 대응
+            </>
+          )}
+          {/* 호환 라우트: 과거 링크 대응 */}
           <Route path="/chat/lobby" element={<HomeTemporary />} />
           <Route path="/chat/:roomId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} /> */}
             </>

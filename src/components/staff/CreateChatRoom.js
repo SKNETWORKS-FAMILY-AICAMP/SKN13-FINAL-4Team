@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../layout/Sidebar';
+import api from '../../api'; 
 import signupStyles from '../auth/SignupForm.module.css';
 
 function CreateChatRoom() {
@@ -19,27 +19,23 @@ function CreateChatRoom() {
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
 
-    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-
     useEffect(() => {
         const fetchStreamers = async () => {
             try {
-                // DB 연동: Streamer API 엔드포인트 사용
-                const response = await axios.get(`${apiBaseUrl}/api/chat/streamers/`);
+                const response = await api.get('/api/influencers/');
+                const influencerList = response.data.results || [];
+                setInfluencers(influencerList);
 
-                const streamerList = response.data.streamers || [];
-                setStreamers(streamerList);
-
-                // 스트리머 목록을 불러온 후 첫 번째 스트리머를 기본값으로 설정
-                if (streamerList.length > 0) {
-                    setFormData(prev => ({ ...prev, streamer: streamerList[0].character_id }));
+                if (influencerList.length > 0) {
+                    setFormData(prev => ({ ...prev, influencer: influencerList[0].id }));
                 }
             } catch (err) {
-                console.error("스트리머 목록 로딩 실패:", err);
+                console.error("인플루언서 목록 로딩 실패:", err);
+                setError("인플루언서 목록을 불러오는데 실패했습니다. 관리자 권한이 있는지 확인해주세요.");
             }
         };
-        fetchStreamers();
-    }, [apiBaseUrl]); // apiBaseUrl을 의존성 배열에 추가
+        fetchInfluencers();
+    }, []);
 
     const handleChange = (e) => {
         setFormData({
@@ -64,6 +60,11 @@ function CreateChatRoom() {
         e.preventDefault();
         setError('');
 
+        if (!formData.influencer) {
+            setError('인플루언서를 선택해주세요.');
+            return;
+        }
+
         const submissionData = new FormData();
         submissionData.append('name', formData.name);
         submissionData.append('description', formData.description);
@@ -87,23 +88,13 @@ function CreateChatRoom() {
         }
 
         try {
-            const accessToken = localStorage.getItem('accessToken');
-            
-            // 디버그: FormData 내용 출력
-            console.log('🔍 FormData 디버깅:');
-            for (let [key, value] of submissionData.entries()) {
-                console.log(`  ${key}:`, value);
-            }
-            console.log('🔍 API URL:', `${apiBaseUrl}/api/chat/rooms/`);
-            
-            const response = await axios.post(`${apiBaseUrl}/api/chat/rooms/`, submissionData, {
+            const response = await api.post('/api/chat/rooms/', submissionData, {
                 headers: { 
-                    Authorization: `Bearer ${accessToken}`,
                     'Content-Type': 'multipart/form-data',
                 }
             });
             alert("방송이 생성되었습니다.");
-            navigate(`/chat/${response.data.id}`);
+            navigate(`/stream/${response.data.id}`);
         } catch (error){
             setError('방송 생성 중 오류가 발생했습니다.');
             console.error('방송 생성 오류:', error);
@@ -172,12 +163,12 @@ function CreateChatRoom() {
 
                     {/* 스트리머 선택 (DB 연동) */}
                     <div className={signupStyles.formGroup}>
-                        <label htmlFor="streamer" className="form-label text-start d-block">스트리머</label>
-                        <select id="streamer" name="streamer" value={formData.streamer} onChange={handleChange} required>
-                            <option value="" disabled>스트리머를 선택하세요</option>
-                            {streamers.map(streamer => (
-                                <option key={streamer.character_id} value={streamer.character_id}>
-                                    {streamer.display_name} ({streamer.character_type})
+                        <label htmlFor="influencer" className="form-label text-start d-block">인플루언서</label>
+                        <select id="influencer" name="influencer" value={formData.influencer} onChange={handleChange} required>
+                            <option value="" disabled>인플루언서를 선택하세요</option>
+                            {influencers.map(inf => (
+                                <option key={inf.id} value={inf.id}>
+                                    {inf.name}
                                 </option>
                             ))}
                         </select>

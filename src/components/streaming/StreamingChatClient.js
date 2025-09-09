@@ -284,13 +284,13 @@ const StreamingChatWithTTS = ({
                             // 후원 메시지를 채팅에 표시
                             const donationMessage = {
                                 id: Date.now() + Math.random(),
-                                message: data.data.message || '',
+                                message: data.message || '',
                                 message_type: 'donation',
-                                sender: data.data.username,
-                                sender_display: data.data.nickname || data.data.username,
-                                timestamp: data.timestamp || Date.now(),
-                                donation_amount: data.data.amount,
-                                tts_enabled: data.data.tts_enabled
+                                sender: data.user,
+                                sender_display: data.user,
+                                timestamp: data.timestamp || new Date().toISOString(),
+                                donation_amount: data.amount,
+                                tts_enabled: true
                             };
                             
                             addMessage(donationMessage);
@@ -299,7 +299,12 @@ const StreamingChatWithTTS = ({
                             if (onWebSocketMessage) {
                                 onWebSocketMessage({
                                     type: 'donation_overlay',
-                                    data: data.data
+                                    data: {
+                                        message: data.message,
+                                        username: data.user,
+                                        amount: data.amount,
+                                        timestamp: data.timestamp
+                                    }
                                 });
                             }
                             
@@ -569,6 +574,7 @@ const StreamingChatWithTTS = ({
         try {
             const messageText = inputValue.trim();
             const messageData = {
+                type: "chat_message",
                 message: messageText
             };
 
@@ -734,8 +740,8 @@ const StreamingChatWithTTS = ({
             {isLoggedIn && (
                 <div className="chat-help p-2">
                     <small style={{ color: 'var(--color-text)' }}>
-                        <strong style={{ color: 'var(--brand)' }}>🤖 AI 어시스턴트 사용법:</strong><br/>
-                        <code className="px-1 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.08)', color: 'var(--color-text)', border: '1px solid rgba(0,0,0,0.15)' }}>@메시지</code> <span style={{ color: 'var(--color-text)' }}>- 스트리머 멘션으로 AI 호출</span>
+                        <strong style={{ color: 'var(--brand)' }}>🤖 AI 어시스턴트:</strong><br/>
+                        <span style={{ color: 'var(--color-text)' }}>메시지를 보내면 AI가 자동으로 응답합니다</span>
                         {audioEnabled && <span className="ms-2" style={{ color: 'var(--color-text)', opacity: 0.85 }}>| 🔊 AI 음성 자동 재생 ({
                             settings.ttsEngine === 'elevenlabs' ? 'ElevenLabs TTS' : 
                             settings.ttsEngine === 'elevenlabs' ? 'ElevenLabs' :
@@ -782,7 +788,7 @@ const StreamingChatWithTTS = ({
                                 ? "로그인 후 채팅에 참여할 수 있습니다..." 
                                 : !isConnected 
                                 ? "연결을 기다리는 중..." 
-                                : "메시지를 입력하세요... (AI 호출: @메시지)"
+                                : "AI에게 메시지를 보내보세요..."
                         }
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}

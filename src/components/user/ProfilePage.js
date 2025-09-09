@@ -30,7 +30,7 @@ function ProfilePage({ refreshUserData }) { // props로 refreshUserData 함수�
 
     const navigate = useNavigate();
     
-    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || '';
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
 
     useEffect(() => {
         const fetchUserData = async () => {
@@ -183,6 +183,10 @@ function ProfilePage({ refreshUserData }) { // props로 refreshUserData 함수�
     if (error) return <div className="loading-message">{error}</div>;
     if (!user) return <div className="loading-message">사용자 정보가 없습니다.</div>;
 
+    // const profileImageUrl = imagePreviewUrl || 
+    //                         (user.profile_image ? `${apiBaseUrl}${user.profile_image}` 
+    //                                         : `${apiBaseUrl}/media/profile_pics/default_profile.png`);
+
     const profileImageUrl = imagePreviewUrl || 
                             (user.profile_image ? `${apiBaseUrl}${user.profile_image}` 
                                               : `${apiBaseUrl}/media/profile_pics/default_profile.png`);
@@ -198,7 +202,6 @@ function ProfilePage({ refreshUserData }) { // props로 refreshUserData 함수�
                 <div className={styles.imageContainer}>
                     {/* 현재 프로필 이미지: 백엔드 정적 경로를 절대 URL로 보정 */}
                     {(() => {
-                        const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
                         const resolvedSrc = imagePreviewUrl || (
                             user.profile_image
                                 ? (user.profile_image.startsWith('http') ? user.profile_image : `${apiBaseUrl}${user.profile_image}`)
