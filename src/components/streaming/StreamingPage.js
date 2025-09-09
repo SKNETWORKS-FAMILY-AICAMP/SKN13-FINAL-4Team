@@ -24,130 +24,104 @@ function StreamingPage() {
     const websocketBaseUrl = process.env.REACT_APP_WEBSOCKET_BASE_URL || 'ws://localhost:8000';
 
     useEffect(() => {
-        // 사용자 정보, 방 정보, HLS 스트림 로딩 로직
-        const fetchData = async () => {
+        let hlsInstance = null;
+        let websocketClient = null;
+
+        const initializePage = async () => {
             try {
-                // API 호출들을 동시에 시작
-                const roomPromise = api.get(`/api/chat/rooms/${roomId}/`);
-                const userPromise = api.get('/api/users/me/');
-                
-                // 모든 응답을 기다림
-                const [roomResponse, userResponse] = await Promise.all([roomPromise, userPromise]);
-
-                setRoom(roomResponse.data);
-                setUser(userResponse.data);
-
-                // HLS 스트림 설정
-                const videoSrc = roomResponse.data.hls_url;
-                if (videoSrc && Hls.isSupported()) {
-                    if (hlsRef.current) {
-                        hlsRef.current.destroy();
-                    }
-                    const hls = new Hls();
-                    hlsRef.current = hls;
-                    hls.loadSource(videoSrc);
-                    hls.attachMedia(videoRef.current);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        videoRef.current.play().catch(e => console.error("비디오 재생 오류:", e));
-                    });
-                } else if (videoRef.current) {
-                    videoRef.current.src = videoSrc;
+                // 1. 유효한 토큰부터 확인
+                const token = await getValidToken();
+                if (!token) {
+                    alert("로그인이 필요한 페이지입니다.");
+                    navigate('/login');
+                    return;
                 }
 
+                // 2. 사용자 정보와 방 정보를 동시에 요청
+                const userPromise = api.get('/api/users/me/');
+                const roomPromise = api.get(`/api/chat/rooms/${roomId}/`);
+                const [userResponse, roomResponse] = await Promise.all([userPromise, roomPromise]);
+                
+                const currentUser = userResponse.data;
+                const currentRoom = roomResponse.data;
+                
+                setUser(currentUser);
+                setRoom(currentRoom);
+
+                // 3. HLS 비디오 스트림 설정
+                const videoSrc = currentRoom.hls_url;
+                if (videoSrc && Hls.isSupported() && videoRef.current) {
+                    hlsInstance = new Hls();
+                    hlsInstance.loadSource(videoSrc);
+                    hlsInstance.attachMedia(videoRef.current);
+                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+                        videoRef.current?.play().catch(e => console.error("비디오 자동 재생 실패:", e));
+                    });
+                    hlsRef.current = hlsInstance;
+                }
+
+                // 4. 모든 정보가 준비된 후 웹소켓 연결
+                websocketClient = new W3CWebSocket(`${websocketBaseUrl}/ws/chat/${roomId}/?token=${token}`);
+                chatClientRef.current = websocketClient;
+
+                websocketClient.onopen = () => {
+                    console.log('WebSocket Client Connected');
+                    //setChatMessages(prev => [...prev, { type: 'system_message', message: `${currentUser.nickname || currentUser.username}님이 채팅에 참여했습니다.` }]);
+                };
+
+                websocketClient.onmessage = (message) => {
+                    const dataFromServer = JSON.parse(message.data);
+                    setChatMessages(prev => [...prev, dataFromServer]);
+                };
+
+                websocketClient.onerror = (err) => {
+                    console.error('WebSocket Error:', err);
+                    setChatMessages(prev => [...prev, { type: 'system_message', message: '채팅 서버에 연결할 수 없습니다.' }]);
+                };
+
+                websocketClient.onclose = () => {
+                    console.log('WebSocket Client Disconnected');
+                };
+
             } catch (err) {
-                setError('스트림 정보를 불러오는 데 실패했습니다.');
-                console.error(err);
+                console.error("페이지 초기화 실패:", err);
+                setError('페이지를 불러오는 데 실패했습니다.');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchData();
-
-        return () => {
-            if (hlsRef.current) {
-                hlsRef.current.destroy();
-            }
-        };
-    }, [roomId]);
-
-    // WebSocket 연결 로직
-    useEffect(() => {
-        // user state가 아직 없으면 아무것도 실행하지 않습니다.
-        if (!roomId || !user) return;
-
-        const connectWebSocket = async () => {
-            // 🔽 localStorage 대신 안전한 유틸리티 함수를 사용합니다.
-            const token = await getValidToken();
-
-            if (!token) {
-                console.error("인증 토큰을 찾을 수 없어 웹소켓 연결을 중단합니다.");
-                alert("로그인이 필요한 페이지입니다.");
-                navigate('/login');
-                return;
-            }
-
-            const client = new W3CWebSocket(`${websocketBaseUrl}/ws/chat/${roomId}/?token=${token}`);
-            chatClientRef.current = client;
-
-            client.onopen = () => console.log('WebSocket Client Connected');
-            client.onclose = () => console.log('WebSocket Client Disconnected');
-            client.onerror = (err) => console.error('WebSocket Error:', err);
-
-            client.onmessage = (message) => {
-                const dataFromServer = JSON.parse(message.data);
-                setChatMessages(prev => [...prev, dataFromServer]);
-            };
-        };
-        
-        // user 정보가 성공적으로 로드된 후에 웹소켓 연결을 시도합니다.
-        connectWebSocket();
-
-        // 컴포넌트가 사라질 때 웹소켓 연결을 정리합니다.
-        return () => {
-            if (chatClientRef.current) {
-                chatClientRef.current.close();
-            }
-        };
-        // 🔽 [수정] 의존성 배열에 user를 추가합니다.
-    }, [roomId, user, navigate]); // user가 변경될 때마다 이 useEffect가 다시 실행됩니다.
-
-    // 사용자 정보를 가져오는 useEffect는 분리하여 관리하는 것이 더 좋습니다.
-    useEffect(() => {
-        const initializePage = async () => {
-            try {
-                const response = await api.get('/api/users/me/');
-                setUser(response.data);
-            } catch (err) {
-                console.error('사용자 정보 로딩 실패:', err);
-                navigate('/login');
-            }
-        };
         initializePage();
-    }, [navigate]); // 이 useEffect는 처음 마운트될 때만 실행됩니다.
+
+        // 컴포넌트가 사라질 때 모든 연결을 정리
+        return () => {
+            hlsInstance?.destroy();
+            websocketClient?.close();
+        };
+    }, [roomId, navigate, websocketBaseUrl]); // roomId 변경 시에만 전체 로직 재실행
 
     // 채팅 스크롤 자동 내리기
     useEffect(() => {
         if (chatContainerRef.current) {
             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         }
+        console.log("Current Chat Messages:", chatMessages);
     }, [chatMessages]);
     
     // 메시지 전송 로직
-    const sendMessage = useCallback((type = 'chat_message', content = messageInput, amount = 0) => {
+    const sendMessage = useCallback((type = 'chat_message', content = messageInput) => {
         if (!content.trim() || !chatClientRef.current || chatClientRef.current.readyState !== chatClientRef.current.OPEN) {
             return;
         }
         chatClientRef.current.send(JSON.stringify({
             type,
             message: content,
-            username: user.nickname || user.username,
-            amount,
         }));
         if (type === 'chat_message') {
             setMessageInput('');
         }
-    }, [messageInput, roomId, user]);
+    }, [messageInput]);
+
 
     const handleMessageSubmit = (e) => {
         e.preventDefault();
@@ -207,41 +181,64 @@ function StreamingPage() {
             {/* 오른쪽 라이브 채팅 사이드바 */}
             <div className={styles.chatSidebar}>
                 <h2 className={styles.chatTitle}>라이브 채팅</h2>
-                <div className={styles.chatMessages} ref={chatContainerRef}>
-                    {chatMessages.map((msg, index) => (
-                        <div key={index} className={`${styles.chatMessage} ${msg.type === 'donation_message' ? styles.donationMessage : ''}`}>
-                            {msg.type === 'donation_message' ? (
-                                <>
-                                    <span className={styles.donationAmount}>₩{msg.amount.toLocaleString()}</span>
-                                    <span className={styles.donorName}>{msg.username}</span>
-                                    <span className={styles.messageContent}>{msg.message}</span>
-                                </>
-                            ) : (
-                                <>
-                                    <span className={styles.messageAuthor}>{msg.username}</span>
-                                    <span className={styles.messageContent}>{msg.message}</span>
-                                </>
-                            )}
+                    <div className={styles.chatMessages} ref={chatContainerRef}>
+                        {chatMessages.map((msg, index) => {
+
+                                if (msg.type === 'system_message') {
+                                    return (
+                                        <div key={index} className={styles.systemMessage}>
+                                            {msg.message}
+                                        </div>
+                                    )
+                                }
+                                
+                                if (msg.type === 'donation_message') {
+                                    return (
+                                        <div key={index} className={styles.donationMessage}>
+                                            <div className={styles.donationHeader}>
+                                                <span className={styles.donationAmount}>₩{msg.amount.toLocaleString()}</span>
+                                                <span className={styles.donorName}>• {msg.sender}</span> {/* 닉네임 표시 */}
+                                            </div>
+                                            <span className={styles.messageContent}>{msg.message}</span>
+                                        </div>
+                                    )
+                                }
+                                if(msg.type === 'chat_message')
+                                {
+                                    return (
+                                        <div key={index} className={styles.chatMessage}>
+                                            <div className={styles.chatAvatar}>
+                                                <img 
+                                                    src={msg.profile_image_url ? `${apiBaseUrl}${msg.profile_image_url}` : `https://via.placeholder.com/36`} 
+                                                    alt={`${msg.username} 프로필`} 
+                                                />
+                                            </div>
+                                            <div className={styles.messageBody}>
+                                                <div className={styles.messageAuthor}>{msg.sender}</div>
+                                                <div className={styles.messageContent}>{msg.message}</div>
+                                            </div>
+                                        </div>
+                                    )
+                                }
+                        })}
+                    </div>
+                        <div className={styles.chatInputSection}>
+                            <div className={styles.inputActionWrapper}>
+                                <form onSubmit={handleMessageSubmit} className={styles.chatInputForm}>
+                                    <input
+                                        type="text"
+                                        value={messageInput}
+                                        onChange={(e) => setMessageInput(e.target.value)}
+                                        placeholder="메시지 입력..."
+                                        className={styles.messageInput}
+                                    />
+                                    <button type="submit" className={styles.sendButton}>
+                                        {/* SVG 아이콘 */}
+                                    </button>
+                                </form>
+                                <button className={styles.sponsorButton}>후원</button>
+                            </div>
                         </div>
-                    ))}
-                </div>
-                <div className={styles.chatInputSection}>
-                    <form onSubmit={handleMessageSubmit} className={styles.chatInputForm}>
-                        <input
-                            type="text"
-                            value={messageInput}
-                            onChange={(e) => setMessageInput(e.target.value)}
-                            placeholder="메시지 입력..."
-                            className={styles.messageInput}
-                        />
-                        <button type="submit" className={styles.sendButton}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-4.995-3.178 11.03-6.142Z"/>
-                            </svg>
-                        </button>
-                    </form>
-                    <button className={styles.sponsorButton}>후원</button>
-                </div>
             </div>
         </div>
     );

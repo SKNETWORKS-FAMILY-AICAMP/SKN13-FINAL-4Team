@@ -198,7 +198,6 @@ function ProfilePage({ refreshUserData }) { // props로 refreshUserData 함수�
                 <div className={styles.imageContainer}>
                     {/* 현재 프로필 이미지: 백엔드 정적 경로를 절대 URL로 보정 */}
                     {(() => {
-                        // const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
                         const resolvedSrc = imagePreviewUrl || (
                             user.profile_image
                                 ? (user.profile_image.startsWith('http') ? user.profile_image : `${apiBaseUrl}${user.profile_image}`)
@@ -207,7 +206,6 @@ function ProfilePage({ refreshUserData }) { // props로 refreshUserData 함수�
                         return (
                             <img 
                                 src={resolvedSrc}
-                                //src={profileImageUrl} 
                                 alt="Profile" 
                                 className={styles.profileImage} 
                             />

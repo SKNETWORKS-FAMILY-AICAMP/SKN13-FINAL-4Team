@@ -140,46 +140,106 @@
     padding-bottom: 16px;
     border-bottom: 1px solid #f0f2f5;
 }
+
 .chatMessages {
     flex-grow: 1;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 18px;
     margin-bottom: 20px;
+    padding-right: 10px;
 }
+
 .chatMessage {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 12px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+.chatAvatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #f0f2f5;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.chatAvatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; 
+}
+
+.messageBody {
+    display: flex;
+    flex-direction: column;
+}
+.messageAuthor {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+}
+.messageContent {
+    color: #1c1e21;
+    word-break: break-all;
+}
+.messageAuthor {
+    font-weight: 600;
+    color: #333; /* 작성자 이름 색상 */
+    margin-right: 8px; /* 이름과 메시지 사이 간격 */
+}
+
+.messageContent {
+    color: #1c1e21;
+}
+
+.donationMessage {
+    background-color: #FFFBE6;
+    border: none;
+    padding: 16px;
+    border-radius: 12px;
     font-size: 0.95rem;
 }
-.messageAuthor { font-weight: 600; color: #65676b; }
-.messageContent { color: #1c1e21; word-break: break-all; }
-.donationMessage {
-    background-color: #fffbe6; /* 연노랑 배경 */
-    border: 1px solid #ffe58f;
-    padding: 12px;
-    border-radius: 8px;
-    display: block;
+.donationHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-weight: bold;
 }
-.donationAmount { font-weight: bold; color: #faad14; margin-right: 8px; }
-.donorName { font-weight: bold; margin-right: 4px; }
+
+.donationAmount { color: #E6A23C; }
+.donorName { color: #333; }
+.donationMessage .messageContent {
+    color: #555;
+}
 
 /* --- 채팅 입력부 --- */
 .chatInputSection {
     margin-top: auto;
     display: flex;
-    flex-direction: column;
     gap: 10px;
 }
+
+.inputActionWrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .chatInputForm {
     display: flex;
+    align-items: center;
     gap: 10px;
     background-color: #f0f2f5;
     border-radius: 20px;
-    padding: 4px;
+    padding: 6px;
+    flex-grow: 1;
 }
+
 .messageInput {
     flex-grow: 1;
     border: none;
@@ -187,6 +247,7 @@
     outline: none;
     padding: 8px 12px;
 }
+
 .sendButton {
     width: 32px;
     height: 32px;
@@ -198,19 +259,31 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    flex-shrink: 0;
 }
+
+
 .sponsorButton {
     background-color: #faad14;
     color: #1c1e21;
     border: none;
-    padding: 10px;
+    padding: 8px 16px;
     border-radius: 20px;
     font-weight: bold;
     cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 /* 반응형 */
 @media (max-width: 1200px) {
     .pageContainer { flex-direction: column; }
     .chatSidebar { width: 100%; max-height: 500px; }
+}
+
+.systemMessage {
+    color: #888;
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 4px 0;
 }
