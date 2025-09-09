@@ -124,6 +124,7 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_send(
             self.room_group_name,
+        )
 
         # --- Agent & Session 초기화 ---
         if self.streamer_id not in agent_manager.active_agents:
