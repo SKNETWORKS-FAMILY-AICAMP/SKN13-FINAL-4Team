@@ -58,10 +58,6 @@ class QueueManager:
         now_mono = time.monotonic()
         content = msg.get("content", "")
 
-        # 임시 장치: 메시지 길이가 10 미만인 경우 AI 응답 후보에서 제외
-        if len(content) < 10:
-            return
-
         # 10글자 이상 메시지만 이벤트로 마킹 (자율 행동 타이밍에 영향)
         self.mark_event()
 

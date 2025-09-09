@@ -192,7 +192,25 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             message = data.get('message', '').strip()
             if not message: return
 
-            # 사용자 메시지를 DB에 저장 (길이 제한 없이 모든 메시지 저장)
+            # --- 정식 필터 적용 ---
+            from .services.message_filter import is_message_blocked
+            is_blocked = await is_message_blocked(message)
+
+            if is_blocked:
+                # 필터에 차단된 경우: 일반 채팅 메시지 형태로 차단 메시지를 브로드캐스트
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'chat_message',
+                        'message': '방송 가이드라인에 의해 차단된 채팅입니다.',
+                        'sender': self.user.username
+                    }
+                )
+                logger.info(f"🚫 메시지 차단됨: (사용자: {self.user.username}, 내용: {message[:30]}...)")
+                return # 큐 적재 및 추가 처리 중단
+
+            # --- 필터 통과 시 ---
+            # 사용자 메시지를 DB에 저장
             await self.save_message(self.user, message)
 
             # 사용자 메시지 브로드캐스트
@@ -201,7 +219,7 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
                 {'type': 'chat_message', 'message': message, 'sender': self.user.username}
             )
 
-            # AI 에이전트에게 모든 메시지 전달 (백그라운드 작업으로)
+            # AI 에이전트에게 메시지 전달
             if self.agent:
                 asyncio.create_task(self.agent.on_new_input_async({
                     "type": "normal",
