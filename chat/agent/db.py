@@ -4,7 +4,6 @@ from typing import Optional
 from channels.db import database_sync_to_async
 from users.models import User
 from chat.models import ChatMessage
-from .story import ChatRepository
 
 class UserDB:
     """
@@ -40,28 +39,3 @@ class Utils:
     def text_of(msg) -> str:
         """Message/HumanMessage/AIMessage 등에서 content를 안전 추출"""
         return getattr(msg, "content", str(msg))
-
-class DjangoChatRepository(ChatRepository):
-    """
-    Django ORM을 사용하여 채팅 기록을 조회하는 리포지토리 구현체
-    """
-    @database_sync_to_async
-    def get_last_pair(self) -> Optional[tuple[str, str]]:
-        """
-        DB에서 가장 최근의 [사용자 메시지, AI 응답] 한 쌍을 조회합니다.
-        (AI 응답을 식별할 방법이 현재 없으므로, 가장 최근 2개의 메시지를 가져오는 것으로 임시 구현)
-        """
-        # TODO: ChatMessage 모델에 is_ai_response와 같은 필드를 추가하여 더 정확하게 조회해야 합니다.
-        last_two_messages = ChatMessage.objects.order_by('-created_at')[:2]
-        
-        if len(last_two_messages) == 2:
-            # 최신 메시지가 AI, 그 이전이 사용자라고 가정
-            ai_msg = last_two_messages[0]
-            user_msg = last_two_messages[1]
-            return (user_msg.content, ai_msg.content)
-        elif len(last_two_messages) == 1:
-            # 메시지가 하나만 있으면 사용자 메시지로 간주
-            user_msg = last_two_messages[0]
-            return (user_msg.content, "")
-        else:
-            return None

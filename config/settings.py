@@ -211,6 +211,21 @@ AI_CHATBOT_SETTINGS = {
 - 한 응답에 1-2개 정도의 태그가 적당합니다''',
 }
 
+# --- LLM 추론 서버 설정 ---
+INFERENCE_SERVERS = {
+    '강시현': os.getenv('INFERENCE_SERVER_KANGSIHYUN', 'http://localhost:8001'),
+    '김춘기': os.getenv('INFERENCE_SERVER_KIMCHUNGI', 'http://localhost:8002'),
+    '오율': os.getenv('INFERENCE_SERVER_OHYUL', 'http://localhost:8003'),
+    '홍세현': os.getenv('INFERENCE_SERVER_HONGSEHYUN', 'http://localhost:8004'),
+}
+
+# 추론 서버 연결 설정
+INFERENCE_CONFIG = {
+    'TIMEOUT': int(os.getenv('INFERENCE_TIMEOUT', '30')),  # 초
+    'RETRY_COUNT': int(os.getenv('INFERENCE_RETRY_COUNT', '2')),
+    'FALLBACK_TO_OPENAI': os.getenv('INFERENCE_FALLBACK', 'true').lower() == 'true',
+}
+
 
 #if DEBUG:
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

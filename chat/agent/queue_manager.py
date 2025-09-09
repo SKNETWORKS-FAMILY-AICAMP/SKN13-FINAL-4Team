@@ -39,13 +39,13 @@ class QueueManager:
         with self._runner_lock:
             return self._graph_busy
 
-    def wait_graph_idle(self, timeout: float = 2.5) -> bool:
+    async def wait_graph_idle(self, timeout: float = 2.5) -> bool:
         start = time.monotonic()
         while time.monotonic() - start < timeout:
             with self._runner_lock:
                 busy = self._graph_busy
             if not busy: return True
-            time.sleep(0.02)
+            await asyncio.sleep(0.02)
         return False
 
     def recent_count_in_thread(self, tid: Optional[str], within_sec: float = 10.0) -> int:
@@ -55,13 +55,11 @@ class QueueManager:
             return sum(1 for m in self.general_queue if m.get("thread_id") == tid and (now_mono - float(m.get("ts", now_mono))) <= within_sec)
 
     async def enqueue_general_chat(self, msg: dict, lite: LiteClassifier):
-        self.mark_event()
         now_mono = time.monotonic()
         content = msg.get("content", "")
 
-        # 임시 장치: 메시지 길이가 10 미만인 경우 AI 응답 후보에서 제외
-        if len(content) < 10:
-            return
+        # 10글자 이상 메시지만 이벤트로 마킹 (자율 행동 타이밍에 영향)
+        self.mark_event()
 
         lite_res = await asyncio.to_thread(lite.classify, content)
         label_hint = lite_res.get("group_key") or lite_res.get("topic") or "일반"
@@ -86,7 +84,7 @@ class QueueManager:
         
         # 큐 상태 브로드캐스트 (비동기)
         if self.broadcast_cb:
-            asyncio.create_task(self.broadcast_cb())
+            asyncio.create_task(self.broadcast_cb(msg.get("room_id")))
 
         reasons = []
         if self.topic.topic_ctx["score"] >= self.topic.TOPIC_SCORE_TRIGGER:
@@ -171,4 +169,19 @@ class QueueManager:
         msg_categories = best.get("categories")
         category_fallback = self.topic.coarse_category_from_label(best.get("topic", ""))
         categories = msg_categories if msg_categories else [category_fallback]
-        return {**state, "type": "normal", "categories": categories, "best_chat": content, "user_id": user_id, "chat_date": chat_date, "messages": [HumanMessage(content=content)], "__no_selection": False, "msg_id": best.get("msg_id")}
+        
+        # LangSmith 추적을 위해 선택된 메시지의 모든 주요 정보를 상태에 추가
+        return {
+            **state,
+            "type": "normal",
+            "categories": categories,
+            "best_chat": content,
+            "user_id": user_id,
+            "chat_date": chat_date,
+            "messages": [HumanMessage(content=content)],
+            "__no_selection": False,
+            "msg_id": best.get("msg_id"),
+            "thread_id": best.get("thread_id"),  # 누락된 thread_id 추가
+            "topic": best.get("topic"),          # topic 정보 추가
+            "salience": best.get("salience")     # salience 점수 추가
+        }

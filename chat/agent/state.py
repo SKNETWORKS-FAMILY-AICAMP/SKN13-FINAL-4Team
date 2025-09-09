@@ -17,3 +17,8 @@ class AgentState(TypedDict):
     __no_selection: bool
     msg_id: Optional[str]
     assistant_emotion: Optional[str]
+    
+    # 디버깅 및 추적을 위한 추가 필드
+    thread_id: Optional[str]
+    topic: Optional[str]
+    salience: Optional[float]

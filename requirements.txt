@@ -32,3 +32,9 @@ langchain-openai
 # Audio Processing
 soundfile  # 오디오 파일 처리
 numpy  # 오디오 데이터 처리
+
+# HuggingFace Transformers (감정 분류)
+transformers
+torch
+protobuf
+sentencepiece  # KoBERT 토크나이저용

@@ -125,29 +125,15 @@ class MediaProcessingHub:
         try:
             text = request_data.get('message', '')
             streamer_config = request_data.get('streamer_config', {})
-            emotion = self._extract_emotion_from_text(text)
+            emotion = request_data.get('emotion', 'neutral') # Responder가 전달한 감정 사용
             
             logger.info(f"🎬 [NO-CANCEL] MediaTrack 생성 시작: {text[:30]}... (감정: {emotion})")
             
-            # AI 응답 생성 (최우선)
-            from .llm_text_service import ai_service
-            system_prompt = f"당신은 '{streamer_config.get('streamer_id', 'AI')}' 스트리밍의 AI 어시스턴트입니다. 시청자의 질문에 2-3줄로 간결하고 친근하게 답하세요. 응답 끝에 감정을 [emotion:happy], [emotion:sad], [emotion:neutral] 등의 형태로 추가하세요."
-            conversation_history = [{"role": "system", "content": system_prompt}]
-            
-            ai_response = await ai_service.generate_response(text, conversation_history)
-            if not ai_response:
-                logger.warning("⚠️ AI 응답 생성 실패")
-                return None
-                
-            # 감정 재추출 (AI 응답 기반)
-            emotion = self._extract_emotion_from_response(ai_response)
-            clean_response = self._clean_emotion_tags(ai_response)
-            
             # 🆕 병렬 MediaTrack 생성 (취소 없음 - 순차 처리 보장)
             tasks = [
-                asyncio.create_task(self._create_audio_track_no_cancel(clean_response, streamer_config)),
+                asyncio.create_task(self._create_audio_track_no_cancel(text, streamer_config)),
                 asyncio.create_task(self._create_video_track_no_cancel(emotion, streamer_config)),
-                asyncio.create_task(self._create_subtitle_track_no_cancel(clean_response))
+                asyncio.create_task(self._create_subtitle_track_no_cancel(text))
             ]
             
             logger.info(f"🚀 [NO-CANCEL] 3개 트랙 병렬 생성 시작: audio, video, subtitle")

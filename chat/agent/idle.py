@@ -5,17 +5,28 @@ import uuid
 from datetime import datetime
 from typing import Callable
 from .queue_manager import QueueManager
-from .story import StoryRepository, ChatRepository, Story
+from .story import StoryRepository, Story
+from .responder import Responder
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
 class IdleManager:
     """무채팅 자동 멘트/리캡 + 정체 구제 + 프리아이들"""
-    def __init__(self, llm: ChatOpenAI, queue_mgr: QueueManager, story_repo: StoryRepository, chat_repo: ChatRepository):
+    def __init__(self, llm: ChatOpenAI, queue_mgr: QueueManager, story_repo: StoryRepository, responder: Responder, streamer_id: str = None):
         self.llm = llm
         self.queue_mgr = queue_mgr
         self.story_repo = story_repo
-        self.chat_repo = chat_repo
+        self.responder = responder
+        self.streamer_id = streamer_id
+        
+        # 추론 서버 클라이언트 설정
+        self.inference_client = None
+        if streamer_id:
+            try:
+                from ..services.inference_client import InferenceClient
+                self.inference_client = InferenceClient(streamer_id)
+            except ImportError:
+                pass  # 추론 서버 미사용 시 무시
         self.IDLE_RECAP_COOLDOWN_SEC = 120
         self._last_idle_recap_ts = 0.0
         self.FORCE_GRAPH_RUN_IF_STALE_SEC = 10
@@ -31,6 +42,11 @@ class IdleManager:
         self.topic_label = lambda: ""
         self.bootstrap_topic_from_tail = lambda: None
 
+    def reset_cooldown(self):
+        """자율행동 쿨다운 타이머를 현재 시간으로 초기화합니다."""
+        print("[IdleManager] ⏰ 쿨다운 타이머가 초기화되었습니다.")
+        self._last_idle_recap_ts = time.time()
+
     def mark_graph_trigger(self):
         self._last_graph_trigger_ts = time.time()
 
@@ -39,23 +55,54 @@ class IdleManager:
         await self.story_repo.add(Story(story_id=sid, user_id=user_id, title=(title or "").strip(), body=(body or "").strip(), submitted_at=submitted_at or datetime.now().strftime("%Y-%m-%d %H:%M:%S"), status="pending"))
         return sid
 
-    async def _idle_recap_once(self, topic_label: str) -> str:
-        if (time.time() - self._last_idle_recap_ts) < self.IDLE_RECAP_COOLDOWN_SEC: return ""
-        try: last_pair = await self.chat_repo.get_last_pair() 
-        except Exception: last_pair = None
-        if not last_pair: return ""
-        u, a = last_pair
-        u_clean = u.strip().replace('\n', ' ')
-        a_clean = a.strip().replace('\n', ' ')
-        hist = f"사용자: {u_clean}\nAI: {a_clean}"
-        sys = SystemMessage(content="너는 밝고 따뜻한 AI 연애 상담 스트리머다. 이전 대화를 1~2문장으로 간단히 상기시키고, 이어서 얘기하고 싶게 만드는 단일 질문 1개를 붙여라. 라디오 톤, 과장 금지, 20~40초 내외.")
-        user = HumanMessage(content=f"[현재 토픽 힌트]: {topic_label or '일반'}\n[최근 대화 요약용 원문]\n{hist}\n\n[출력 형식]\n- 1~2문장 요약 + 1문장 질문(하나)\n- 복붙 금지, 새로운 표현 사용")
+    async def _open_topic_based_dialogue(self) -> str:
+        """
+        현재 활성화된 대화 주제를 기반으로 새로운 대화의 문을 여는 질문을 생성합니다.
+        """
+        print("[IdleManager] 🗣️ _open_topic_based_dialogue: 주제 기반 대화 열기 시도.")
+        if (time.time() - self._last_idle_recap_ts) < self.IDLE_RECAP_COOLDOWN_SEC:
+            print(f"[IdleManager] 쿨다운 중. 남은 시간: {self.IDLE_RECAP_COOLDOWN_SEC - (time.time() - self._last_idle_recap_ts):.1f}초")
+            return ""
+
+        active_topic = self.topic_label() or "연애 고민" # 활성 주제가 없으면 기본 주제 사용
+        print(f"[IdleManager] 현재 활성 주제: '{active_topic}'")
+
+        sys_prompt = (
+            "너는 AI 연애 상담 스트리머다. 현재 대화의 주된 흐름을 이어받아, "
+            "모든 시청자가 참여하고 싶게 만드는 개방형 질문을 단 하나만 생성해라.\n"
+            "- 특정 개인의 상황을 언급하지 말고, 주제 자체에 대해 질문할 것.\n"
+            "- 짧고 자연스러운 라디오 방송 톤을 유지할 것 (1~2문장).\n"
+            "- 예시: (주제: 짝사랑) -> '다들 짝사랑해 본 경험 있으시죠? 그럴 때 어떤 점이 가장 힘드셨나요?'"
+        )
+        user_prompt = f"현재 대화 주제: {active_topic}"
+
         try:
-            res = await self.llm.ainvoke([sys, user]); text = getattr(res, "content", str(res)).strip()
-            if not text: return ""
+            text = None
+            if self.inference_client:
+                try:
+                    text = await self.inference_client.generate_text(
+                        system_prompt=sys_prompt,
+                        user_prompt=user_prompt
+                    )
+                    print(f"[IdleManager] ✅ 추론 서버로 주제 기반 질문 생성 성공.")
+                except Exception as e:
+                    print(f"[IdleManager] ⚠️ 추론 서버 호출 실패: {e}, OpenAI로 폴백합니다.")
+            
+            if text is None:
+                res = await self.llm.ainvoke([SystemMessage(content=sys_prompt), HumanMessage(content=user_prompt)])
+                text = getattr(res, "content", str(res)).strip()
+                print(f"[IdleManager] ✅ OpenAI로 주제 기반 질문 생성 성공.")
+
+            if not text:
+                print("[IdleManager] ❌ LLM이 빈 응답을 반환하여 자율행동 실패.")
+                return ""
+            
             self._last_idle_recap_ts = time.time()
-            return text
-        except Exception: return ""
+            print(f"[IdleManager] 생성된 자율행동 메시지: '{text}'")
+            return text.strip()
+        except Exception as e:
+            print(f"[IdleManager] ❌ LLM 호출 중 예외 발생: {e}")
+            return ""
 
     async def _play_story_readout(self, story: Story, is_resume: bool = False):
         body = " ".join((story.body or "").strip().split())
@@ -88,9 +135,22 @@ class IdleManager:
                 self._last_preidle_ts = time.time()
                 return True
         if story_only: return False
-        msg = await self._idle_recap_once(self.topic_label())
+        msg = await self._open_topic_based_dialogue()
         if msg:
             self.queue_mgr.mark_event()
+            autonomous_state = {
+                "messages": [HumanMessage(content=msg)],
+                "type": "normal",
+                "categories": ["자율행동", self.topic_label() or "일반"],
+                "best_chat": msg,
+                "user_id": "system_idle",
+                "chat_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "db_greeting_info": {"exists": False},
+                "__no_selection": False,
+                "assistant_emotion": "neutral",
+                "msg_id": f"idle-{uuid.uuid4()}"
+            }
+            asyncio.create_task(self.responder.generate_final_response(autonomous_state))
             await asyncio.sleep(max(5, interval // 3))
             return True
         return False

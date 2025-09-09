@@ -26,9 +26,7 @@ class StoryRepository(Protocol):
     async def get_resume(self) -> Optional[str]: ...
     async def mark_done(self, story_id: str) -> None: ...
 
-class ChatRepository(Protocol):
-    """DB에서 '가장 마지막 user/ai 한 쌍'을 읽어오기 위한 인터페이스"""
-    async def get_last_pair(self) -> Optional[tuple[str, str]]: ...
+
 
 
 class DjangoStoryRepository(StoryRepository):
@@ -87,24 +85,3 @@ class DjangoStoryRepository(StoryRepository):
             story.save()
         except StoryModel.DoesNotExist:
             pass
-
-class DjangoChatRepository(ChatRepository):
-    """
-    Django ORM을 사용하여 채팅 기록을 가져오는 리포지토리 구현체
-    """
-    @database_sync_to_async
-    def get_last_pair(self) -> Optional[tuple[str, str]]:
-        # AI(sender=None) 메시지와 그 직전 사용자 메시지를 찾습니다.
-        last_ai_msg = ChatMessage.objects.filter(sender=None).order_by('-created_at').first()
-        if not last_ai_msg:
-            return None
-        
-        last_user_msg = ChatMessage.objects.filter(
-            sender__isnull=False,
-            created_at__lt=last_ai_msg.created_at
-        ).order_by('-created_at').first()
-
-        if not last_user_msg:
-            return None
-            
-        return (last_user_msg.content, last_ai_msg.content)
