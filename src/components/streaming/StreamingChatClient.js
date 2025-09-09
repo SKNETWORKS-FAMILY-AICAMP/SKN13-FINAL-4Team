@@ -36,6 +36,7 @@ const resolveDisplayName = (data) => {
 
 const StreamingChatWithTTS = ({ 
     streamerId, 
+    roomId,
     isLoggedIn, 
     username, 
     onAIMessage,
@@ -116,7 +117,7 @@ const StreamingChatWithTTS = ({
         let connectTimeout = null;
         let cleanup = false;
 
-        if (!streamerId) {
+        if (!roomId) {
             return;
         }
         
@@ -142,7 +143,7 @@ const StreamingChatWithTTS = ({
         };
 
         const connectWebSocket = async () => {
-            if (!streamerId || !isLoggedIn) {
+            if (!roomId || !isLoggedIn) {
                 return;
             }
             
@@ -163,7 +164,7 @@ const StreamingChatWithTTS = ({
             try {
                 const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
                 const wsBaseUrl = apiBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
-                let wsUrl = `${wsBaseUrl}/ws/stream/${streamerId}/`;
+                let wsUrl = `${wsBaseUrl}/ws/stream/${roomId}/`;
                 
                 // 🆕 유효한 토큰 자동 갱신
                 const token = await getValidToken();
@@ -178,7 +179,7 @@ const StreamingChatWithTTS = ({
                 console.log('🔗 WebSocket 연결 시도:', wsUrl);
                 console.log('📝 토큰 존재:', !!token);
                 console.log('👤 로그인 상태:', isLoggedIn);
-                console.log('🎯 스트리머 ID:', streamerId);
+                console.log('🎯 룸 ID:', roomId);
                 
                 websocketRef.current = new WebSocket(wsUrl);
                 
@@ -530,7 +531,7 @@ const StreamingChatWithTTS = ({
         
         isConnectingRef.current = false;
 
-        if (isLoggedIn && streamerId && !cleanup) {
+        if (isLoggedIn && roomId && !cleanup) {
             connectTimeout = setTimeout(() => {
                 if (!cleanup && !websocketRef.current && !isConnectingRef.current) {
                     connectWebSocket();
@@ -553,7 +554,7 @@ const StreamingChatWithTTS = ({
         return () => {
             cleanupConnections();
         };
-    }, [streamerId, isLoggedIn, username, audioEnabled]);
+    }, [roomId, isLoggedIn, username, audioEnabled]);
 
     // 자동 스크롤
     useEffect(() => {
