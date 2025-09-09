@@ -8,19 +8,19 @@ function CreateChatRoom() {
     const [formData, setFormData] = useState({
         name: '',
         description: '',
-        streamer: '', // DB 연동: influencer → streamer 변경
+        influencer: '',
         status: 'pending',
     });
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [thumbnailPreview, setThumbnailPreview] = useState('');
     
-    const [streamers, setStreamers] = useState([]); // DB 연동: influencers → streamers 변경
+    const [influencers, setInfluencers] = useState([]);
     const [error, setError] = useState('');
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
 
     useEffect(() => {
-        const fetchStreamers = async () => {
+        const fetchInfluencers = async () => {
             try {
                 const response = await api.get('/api/influencers/');
                 const influencerList = response.data.results || [];
@@ -68,23 +68,11 @@ function CreateChatRoom() {
         const submissionData = new FormData();
         submissionData.append('name', formData.name);
         submissionData.append('description', formData.description);
-        submissionData.append('streamer', formData.streamer); // DB 연동: influencer → streamer 변경
+        submissionData.append('influencer', formData.influencer);
         submissionData.append('status', formData.status);
         
         if (thumbnailFile) {
-            // 파일명 정규화: 특수문자 제거 및 길이 제한
-            const cleanFileName = thumbnailFile.name
-                .replace(/[^a-zA-Z0-9\u3131-\u3163\uac00-\ud7a3.]/g, '_') // 특수문자를 언더스코어로 변경
-                .substring(0, 50) // 길이 제한
-                + (thumbnailFile.name.includes('.') ? '.' + thumbnailFile.name.split('.').pop() : ''); // 확장자 보존
-            
-            const cleanedFile = new File([thumbnailFile], cleanFileName, {
-                type: thumbnailFile.type,
-                lastModified: thumbnailFile.lastModified
-            });
-            
-            console.log('🔧 파일명 정규화:', thumbnailFile.name, '->', cleanFileName);
-            submissionData.append('thumbnail', cleanedFile);
+            submissionData.append('thumbnail', thumbnailFile);
         }
 
         try {
@@ -161,7 +149,7 @@ function CreateChatRoom() {
                         />
                     </div>
 
-                    {/* 스트리머 선택 (DB 연동) */}
+                    {/* 인플루언서 선택 */}
                     <div className={signupStyles.formGroup}>
                         <label htmlFor="influencer" className="form-label text-start d-block">인플루언서</label>
                         <select id="influencer" name="influencer" value={formData.influencer} onChange={handleChange} required>

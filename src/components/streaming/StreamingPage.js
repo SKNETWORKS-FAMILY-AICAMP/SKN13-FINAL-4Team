@@ -339,31 +339,31 @@ export default StreamingPage;
 
 
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
-import { Container, Row, Col, Image, Button } from 'react-bootstrap';
-import { StreamingChatClient } from './StreamingChatClient';
-import VideoControlPanel from './VideoControlPanel';
-import VideoPlayer from './VideoPlayer';
-import SettingsPanel from './SettingsPanel';
-import QueueWorkflowPanel from './QueueWorkflowPanel';
-import DonationIsland from './DonationIsland';
-import { MediaSyncController } from '../../services/MediaSyncController';
-import { processTextForDisplay, debugVoiceTags } from '../../utils/textUtils';
-import donationTTSService from '../../services/donationTTSService';
-import { getDefaultIdleVideo, getRandomIdleVideo } from '../../utils/videoConfig';
-// Hot Reload 테스트 주석 - 2025.08.26 - 최종 수정!
-import styles from './StreamingPage.module.css';
+// import React, { useState, useRef, useEffect, useCallback } from 'react';
+// import { useParams } from 'react-router-dom';
+// import { Container, Row, Col, Image, Button } from 'react-bootstrap';
+// import { StreamingChatClient } from './StreamingChatClient';
+// import VideoControlPanel from './VideoControlPanel';
+// import VideoPlayer from './VideoPlayer';
+// import SettingsPanel from './SettingsPanel';
+// import QueueWorkflowPanel from './QueueWorkflowPanel';
+// import DonationIsland from './DonationIsland';
+// import { MediaSyncController } from '../../services/MediaSyncController';
+// import { processTextForDisplay, debugVoiceTags } from '../../utils/textUtils';
+// import donationTTSService from '../../services/donationTTSService';
+// import { getDefaultIdleVideo, getRandomIdleVideo } from '../../utils/videoConfig';
+// // Hot Reload 테스트 주석 - 2025.08.26 - 최종 수정!
+// import styles from './StreamingPage.module.css';
 
-// Backend에서 TTS 설정 관리, fallback 기본값만 정의
-const DEFAULT_SETTINGS = {
-    streamingDelay: 50,
-    ttsDelay: 500,
-    chunkSize: 3,
-    syncMode: 'after_complete',
-    autoPlay: true,
-    ttsEngine: 'elevenlabs'
-};
+// // Backend에서 TTS 설정 관리, fallback 기본값만 정의
+// const DEFAULT_SETTINGS = {
+//     streamingDelay: 50,
+//     ttsDelay: 500,
+//     chunkSize: 3,
+//     syncMode: 'after_complete',
+//     autoPlay: true,
+//     ttsEngine: 'elevenlabs'
+// };
 
 // // 캐릭터별 기본 idle 비디오 매핑 - utils/videoConfig.js로 이동됨
 

@@ -21,8 +21,6 @@ import ChatRoomManagement from './components/staff/ChatRoomManagement';
 import InfluencerManagementPage from './components/staff/InfluencerManagementPage';
 import TTSDebugTool from './components/tts/TTSDebugTool';
 import InfluencerPage from './components/pages/InfluencerPage';
-//import StreamerManagement from './components/staff/StreamerManagement';
-import { initializeVideoConfig } from './utils/videoConfig';
 import './App.css';
 
 function App() {
@@ -60,29 +58,7 @@ function App() {
 
   // 앱이 처음 로드될 때 사용자 정보 가져오기
   useEffect(() => {
-    console.log('🚀 App.js useEffect 실행됨');
     fetchAndSetUser();
-    // 다크모드를 기본값으로 설정
-    if (!document.documentElement.getAttribute('data-theme')) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-      console.log('🌙 기본 테마를 dark로 설정');
-    }
-    
-    const token = localStorage.getItem('accessToken');
-    console.log('🔍 localStorage에서 토큰 확인:', !!token);
-    
-    // 비디오 설정 초기화
-    initializeVideoConfig()
-      .then(() => console.log('✅ 비디오 설정 초기화 완료'))
-      .catch(error => console.error('❌ 비디오 설정 초기화 실패:', error));
-    
-    if (token) {
-      console.log('📞 fetchAndSetUser 호출됨 (초기 로드)');
-      fetchAndSetUser(); // 토큰 자동 갱신 로직 사용
-    } else {
-      console.log('❌ 토큰이 없으므로 로그인 상태를 false로 설정');
-      setIsLoggedIn(false);
-    }
   }, []);
 
   // 로그인 성공 시 호출되는 함수
@@ -124,12 +100,11 @@ function App() {
           {user?.is_staff && (
             <>
               <Route path="/management" element={<UserListPage />} />
-              <Route path="/management/userlist" element={<UserListPage />} />
           {/* 스태프 페이지 */}
             <Route path="/staff/create" element={<CreateChatRoom />} />
             <Route path="/staff/management" element={<ChatRoomManagement />} />
-              <Route path="/staff/influencers" element={<InfluencerManagementPage />} />
-              <Route path="/debug/tts" element={<TTSDebugTool />} />
+            <Route path="/staff/influencers" element={<InfluencerManagementPage />} />
+            <Route path="/debug/tts" element={<TTSDebugTool />} />
             </>
           )}
 
@@ -141,9 +116,6 @@ function App() {
           )}
           {/* 호환 라우트: 과거 링크 대응 */}
           <Route path="/chat/lobby" element={<HomeTemporary />} />
-          <Route path="/chat/:roomId" element={<StreamingPage isLoggedIn={isLoggedIn} username={username} />} /> */}
-            </>
-          )}
         </Routes>
       </div>
     </Router>
