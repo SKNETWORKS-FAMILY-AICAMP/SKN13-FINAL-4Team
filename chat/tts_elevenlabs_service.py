@@ -66,7 +66,7 @@ class ElevenLabsService:
             logger.warning(f"요청된 음성 '{voice_name}'를 찾을 수 없어 기본 음성 'aneunjin'으로 폴백")
             return self.voice_map['aneunjin']
     
-    async def validate_single_voice_id(self, voice_id: str) -> bool:
+    async def validate_single_voice_id(self, voice_id: str = "None") -> bool:
         """
         단일 Voice ID가 유효한지 검증
         
@@ -82,6 +82,7 @@ class ElevenLabsService:
         try:
             # 특정 음성 정보 API 호출
             url = f"{self.base_url}/voices/{voice_id}"
+            assert self.api_key is not None 
             headers = {"xi-api-key": self.api_key}
             
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -103,7 +104,7 @@ class ElevenLabsService:
         # 전체 문자의 30% 이상이 한글이면 한국어 텍스트로 판단
         return korean_chars > 0 and (korean_chars / max(total_chars, 1)) >= 0.3
     
-    def _get_optimal_model(self, text: str, requested_model: str = None) -> str:
+    def _get_optimal_model(self, text: str, requested_model: str ) -> str:
         """텍스트에 따른 최적 모델 선택"""
         if requested_model:
             return requested_model
@@ -131,6 +132,7 @@ class ElevenLabsService:
         try:
             # ElevenLabs 음성 목록 API 호출
             url = f"{self.base_url}/voices"
+            assert self.api_key is not None 
             headers = {"xi-api-key": self.api_key}
             
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -172,6 +174,7 @@ class ElevenLabsService:
         
         try:
             url = f"{self.base_url}/voices"
+            assert self.api_key is not None 
             headers = {"xi-api-key": self.api_key}
             
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -316,32 +319,84 @@ class ElevenLabsService:
             return None
     
     def get_available_voices(self) -> list:
-        """사용 가능한 음성 목록 반환 (검증된 음성만)"""
-        return [
-            # 한국 배우 음성
-            {"id": "kimtaeri", "name": "김태리", "gender": "female", "accent": "Korean"},
-            {"id": "kimminjeong", "name": "김민정", "gender": "female", "accent": "Korean"},
-            {"id": "jinseonkyu", "name": "진선규", "gender": "male", "accent": "Korean"},
-            {"id": "parkchangwook", "name": "박창욱", "gender": "male", "accent": "Korean"},
-            {"id": "aneunjin", "name": "안은진", "gender": "female", "accent": "Korean"},
-            {"id": "jiyoung", "name": "JiYoung", "gender": "female", "accent": "Korean"},
-            # 다국어 음성 (검증된 것만)
-            {"id": "charlie", "name": "Charlie", "gender": "male", "accent": "Australian"},
-            {"id": "liam", "name": "Liam", "gender": "male", "accent": "American"},
-            {"id": "daniel", "name": "Daniel", "gender": "male", "accent": "British"},
-            {"id": "matilda", "name": "Matilda", "gender": "female", "accent": "English"},
-            {"id": "jeremy", "name": "Jeremy", "gender": "male", "accent": "American"},
-            {"id": "rachel", "name": "Rachel", "gender": "female", "accent": "American"},
-            {"id": "bella", "name": "Bella", "gender": "female", "accent": "American"}
-        ]
+        """사용 가능한 음성 목록 반환 (영문 음성 제외, 커스텀 모델 포함)"""
+        try:
+            # 캐시에서 음성 목록 확인
+            from django.core.cache import cache
+            cache_key = 'elevenlabs_filtered_voices'
+            cached_voices = cache.get(cache_key)
+            
+            if cached_voices:
+                return cached_voices
+            
+            # ElevenLabs API에서 실제 음성 목록 가져오기
+            import asyncio
+            def run_async_voices():
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    return new_loop.run_until_complete(self.get_available_voices_from_api())
+                finally:
+                    new_loop.close()
+            
+            api_voices = run_async_voices()
+            filtered_voices = []
+            
+            # 영문 음성을 제외한 모든 음성 포함 (커스텀 모델도 포함)
+            english_voice_names = {
+                'rachel', 'domi', 'bella', 'antoni', 'elli', 'josh', 'arnold', 'adam', 
+                'sam', 'nicole', 'charlotte', 'sarah', 'callum', 'liam', 'charlie',
+                'george', 'emily', 'ethan', 'gigi', 'freya', 'grace', 'daniel',
+                'lily', 'serena', 'adam', 'brian', 'chris', 'drew', 'eric', 'fin',
+                'giovanni', 'glinda', 'harry', 'james', 'jeremy', 'joseph', 'matilda',
+                'michael', 'river', 'roger', 'thomas', 'will'
+            }
+            
+            for voice in api_voices:
+                voice_name_lower = voice.get('name', '').lower()
+                # 영문 기본 음성이 아닌 경우에만 포함 (커스텀 모델, 한국어 음성 등 모두 포함)
+                if voice_name_lower not in english_voice_names:
+                    filtered_voices.append({
+                        'id': voice.get('voice_id', ''),
+                        'name': voice.get('name', ''),
+                        'description': voice.get('description', ''),
+                        'category': voice.get('category', 'general'),
+                        'labels': voice.get('labels', {}),
+                        'preview_url': voice.get('preview_url', '')
+                    })
+            
+            # 10분간 캐시 저장
+            cache.set(cache_key, filtered_voices, timeout=600)
+            
+            logger.info(f"✅ 필터링된 음성 목록 반환: {len(filtered_voices)}개 (영문 기본 음성 제외)")
+            return filtered_voices
+            
+        except Exception as e:
+            logger.error(f"❌ 음성 목록 필터링 실패: {e}")
+            # 폴백: 한국어 음성만 반환
+            return [
+                {"id": "kimtaeri", "name": "김태리", "description": "한국 배우 음성"},
+                {"id": "aneunjin", "name": "안은진", "description": "한국 배우 음성"},
+                {"id": "jinseonkyu", "name": "진선규", "description": "한국 배우 음성"},
+            ]
     
     def get_available_models(self) -> list:
-        """사용 가능한 모델 목록 반환"""
+        """사용 가능한 모델 목록 반환 (2025년 최신 모델 포함)"""
         return [
-            {"id": "eleven_multilingual_v2", "name": "Multilingual v2", "description": "최신 다국어 모델"},
-            {"id": "eleven_monolingual_v1", "name": "Monolingual v1", "description": "영어 전용 최적화"},
-            {"id": "eleven_turbo_v2", "name": "Turbo v2", "description": "고속 생성"},
-            {"id": "eleven_multilingual_v1", "name": "Multilingual v1", "description": "구버전 다국어"}
+            # 최신 고품질 모델
+            {"id": "eleven_v3", "name": "Eleven v3 (Alpha)", "description": "최고 품질, 최신 표현력 (70+ 언어)"},
+            
+            # 저지연 다국어 모델 (v2.5 시리즈)
+            {"id": "eleven_flash_v2_5", "name": "Flash v2.5", "description": "초저지연 다국어 (<75ms, 32개 언어)"},
+            {"id": "eleven_turbo_v2_5", "name": "Turbo v2.5", "description": "저지연 다국어 (32개 언어, 실시간 대화용)"},
+            
+            # 기존 안정화 모델
+            {"id": "eleven_multilingual_v2", "name": "Multilingual v2", "description": "고품질 다국어 (보이스오버, 오디오북용)"},
+            {"id": "eleven_turbo_v2", "name": "Turbo v2", "description": "저지연 영어 전용"},
+            {"id": "eleven_flash_v2", "name": "Flash v2", "description": "초저지연 영어 전용 (<75ms)"},
+            
+            # 레거시 모델
+            {"id": "eleven_monolingual_v1", "name": "Monolingual v1", "description": "영어 전용 (레거시)"}
         ]
 
 # 전역 ElevenLabs 서비스 인스턴스

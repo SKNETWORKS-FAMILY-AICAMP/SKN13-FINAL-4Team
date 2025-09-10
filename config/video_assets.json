@@ -1,51 +1,179 @@
 {
   "characters": {
-    "jammin-i": {
-      "name": "잼민이",
-      "description": "활발하고 에너제틱한 AI 스트리머",
-      "videoBasePath": "/videos/jammin-i/",
+    "hongseohyun": {
+      "name": "홍세현",
+      "description": "감성형 힐러 - 위로와 공감 최우선",
+      "videoBasePath": "/videos/hongseohyun/",
       "videoCategories": {
         "idle": {
-          "files": ["a_idle_0.mp4", "a_idle_1.mp4", "a_idle_3.mp4", "a_idle_4.mp4"],
-          "defaultFile": "a_idle_0.mp4"
+          "files": ["hongseohyun_idle_2.mp4", "hongseohyun_idle_3.mp4", "hongseohyun_idle_4.mp4"],
+          "defaultFile": "hongseohyun_idle_2.mp4"
         },
         "talk": {
-          "files": ["a_talk_0.mp4", "a_talk_1.mp4"],
-          "defaultFile": "a_talk_0.mp4"
+          "files": ["hongseohyun_talk_1.mp4"],
+          "defaultFile": "hongseohyun_talk_1.mp4"
+        },
+        "laugh": {
+          "files": ["hongseohyun_laugh_1.mp4"],
+          "defaultFile": "hongseohyun_laugh_1.mp4"
+        },
+        "angry": {
+          "files": ["hongseohyun_angry_1.mp4"],
+          "defaultFile": "hongseohyun_angry_1.mp4"
+        },
+        "nod": {
+          "files": ["hongseohyun_nod_1.mp4"],
+          "defaultFile": "hongseohyun_nod_1.mp4"
         }
       },
       "emotionMapping": {
         "happy": {
-          "idle": ["a_idle_0.mp4", "a_idle_1.mp4"],
-          "talk": ["a_talk_1.mp4", "a_talk_0.mp4"],
+          "idle": ["hongseohyun_idle_2.mp4"],
+          "talk": ["hongseohyun_talk_1.mp4"],
           "weight": 1.2
         },
-        "sad": {
-          "idle": ["a_idle_1.mp4", "a_idle_3.mp4"],
-          "talk": ["a_talk_0.mp4", "a_talk_1.mp4"],
-          "weight": 1.1
-        },
-        "angry": {
-          "idle": ["a_idle_3.mp4", "a_idle_0.mp4"],
-          "talk": ["a_talk_0.mp4", "a_talk_1.mp4"],
+        "neutral": {
+          "idle": ["hongseohyun_idle_2.mp4", "hongseohyun_idle_3.mp4"],
+          "talk": ["hongseohyun_talk_1.mp4"],
           "weight": 1.0
+        }
+      }
+    },
+    "kimchunki": {
+      "name": "김춘기",
+      "description": "냉철한 현실주의자 - 팩폭·책임·직설",
+      "videoBasePath": "/videos/kimchunki/",
+      "videoCategories": {
+        "idle": {
+          "files": ["kimchunki_idle_1.mp4", "kimchunki_idle_2.mp4", "kimchunki_idle_3.mp4", "kimchunki_idle_4.mp4"],
+          "defaultFile": "kimchunki_idle_1.mp4"
         },
-        "surprised": {
-          "idle": ["a_idle_0.mp4", "a_idle_4.mp4"],
-          "talk": ["a_talk_1.mp4", "a_talk_0.mp4"],
+        "talk": {
+          "files": ["kimchunki_talk_1.mp4", "kimchunki_talk_2.mp4", "kimchunki_talk_3.mp4"],
+          "defaultFile": "kimchunki_talk_1.mp4"
+        },
+        "laugh": {
+          "files": ["kimchunki_laugh_1.mp4"],
+          "defaultFile": "kimchunki_laugh_1.mp4"
+        },
+        "thanks": {
+          "files": ["kimchunki_thanks_1.mp4"],
+          "defaultFile": "kimchunki_thanks_1.mp4"
+        },
+        "wondering": {
+          "files": ["kimchunki_wondering_1.mp4", "kimchunki_wondering_2.mp4"],
+          "defaultFile": "kimchunki_wondering_1.mp4"
+        }
+      },
+      "emotionMapping": {
+        "analytical": {
+          "idle": ["kimchunki_idle_1.mp4", "kimchunki_idle_2.mp4"],
+          "talk": ["kimchunki_talk_1.mp4", "kimchunki_talk_2.mp4"],
           "weight": 1.3
         },
         "neutral": {
-          "idle": ["a_idle_0.mp4", "a_idle_1.mp4"],
-          "talk": ["a_talk_0.mp4", "a_talk_1.mp4"],
+          "idle": ["kimchunki_idle_1.mp4", "kimchunki_idle_3.mp4"],
+          "talk": ["kimchunki_talk_1.mp4"],
+          "weight": 1.0
+        }
+      }
+    },
+    "ohyul": {
+      "name": "오율",
+      "description": "유쾌한 철학적 멘토 - 구조 분석·본질·책임 환기",
+      "videoBasePath": "/videos/ohyul/",
+      "videoCategories": {
+        "idle": {
+          "files": ["ohyul_idle_1.mp4", "ohyul_idle_2.mp4", "ohyul_idle_3.mp4"],
+          "defaultFile": "ohyul_idle_1.mp4"
+        },
+        "talk": {
+          "files": ["ohyul_talk_1.mp4", "ohyul_talk_2.mp4", "ohyul_talk_3.mp4"],
+          "defaultFile": "ohyul_talk_1.mp4"
+        },
+        "laugh": {
+          "files": ["ohyul_laugh_1.mp4", "ohyul_laugh_2.mp4"],
+          "defaultFile": "ohyul_laugh_1.mp4"
+        },
+        "thanks": {
+          "files": ["ohyul_thanks_1.mp4"],
+          "defaultFile": "ohyul_thanks_1.mp4"
+        },
+        "wondering": {
+          "files": ["ohyul_wondering_1.mp4"],
+          "defaultFile": "ohyul_wondering_1.mp4"
+        }
+      },
+      "emotionMapping": {
+        "philosophical": {
+          "idle": ["ohyul_idle_2.mp4", "ohyul_idle_3.mp4"],
+          "talk": ["ohyul_talk_2.mp4", "ohyul_talk_3.mp4"],
+          "weight": 1.2
+        },
+        "happy": {
+          "idle": ["ohyul_idle_1.mp4"],
+          "talk": ["ohyul_talk_1.mp4"],
+          "weight": 1.1
+        },
+        "neutral": {
+          "idle": ["ohyul_idle_1.mp4", "ohyul_idle_2.mp4"],
+          "talk": ["ohyul_talk_1.mp4"],
+          "weight": 1.0
+        }
+      }
+    },
+    "kangsihyun": {
+      "name": "강시현",
+      "description": "뜨거운 베프 - 내 편·리액션·즉시 행동",
+      "videoBasePath": "/videos/kangsihyun/",
+      "videoCategories": {
+        "idle": {
+          "files": ["kangsihyun_idle_1.mp4"],
+          "defaultFile": "kangsihyun_idle_1.mp4"
+        },
+        "talk": {
+          "files": ["kangsihyun_talk_1.mp4", "kangsihyun_talk_2.mp4"],
+          "defaultFile": "kangsihyun_talk_1.mp4"
+        },
+        "laugh": {
+          "files": ["kangsihyun_laugh_1.mp4", "kangsihyun_laugh_2.mp4"],
+          "defaultFile": "kangsihyun_laugh_1.mp4"
+        },
+        "smile": {
+          "files": ["kangsihyun_smile_1.mp4", "kangsihyun_smile_2.mp4"],
+          "defaultFile": "kangsihyun_smile_1.mp4"
+        },
+        "happy": {
+          "files": ["kangsihyun_happy.mp4"],
+          "defaultFile": "kangsihyun_happy.mp4"
+        },
+        "wondering": {
+          "files": ["kangsihyun_wondering_1.mp4"],
+          "defaultFile": "kangsihyun_wondering_1.mp4"
+        }
+      },
+      "emotionMapping": {
+        "enthusiastic": {
+          "idle": ["kangsihyun_idle_1.mp4"],
+          "talk": ["kangsihyun_talk_1.mp4", "kangsihyun_talk_2.mp4"],
+          "weight": 1.3
+        },
+        "happy": {
+          "idle": ["kangsihyun_idle_1.mp4"],
+          "talk": ["kangsihyun_talk_1.mp4"],
+          "weight": 1.2
+        },
+        "neutral": {
+          "idle": ["kangsihyun_idle_1.mp4"],
+          "talk": ["kangsihyun_talk_1.mp4"],
           "weight": 1.0
         }
       }
     }
   },
   "systemSettings": {
-    "defaultCharacter": "jammin-i",
-    "fallbackVideo": "a_idle_0.mp4",
+    "defaultCharacter": "hongseohyun",
+    "fallbackVideo": "hongseohyun_idle_2.mp4",
     "defaultEmotion": "neutral",
     "randomSelection": true,
     "cacheSettings": {

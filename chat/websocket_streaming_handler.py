@@ -378,6 +378,14 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             'timestamp': event.get('timestamp')
         }))
 
+    async def video_transition(self, event):
+        """비디오 전환 이벤트 처리"""
+        await self.send(text_data=json.dumps({
+            'type': 'video_transition',
+            'transition': event.get('transition', {}),
+            'timestamp': event.get('timestamp', datetime.now().isoformat())
+        }))
+
 
     async def _periodic_queue_broadcast(self):
         """2초마다 큐 상태를 정기적으로 브로드캐스트"""

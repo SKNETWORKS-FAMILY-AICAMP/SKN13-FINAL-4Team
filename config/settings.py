@@ -169,6 +169,10 @@ STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'static'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
+
+# Video files configuration (served from frontend/public/videos)
+VIDEO_ROOT = os.path.join(BASE_DIR, 'videos')  # Docker volume mount point
+VIDEO_URL = '/videos/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # --- CORS ---

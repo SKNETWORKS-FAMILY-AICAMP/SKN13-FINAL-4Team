@@ -28,5 +28,8 @@ urlpatterns = [
     path('voices/validate/single/', voice_validation_views.validate_single_voice, name='validate_single_voice'),
     path('voices/mapping/status/', voice_validation_views.get_voice_mapping_status, name='get_voice_mapping_status'),
     path('voices/debug/', voice_validation_views.debug_voice_service, name='debug_voice_service'),
+    
+    # Video assets 설정 API
+    path('config/video-assets/', api_views.get_video_assets_config, name='get_video_assets_config'),
 
 ]

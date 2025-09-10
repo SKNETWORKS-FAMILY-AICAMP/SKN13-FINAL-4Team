@@ -42,3 +42,5 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # Video files serving from frontend/public/videos
+    urlpatterns += static(settings.VIDEO_URL, document_root=settings.VIDEO_ROOT)

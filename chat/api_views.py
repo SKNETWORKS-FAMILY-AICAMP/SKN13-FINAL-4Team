@@ -158,3 +158,50 @@ def tts_api(request):
             return JsonResponse({'error': 'Internal server error'}, status=500)
     
     return asyncio.run(async_handler())
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def get_video_assets_config(request):
+    """비디오 assets 설정 반환 API"""
+    import os
+    
+    try:
+        # video_assets.json 파일 경로
+        config_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), 
+            'config', 
+            'video_assets.json'
+        )
+        
+        # 파일이 존재하는지 확인
+        if not os.path.exists(config_path):
+            logger.error(f"video_assets.json 파일을 찾을 수 없습니다: {config_path}")
+            return JsonResponse({
+                'success': False,
+                'error': 'Video assets configuration not found'
+            }, status=404)
+        
+        # JSON 파일 읽기
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config_data = json.load(f)
+        
+        logger.info("비디오 설정 API 호출 성공")
+        return JsonResponse({
+            'success': True,
+            'data': config_data
+        })
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"video_assets.json 파싱 오류: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON format in video assets configuration'
+        }, status=500)
+        
+    except Exception as e:
+        logger.error(f"비디오 설정 API 오류: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Internal server error'
+        }, status=500)

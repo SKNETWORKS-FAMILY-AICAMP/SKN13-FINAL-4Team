@@ -37,6 +37,7 @@ class VideoSelector:
             # 기본 설정 사용
             self.video_config = self._get_default_config()
     
+    
     def _get_default_config(self):
         """기본 비디오 설정 반환 (JSON 로드 실패 시 폴백)"""
         return {
@@ -65,17 +66,19 @@ class VideoSelector:
     
     def get_talk_video(self, emotion: str = 'neutral', character_id: str = None) -> str:
         """
-        TTS 재생 중 사용할 talk 비디오 선택 (캐릭터별)
+        TTS 재생 중 사용할 talk 비디오 선택 (캐릭터별 JSON 기반)
         
         Args:
             emotion: LLM에서 제공한 감정
-            character_id: 캐릭터 ID (예: 'jammin-i', 'mina-chan')
+            character_id: 캐릭터 ID (예: 'hongseohyun', 'kimchunki')
             
         Returns:
             talk 비디오 파일명 (basePath 포함)
         """
         try:
             character_id = character_id or self.video_config['systemSettings']['defaultCharacter']
+            
+            # JSON 설정에서 비디오 파일 선택
             character_config = self.video_config['characters'].get(character_id)
             
             if not character_config:
@@ -83,28 +86,31 @@ class VideoSelector:
                 character_id = self.video_config['systemSettings']['defaultCharacter']
                 character_config = self.video_config['characters'][character_id]
             
-            # 1. 감정별 선호 비디오 확인
+            # 비디오 경로 결정 (JSON 기반)
+            final_base_path = character_config.get('videoBasePath', f"/videos/{character_id}/")
+            
+            # 감정별 선호 비디오 확인
             emotion_mapping = character_config.get('emotionMapping', {})
             if emotion in emotion_mapping:
                 talk_videos = emotion_mapping[emotion].get('talk', [])
                 if talk_videos:
                     selected = random.choice(talk_videos)
-                    full_path = character_config['videoBasePath'] + selected
+                    full_path = final_base_path + selected
                     logger.info(f"🎬 Talk 비디오 선택 ({character_id}/{emotion}): {selected}")
                     return full_path
             
-            # 2. 기본 talk 비디오에서 선택
+            # 기본 talk 비디오에서 선택
             talk_category = character_config['videoCategories'].get('talk', {})
             talk_files = talk_category.get('files', [])
             if talk_files:
                 selected = random.choice(talk_files)
-                full_path = character_config['videoBasePath'] + selected
+                full_path = final_base_path + selected
                 logger.info(f"🎬 Talk 비디오 선택 ({character_id}/기본): {selected}")
                 return full_path
             
-            # 3. 최종 폴백
+            # 최종 폴백
             logger.warning(f"⚠️ Talk 비디오 없음, 폴백 사용: {character_id}")
-            return character_config['videoBasePath'] + talk_category.get('defaultFile', 'a_talk_0.mp4')
+            return final_base_path + talk_category.get('defaultFile', 'a_talk_0.mp4')
                 
         except Exception as e:
             logger.error(f"❌ Talk 비디오 선택 실패: {str(e)}")
@@ -113,7 +119,7 @@ class VideoSelector:
     
     def get_idle_video(self, emotion: str = 'neutral', character_id: str = None) -> str:
         """
-        TTS 완료 후 돌아갈 idle 비디오 선택 (캐릭터별)
+        TTS 완료 후 돌아갈 idle 비디오 선택 (캐릭터별 JSON 기반)
         
         Args:
             emotion: 현재 감정 상태
@@ -124,6 +130,8 @@ class VideoSelector:
         """
         try:
             character_id = character_id or self.video_config['systemSettings']['defaultCharacter']
+            
+            # JSON 설정에서 비디오 파일 선택
             character_config = self.video_config['characters'].get(character_id)
             
             if not character_config:
@@ -131,28 +139,31 @@ class VideoSelector:
                 character_id = self.video_config['systemSettings']['defaultCharacter']
                 character_config = self.video_config['characters'][character_id]
             
-            # 1. 감정별 선호 비디오 확인
+            # 비디오 경로 결정 (JSON 기반)
+            final_base_path = character_config.get('videoBasePath', f"/videos/{character_id}/")
+            
+            # 감정별 선호 비디오 확인
             emotion_mapping = character_config.get('emotionMapping', {})
             if emotion in emotion_mapping:
                 idle_videos = emotion_mapping[emotion].get('idle', [])
                 if idle_videos:
                     selected = random.choice(idle_videos)
-                    full_path = character_config['videoBasePath'] + selected
+                    full_path = final_base_path + selected
                     logger.info(f"😐 Idle 비디오 선택 ({character_id}/{emotion}): {selected}")
                     return full_path
             
-            # 2. 기본 idle 비디오에서 선택
+            # 기본 idle 비디오에서 선택
             idle_category = character_config['videoCategories'].get('idle', {})
             idle_files = idle_category.get('files', [])
             if idle_files:
                 selected = random.choice(idle_files)
-                full_path = character_config['videoBasePath'] + selected
+                full_path = final_base_path + selected
                 logger.info(f"😐 Idle 비디오 선택 ({character_id}/기본): {selected}")
                 return full_path
             
-            # 3. 최종 폴백
+            # 최종 폴백
             logger.warning(f"⚠️ Idle 비디오 없음, 폴백 사용: {character_id}")
-            return character_config['videoBasePath'] + idle_category.get('defaultFile', 'idle_0.mp4')
+            return final_base_path + idle_category.get('defaultFile', 'idle_0.mp4')
                 
         except Exception as e:
             logger.error(f"❌ Idle 비디오 선택 실패: {str(e)}")
