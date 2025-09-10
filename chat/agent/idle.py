@@ -157,7 +157,7 @@ class IdleManager:
 
     async def idle_loop(self, interval: int = 15):
         while True:
-            await asyncio.sleep(2)
+            await asyncio.sleep(10)
             try:
                 busy = self.queue_mgr.is_busy()
                 has_work = self.queue_mgr.has_active_work()

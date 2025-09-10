@@ -94,7 +94,7 @@ class DonationAPIView(APIView):
             from asgiref.sync import async_to_sync
             
             channel_layer = get_channel_layer()
-            room_group_name = f'streaming_chat_{streamer_id}'
+            room_group_name = f'streaming_chat_{chatroom.id}'
             
             donation_message = {
                 'type': 'donation_message',

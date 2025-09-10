@@ -12,7 +12,7 @@ HARD_BLOCK_PATTERNS = [
     r"(섹스|자위|포르노|야동|69|딥쓰|강간|강제\s*관계|아동\s*성|수간|성기)",
     r"(fuck|porn|blowjob|handjob|cum|bitch|dick|pussy)",
     r"(병신|개새끼|니애미|지랄|retard|cuck|좆같|꺼져|닥쳐)",
-    r"(죽(여|일)|자살|테러|폭탄|총기\s*구매|칼\s*사용|폭력\s*조장)",
+    r"(자살|테러|폭탄|총기\s*구매|칼\s*사용|폭력\s*조장)",
     r"(마약\s*제조|해킹\s*방법|불법\s*다운로드|신분증\s*위조|스팸\s*홍보)",
 ]
 HARD_BLOCK_RE = re.compile("|".join(HARD_BLOCK_PATTERNS), re.IGNORECASE)

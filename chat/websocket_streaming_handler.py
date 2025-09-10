@@ -52,6 +52,8 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
     """
     AI Streamer Agent와 통합된 스트리밍 채팅 컨슈머
     """
+    stream_sessions = {}
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.agent: Optional[LoveStreamerAgent] = None
@@ -111,8 +113,6 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             StreamingChatConsumer.stream_sessions[self.room_group_name] = StreamSession(session_id=self.room_group_name)
         self.session = StreamingChatConsumer.stream_sessions[self.room_group_name]
         
-        if not self.request_processor_task or self.request_processor_task.done():
-            self.request_processor_task = asyncio.create_task(self.process_request_queue())
         if not self.response_processor_task or self.response_processor_task.done():
             self.response_processor_task = asyncio.create_task(self.process_response_queue())
 
@@ -122,9 +122,9 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         
         await self.send_initial_data()
 
-        await self.channel_layer.group_send(
-            self.room_group_name,
-        )
+        # await self.channel_layer.group_send(
+        #     self.room_group_name,
+        # )
 
         # --- Agent & Session 초기화 ---
         if self.streamer_id not in agent_manager.active_agents:
@@ -161,10 +161,6 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
 
         agent_manager.connection_counts[self.streamer_id] += 1
 
-        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-        await self.accept()
-        logger.info(f"✅ 스트리밍 채팅 연결 성공: {user.username} -> {self.streamer_id}")
-
         # --- 초기 정보 전송 및 입장 알림 ---
         # (기존 코드: tts_settings, queue_status 등 전송 로직 추가 가능)
         await self.channel_layer.group_send(
@@ -180,7 +176,8 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({'type': 'initial_tts_settings', 'settings': tts_settings}))
         
         if hasattr(self, 'session') and self.session:
-            await self.broadcast_queue_status()
+            # await self.broadcast_queue_status()
+            pass
 
     async def disconnect(self, close_code):
         # 개별 연결의 태스크들 정리
