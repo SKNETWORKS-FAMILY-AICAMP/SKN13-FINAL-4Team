@@ -36,6 +36,33 @@
     width: 100%;
     height: 100%;
 }
+
+/* --- 영상 위 후원 오버레이 --- */
+.donationOverlay {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+    padding: 14px 16px;
+    border-radius: 12px;
+    max-width: min(90%, 420px);
+    z-index: 12;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+.donationOverlayTitle {
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.donationEmoji { font-size: 1.1rem; }
+.donationOverlayAmount { color: #ffd666; }
+.donationOverlayMessage {
+    font-size: 0.95rem;
+    color: #e8e8e8;
+}
 .liveIndicator {
     position: absolute;
     top: 16px;
@@ -98,6 +125,11 @@
     cursor: pointer;
     border: none;
     transition: all 0.2s ease;
+}
+.likeButton:hover { background-color: #e6e8ec; }
+.likeButtonActive {
+    background-color: #ffe0e6;
+    color: #ff4757;
 }
 
 /* --- 광고 배너 --- */
@@ -206,14 +238,18 @@
 
 .donationHeader {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-    font-weight: bold;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 6px;
+    font-weight: 600;
+    flex-wrap: wrap;
+    line-height: 1.4;
 }
 
+.donationEmoji { font-size: 1rem; }
+.donorName { color: #333; white-space: nowrap; word-break: keep-all; }
+.donationText { color: #333; word-break: keep-all; }
 .donationAmount { color: #E6A23C; }
-.donorName { color: #333; }
 .donationMessage .messageContent {
     color: #555;
 }

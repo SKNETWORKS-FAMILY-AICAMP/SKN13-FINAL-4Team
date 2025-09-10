@@ -8,6 +8,7 @@ import api from '../../api';
 // import VideoPlayer from './VideoPlayer';
 
 import styles from './StreamingPage.module.css';
+import DonationIsland from './DonationIsland';
 import { w3cwebsocket as W3CWebSocket } from 'websocket';
 
 // 한글 이름을 영문 캐릭터 ID로 매핑
@@ -34,7 +35,10 @@ function StreamingPage() {
     const [messageInput, setMessageInput] = useState('');
     const chatClientRef = useRef(null);
     const chatContainerRef = useRef(null);
+    const lastDonationRef = useRef(null);
     const [user, setUser] = useState(null);
+    const [isLiked, setIsLiked] = useState(false);
+    const [likeCount, setLikeCount] = useState(0);
 
     // 🆕 Queue 시스템 상태 관리
     const [showQueuePanel, setShowQueuePanel] = useState(true);
@@ -70,6 +74,17 @@ function StreamingPage() {
             console.log('💰 후원 오버레이 표시:', data.data);
             setDonationOverlay({ visible: true, data: data.data });
         }
+        // 서버에서 직접 온 후원 메시지도 오버레이로 표시
+        else if (data.type === 'donation_message') {
+            const overlayData = {
+                message: data.message,
+                username: data.user,
+                amount: data.amount,
+                timestamp: data.timestamp
+            };
+            console.log('💰 후원 오버레이(직접 변환) 표시:', overlayData);
+            setDonationOverlay({ visible: true, data: overlayData });
+        }
         // 🆕 비디오 전환 이벤트 처리
         else if (data.type === 'video_transition' && data.transition) {
             console.log('🎬 비디오 전환 이벤트 처리:', data.transition);
@@ -85,8 +100,55 @@ function StreamingPage() {
         // 🆕 MediaPacket 처리 (FIFO 순차 처리)
         else if (data.type === 'media_packet' && data.packet) {
             console.log('📦 MediaPacket 수신 (FIFO 순차 처리):', data.packet);
+            
+            // MediaPacket의 트랙들을 처리
+            const packet = data.packet;
+            if (packet.tracks && packet.tracks.length > 0) {
+                packet.tracks.forEach(track => {
+                    console.log(`🎵 트랙 처리: ${track.kind} (duration: ${track.dur}ms)`);
+                    
+                    if (track.kind === 'audio' && track.payload_ref) {
+                        // 오디오 트랙 재생
+                        console.log('🎵 오디오 재생:', track.payload_ref.substring(0, 50) + '...');
+                        const audio = new Audio(track.payload_ref);
+                        audio.play().catch(e => console.error('오디오 재생 실패:', e));
+                    }
+                    
+                    if (track.kind === 'video' && track.payload_ref) {
+                        // 비디오 트랙 전환
+                        console.log('🎬 비디오 전환:', track.payload_ref);
+                        if (videoTransitionRef.current) {
+                            videoTransitionRef.current.changeVideo(track.payload_ref);
+                        }
+                    }
+                    
+                    if (track.kind === 'subtitle' && track.payload_ref) {
+                        const subtitleData = JSON.parse(track.payload_ref);
+                        console.log('💬 자막 데이터:', subtitleData);
+                        
+                        // 기존 자막 이벤트 발생 (MediaPacketSyncController와 동일하게)
+                        window.dispatchEvent(new CustomEvent('subtitleTrackChange', {
+                            detail: {
+                                subtitleData,
+                                duration: track.dur,
+                                packet: packet
+                            }
+                        }));
+                    }
+                });
+            }
         }
     };
+
+    // 후원 오버레이 자동 숨김 처리
+    useEffect(() => {
+        if (donationOverlay.visible) {
+            const timer = setTimeout(() => {
+                setDonationOverlay({ visible: false, data: null });
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [donationOverlay.visible]);
 
     useEffect(() => {
         let websocketClient = null;
@@ -114,6 +176,19 @@ function StreamingPage() {
                 
                 setUser(currentUser);
                 setRoom(currentRoom);
+
+                // 인플루언서 좋아요 상태/카운트 조회
+                if (currentRoom?.influencer?.id) {
+                    try {
+                        const infRes = await api.get(`/api/influencers/${currentRoom.influencer.id}/`);
+                        setIsLiked(!!infRes.data.is_liked_by_user);
+                        setLikeCount(infRes.data.like_count || 0);
+                    } catch (e) {
+                        console.warn('인플루언서 좋아요 정보 조회 실패:', e);
+                        setIsLiked(false);
+                        setLikeCount(currentRoom.like_count || 0);
+                    }
+                }
 
                 // 3. 비디오는 나중에 useEffect에서 초기화
                 
@@ -157,14 +232,16 @@ function StreamingPage() {
         };
     }, [roomId, navigate, websocketBaseUrl]);
 
-    // 비디오 초기화 useEffect (room이 설정된 후)
+    // 비디오 초기화 useEffect (room과 DOM 준비 후)
     useEffect(() => {
         console.log('🎥 비디오 초기화 useEffect:', { 
             hasRoom: !!room, 
             hasInfluencer: !!room?.influencer,
             hasVideoRef: !!videoRef.current 
         });
-        
+        // 로딩 중에는 비디오 엘리먼트가 렌더되지 않아 ref가 null일 수 있음
+        if (loading) return;
+
         if (room && room.influencer && videoRef.current) {
             const characterId = getCharacterIdFromName(room.influencer.name);
             
@@ -182,7 +259,7 @@ function StreamingPage() {
             };
             
             const videoFileName = getDefaultVideoFile(characterId);
-            const defaultVideo = `${apiBaseUrl}/videos/${characterId}/${videoFileName}`;
+            const defaultVideo = `/videos/${characterId}/${videoFileName}`;
             
             console.log('📹 비디오 경로 생성 (fallback 적용):', { 
                 influencerName: room.influencer.name,
@@ -208,12 +285,33 @@ function StreamingPage() {
             video.load();
             console.log('🔄 비디오 로드 호출됨');
         }
-    }, [room]); // room이 변경될 때마다 실행
+    }, [room, loading]); // 로딩 완료 시에도 재실행
 
     // 채팅 스크롤 자동 내리기
     useEffect(() => {
         if (chatContainerRef.current) {
             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+    }, [chatMessages]);
+
+    // 채팅에 후원 메시지가 추가되면 오버레이 표시 (보강 로직)
+    useEffect(() => {
+        if (!chatMessages || chatMessages.length === 0) return;
+        const lastMsg = chatMessages[chatMessages.length - 1];
+        if (lastMsg?.type === 'donation_message') {
+            const donationKey = `${lastMsg.user}-${lastMsg.amount}-${lastMsg.timestamp || chatMessages.length}`;
+            if (lastDonationRef.current !== donationKey) {
+                lastDonationRef.current = donationKey;
+                setDonationOverlay({
+                    visible: true,
+                    data: {
+                        message: lastMsg.message,
+                        username: lastMsg.user,
+                        amount: lastMsg.amount,
+                        timestamp: lastMsg.timestamp
+                    }
+                });
+            }
         }
     }, [chatMessages]);
     
@@ -234,6 +332,32 @@ function StreamingPage() {
     const handleMessageSubmit = (e) => {
         e.preventDefault();
         sendMessage();
+    };
+
+    const handleLikeClick = async () => {
+        if (!user || !room?.influencer?.id) {
+            alert('로그인이 필요한 기능입니다.');
+            return;
+        }
+        const influencerId = room.influencer.id;
+        const prevLiked = isLiked;
+        const prevCount = likeCount;
+        setIsLiked(!prevLiked);
+        setLikeCount(prev => Math.max(0, prev + (prevLiked ? -1 : 1)));
+        try {
+            const res = await api.post(`/api/influencers/${influencerId}/like/`);
+            if (typeof res?.data?.like_count === 'number') {
+                setLikeCount(res.data.like_count);
+            }
+            if (typeof res?.data?.liked === 'boolean') {
+                setIsLiked(res.data.liked);
+            }
+        } catch (err) {
+            console.error('좋아요 처리 실패:', err);
+            setIsLiked(prevLiked);
+            setLikeCount(prevCount);
+            alert('좋아요 처리에 실패했습니다.');
+        }
     };
 
     
@@ -260,6 +384,24 @@ function StreamingPage() {
                         muted
                         playsInline
                     />
+                    {donationOverlay?.visible && donationOverlay?.data && (
+                        <div className={styles.donationOverlay}>
+                            <div className={styles.donationOverlayTitle}>
+                                <span className={styles.donationEmoji}>💰</span>
+                                <strong>{donationOverlay.data.username}</strong>
+                                <span>님이 </span>
+                                <strong className={styles.donationOverlayAmount}>
+                                    {Number(donationOverlay.data.amount).toLocaleString()}
+                                </strong>
+                                <span> 크레딧을 후원하셨습니다.</span>
+                            </div>
+                            {donationOverlay.data.message && (
+                                <div className={styles.donationOverlayMessage}>
+                                    {donationOverlay.data.message}
+                                </div>
+                            )}
+                        </div>
+                    )}
                     {room.status === 'live' && (
                         <div className={styles.liveIndicator}>
                             <span className={styles.liveDot}></span>LIVE
@@ -276,9 +418,13 @@ function StreamingPage() {
                             <img src={profileImageUrl} alt={room.influencer?.name} className={styles.streamerProfilePic} />
                             <div className={styles.streamerText}>
                                 <span className={styles.streamerName}>{room.influencer?.name}</span>
-                                <span className={styles.likesCount}>좋아요 수 : {room.like_count?.toLocaleString() || 0}</span>
+                                <span className={styles.likesCount}>좋아요 수 : {likeCount?.toLocaleString() || 0}</span>
                             </div>
-                            <button className={styles.likeButton}>
+                            <button 
+                                className={`${styles.likeButton} ${isLiked ? styles.likeButtonActive : ''}`}
+                                onClick={handleLikeClick}
+                                title={isLiked ? '좋아요 취소' : '좋아요'}
+                            >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                                     <path fillRule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z"/>
                                 </svg>
@@ -313,10 +459,15 @@ function StreamingPage() {
                             return (
                                 <div key={index} className={styles.donationMessage}>
                                     <div className={styles.donationHeader}>
-                                        <span className={styles.donationAmount}>₩{msg.amount.toLocaleString()}</span>
-                                        <span className={styles.donorName}>• {msg.sender}</span>
+                                        <span className={styles.donationEmoji}>💰</span>
+                                        <span className={styles.donorName}>{msg.user}님이</span>
+                                        <span className={styles.donationText}>
+                                            <span className={styles.donationAmount}>{msg.amount.toLocaleString()}</span> 크레딧을 후원하셨습니다.
+                                        </span>
                                     </div>
-                                    <span className={styles.messageContent}>{msg.message}</span>
+                                    {msg.message && (
+                                        <div className={styles.messageContent}>{msg.message}</div>
+                                    )}
                                 </div>
                             )
                         }
@@ -354,10 +505,17 @@ function StreamingPage() {
                                 전송
                             </button>
                         </form>
-                        <button className={styles.sponsorButton}>후원</button>
+                        <button className={styles.sponsorButton} onClick={() => setIsDonationIslandOpen(true)}>후원</button>
                     </div>
                 </div>
             </div>
+            {isDonationIslandOpen && (
+                <DonationIsland 
+                    roomId={roomId} 
+                    streamerId={room?.influencer?.id} 
+                    onClose={() => setIsDonationIslandOpen(false)} 
+                />
+            )}
         </div>
     );
 }
