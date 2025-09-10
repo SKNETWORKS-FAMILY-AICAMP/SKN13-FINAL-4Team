@@ -14,6 +14,7 @@ from .story import StoryRepository
 from .db import UserDB, Utils
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.messages import HumanMessage
+from ..services.persona_loader import load_persona_profile
 
 class LoveStreamerAgent:
     """통합 에이전트"""
@@ -25,20 +26,36 @@ class LoveStreamerAgent:
         self.topic = TopicThreading(self.fast_llm, self.embeddings)
         self.queue = QueueManager(self.topic, trigger_graph_cb=self.trigger_graph_async, broadcast_cb=self.broadcast_queue_state)
         self.emotion_cls = EmotionClassifier(self.fast_llm)
-        self.responder = Responder(self.llm, self.emotion_cls, streamer_id=streamer_id)
-        self.idle = IdleManager(self.llm, self.queue, story_repo, self.responder, streamer_id=streamer_id)
+        self.responder = Responder(self, self.llm, self.emotion_cls, streamer_id=streamer_id) # self(agent) 전달
+        self.idle = IdleManager(self, self.llm, self.queue, story_repo, self.responder, streamer_id=streamer_id) # self(agent) 전달
         self.graph = GraphPipeline(self.responder, self.queue, UserDB()).build()
         self.superchat_q = asyncio.Queue()
         self.streamer_id = streamer_id
         self._idle_loop_started = False
+        self.persona_profile = {} # 페르소나 프로필을 저장할 변수
 
         self.idle.set_graph_trigger(self.trigger_graph_async)
         self.idle.set_bootstrap_helpers(
             topic_label_fn=lambda: self.topic.topic_ctx.get("active_label") or "",
             bootstrap_fn=self._bootstrap_topic_from_tail
         )
-        # Link run_one_turn to idle manager's trigger
         self.graph.idle_mgr = self.idle
+
+    @classmethod
+    async def create(cls, api_key: str, story_repo: StoryRepository, streamer_id: str = None):
+        """비동기 초기화를 포함한 에이전트 생성 팩토리 메서드"""
+        agent = cls(api_key, story_repo, streamer_id)
+        await agent._load_persona()
+        return agent
+
+    async def _load_persona(self):
+        """DB에서 페르소나 프로필을 로드하여 인스턴스에 저장"""
+        if self.streamer_id:
+            self.persona_profile = await load_persona_profile(self.streamer_id)
+            if self.persona_profile:
+                print(f"✅ [{self.streamer_id}] 페르소나 로드 완료.")
+            else:
+                print(f"⚠️ [{self.streamer_id}] 페르소나를 찾을 수 없습니다. 기본 프롬프트로 동작합니다.")
 
     def _compact_result_from_state(self, state: dict) -> dict:
         return {

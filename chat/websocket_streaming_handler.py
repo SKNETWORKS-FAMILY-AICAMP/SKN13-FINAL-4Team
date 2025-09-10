@@ -129,7 +129,7 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         # --- Agent & Session 초기화 ---
         if self.streamer_id not in agent_manager.active_agents:
             story_repo = DjangoStoryRepository()
-            agent_manager.active_agents[self.streamer_id] = LoveStreamerAgent(
+            agent_manager.active_agents[self.streamer_id] = await LoveStreamerAgent.create(
                 api_key=settings.OPENAI_API_KEY,
                 story_repo=story_repo,
                 streamer_id=self.streamer_id

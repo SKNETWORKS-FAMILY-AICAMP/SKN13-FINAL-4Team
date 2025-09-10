@@ -11,18 +11,51 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 # 순환 참조를 피하기 위해 타입 힌트만 가져옵니다.
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
+    from .agent import LoveStreamerAgent
     from ..media_orchestrator import MediaProcessingHub
     from ..streaming.domain.stream_session import StreamSession
 
+# --- 마스터 페르소나 프롬프트 템플릿 ---
+MASTER_PERSONA_PROMPT_TEMPLATE = """
+너는 AI 스트리머 '{name}'이야. 다음 페르소나를 완벽하게 연기해서 시청자와 소통해야 해.
+
+# 기본 정보
+- 이름: {name}
+- 나이: {age}세
+- 성별: {gender}
+- MBTI: {mbti}
+- 직업: {job}
+- 시청자 애칭: {audience_term}
+- 배경 이야기: {origin_story}
+
+# 핵심 가치
+너는 다음 가치들을 가장 중요하게 생각해: {core_values}
+
+# 소통 스타일
+- 전체적인 톤앤매너: {communication_style[tone]}
+- 문장 길이: {communication_style[sentence_length]}
+- 질문 습관: {communication_style[question_style]}
+- 직설성: {communication_style[directness]}
+- 공감 표현 방식: {communication_style[empathy_expression]}
+
+# 도덕 및 윤리관
+- 판단 기준: {moral_compass[standard]}
+- 규칙 준수: {moral_compass[rule_adherence]}
+- 공정성: {moral_compass[fairness]}
+
+# 성격 기질
+- 에너지 방향: {personality_trait[energy_direction]}
+- 감정 처리 방식: {personality_trait[emotional_processing]}
+- 대인 태도: {personality_trait[interpersonal_attitude]}
+
+# 출력 포맷
+- 구어체로 답변해. 괄호를 통해 감정을 드러내는 묘사, 이모지 사용 등 인간이 소리내어 말할 수 없는 것들은 절대 생성하지 마.
+"""
+
 class Responder:
     """카테고리 지침에 따른 최종 응답 생성기"""
-    CATEGORY_PROMPTS = {
-        "연애": {"system_prompt": "역할: 연애 상담\n[답변 초점]\n- 사용자의 감정 상태\n- 상대방의 심리와 반응\n- 관계의 현재 맥락과 흐름"},
-        "인사": {"system_prompt": "역할: 인사/호스트\n[답변 초점]\n- 방문 사실\n- 오늘의 분위기나 상황\n- 이어질 대화의 연결점"},
-        "기타": {"system_prompt": "역할: 범용 상담/정보 제공\n[답변 초점]\n- 사용자의 질문 핵심\n- 관련된 주요 맥락이나 배경\n- 참고할 수 있는 정보 요소"},
-    }
-
-    def __init__(self, llm: ChatOpenAI, emotion_classifier: EmotionClassifier, echo_spoken: bool = False, echo_in_prompt: bool = True, echo_prefix: str = "지금 읽은 댓글", echo_include_user: bool = True, streamer_id: str = None):
+    def __init__(self, agent: 'LoveStreamerAgent', llm: ChatOpenAI, emotion_classifier: EmotionClassifier, echo_spoken: bool = False, echo_in_prompt: bool = True, echo_prefix: str = "지금 읽은 댓글", echo_include_user: bool = True, streamer_id: str = None):
+        self.agent = agent
         self.llm = llm
         self.emotion_cls = emotion_classifier
         self.echo_spoken = echo_spoken
@@ -31,135 +64,118 @@ class Responder:
         self.echo_include_user = echo_include_user
         self.streamer_id = streamer_id
         
-        # 추론 서버 클라이언트 설정
         self.inference_client = None
         if streamer_id:
             try:
                 from ..services.inference_client import InferenceClient
                 self.inference_client = InferenceClient(streamer_id)
             except ImportError:
-                pass  # 추론 서버 미사용 시 무시
+                pass
         
-        # MediaProcessingHub와 StreamSession 인스턴스는 외부에서 주입받습니다.
         self.media_processor: Optional['MediaProcessingHub'] = None
         self.stream_session: Optional['StreamSession'] = None
 
-    @staticmethod
-    def combine_category_prompts(categories: list) -> dict:
-        if not categories: categories = ["기타"]
-        base = Responder.CATEGORY_PROMPTS
-        merged_focus, seen = [], set()
-        def extract_focus(cat: str) -> list:
-            sp = base.get(cat, base["기타"])["system_prompt"]
-            lines = [ln.strip() for ln in sp.splitlines()]
-            take, out = False, []
-            for ln in lines:
-                if ln.strip() == "[답변 초점]": take = True; continue
-                if take:
-                    if ln.startswith("[") and ln.endswith("]"):
-                        break
-                    if ln.startswith("-"): out.append(ln.lstrip("- ").strip())
-            return out
-        for cat in categories:
-            for item in extract_focus(cat):
-                labeled = f"({cat}) {item}"
-                if labeled not in seen: seen.add(labeled); merged_focus.append(labeled)
-        merged_sys = "역할: 다중 의도\n[답변 초점]\n" + "\n".join(f"- {x}" for x in merged_focus)
-        return {"system_prompt": merged_sys}
+    def _format_persona_prompt(self) -> str:
+        """에이전트의 페르소나 프로필을 마스터 템플릿에 주입하여 최종 페르소나 프롬프트를 생성합니다."""
+        persona = self.agent.persona_profile
+        if not persona:
+            return "너는 친절한 AI 스트리머야." # 페르소나 정보가 없을 경우 기본 프롬프트
+
+        # 일부 필드가 누락될 경우를 대비하여 안전하게 값을 가져옵니다.
+        safe_persona = {
+            "name": persona.get("name", "스트리머"),
+            "age": persona.get("age", 25),
+            "gender": persona.get("gender", "여성"),
+            "mbti": persona.get("mbti", "ENFP"),
+            "job": persona.get("job", "AI 스트리머"),
+            "audience_term": persona.get("audience_term", "시청자"),
+            "origin_story": persona.get("origin_story", "특별한 배경 이야기는 없어요."),
+            "core_values": persona.get("core_values", "소통, 공감"),
+            "communication_style": persona.get("communication_style", {}),
+            "moral_compass": persona.get("moral_compass", {}),
+            "personality_trait": persona.get("personality_trait", {})
+        }
+        # 중첩된 딕셔너리도 안전하게 처리
+        safe_persona["communication_style"].setdefault("tone", "친절하고 상냥하게")
+        safe_persona["communication_style"].setdefault("sentence_length", "적당한 길이로")
+        safe_persona["communication_style"].setdefault("question_style", "개방형 질문을 자주 사용")
+        safe_persona["communication_style"].setdefault("directness", "간접적으로 표현")
+        safe_persona["communication_style"].setdefault("empathy_expression", "상대방의 감정을 먼저 인정해줌")
+        safe_persona["moral_compass"].setdefault("standard", "보편적인 윤리 기준")
+        safe_persona["moral_compass"].setdefault("rule_adherence", "규칙을 중요하게 생각함")
+        safe_persona["moral_compass"].setdefault("fairness", "공정성을 중시함")
+        safe_persona["personality_trait"].setdefault("energy_direction", "외향적")
+        safe_persona["personality_trait"].setdefault("emotional_processing", "감정을 솔직하게 표현")
+        safe_persona["personality_trait"].setdefault("interpersonal_attitude", "협조적이고 우호적")
+
+        return MASTER_PERSONA_PROMPT_TEMPLATE.format(**safe_persona)
+
+    def _build_final_prompt(self, state: AgentState) -> tuple[str, str]:
+        """상황에 맞는 최종 시스템 및 유저 프롬프트를 생성합니다."""
+        base_persona_prompt = self._format_persona_prompt()
+        
+        situation_prompt = ""
+        user_content = state.get("best_chat", "")
+        
+        # 상황별 분기 처리
+        if state.get("type") == "story":
+            situation_prompt = (
+                "\n# 현재 상황: 사연 읽기\n"
+                "시청자가 보낸 아래의 사연을 너의 페르소나에 맞게 진심을 담아 읽어주고, 따뜻한 공감과 조언을 해줘.\n"
+                "--- 사연 ---"
+            )
+        else: # 일반 대화, 자율 발화 등
+            categories = ", ".join(state.get("categories", ["기타"]))
+            situation_prompt = (
+                f"\n# 현재 상황: 시청자와의 대화\n"
+                f"현재 대화의 주요 카테고리는 '{categories}'이야. "
+                f"아래 시청자의 채팅에 대해 너의 페르소나를 완벽하게 연기해서 답변해줘.\n"
+                f"--- 시청자 채팅 ---"
+            )
+            
+        final_system_prompt = f"{base_persona_prompt}\n{situation_prompt}"
+        return final_system_prompt, user_content
 
     async def generate_final_response(self, state: AgentState):
+        print(f"!!! DEBUG: generate_final_response 진입. Type: {state.get('type')}, Content: {state.get('best_chat')}") # 디버깅 로그
         if state.get("__no_selection"): return state
         
-        # --- 1. LLM을 통해 답변 텍스트 생성 ---
-        user_text = state.get("best_chat", "")
-        categories = state.get("categories", ["기타"])
-        db = state.get("db_greeting_info", {})
-        if db.get("exists"):
-            name, last_visit, gap_days = db.get("name", ""), db.get("last_visit"), db.get("gap_days")
-            visit_info = "오늘 또 방문!" if gap_days < 1 else ("어제도 왔네요!" if gap_days == 1 else f"{gap_days}일 만의 방문!") if gap_days is not None else "기존 회원"
-            user_status = f"{name}님({state.get('user_id','')})은 {last_visit} 이후 {visit_info}"
+        final_text = ""
+        # 1. LLM 생성을 건너뛸지 결정
+        if state.get("skip_llm_generation", False):
+            print("✅ LLM 생성을 건너뛰고, 제공된 텍스트를 사용합니다.")
+            final_text = state.get("best_chat", "")
         else:
-            user_status = f"{state.get('user_id','')}"
-        cat = self.combine_category_prompts(categories)
-        categories_str = ", ".join(categories)
-        uid_masked = state.get("user_id", "guest") if self.echo_include_user else ""
-        user_line = f"{uid_masked}: " if uid_masked else ""
-        quoted = user_text
-        echo_rule = f"[출력 규칙(구조만 지정)]\n- 답변의 첫 줄에 아래 형식의 한 줄을 반드시 말해:\n{self.echo_prefix} — {user_line}\"{quoted}\"\n- 위 한 줄 다음부터는 네 말투로 자연스럽게 상담 답변을 이어가.\n- 인용부호 안의 댓글은 수정/요약/의역 없이 그대로 읽어. 톤 가이드에 영향 주지 마." if self.echo_in_prompt else ""
-        sys = SystemMessage(content=f"{cat['system_prompt']}\n\n[사용자 정보]\n{user_status}\n\n[질문 분류]\n카테고리: {categories_str}\n\n[사용자 질문]\n『{user_text}』\n\n{echo_rule}".strip())
-        user_msg = state["messages"][0] if state.get("messages") else HumanMessage(content=user_text or "")
-        
-        # 강화된 LLM 호출 로직 (추론 서버 → OpenAI 폴백)
-        assistant_text = None
-        
-        # 1차: 추론 서버 시도
-        if self.inference_client:
-            try:
-                assistant_text = await self.inference_client.generate_text(
-                    system_prompt=sys.content,
-                    user_prompt=user_msg.content if hasattr(user_msg, 'content') else str(user_msg)
-                )
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.info(f"추론 서버 성공: {self.streamer_id}")
-                
-            except Exception as e:
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.warning(f"추론 서버 실패: {self.streamer_id} - {e}")
-                assistant_text = None
-        
-        # 2차: OpenAI API 폴백
-        if assistant_text is None:
-            try:
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.info(f"OpenAI API 폴백 사용: {self.streamer_id}")
-                res = await self.llm.ainvoke([sys, user_msg])
-                assistant_text = Utils.text_of(res)
-                
-            except Exception as e:
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"추론서버와 OpenAI 모두 실패: {self.streamer_id} - {e}")
-                # 최후 수단: 기본 응답
-                assistant_text = "죄송합니다. 현재 답변을 생성할 수 없습니다. 잠시 후 다시 시도해주세요."
+            # 2. 기존 LLM 호출 로직
+            system_prompt, user_prompt = self._build_final_prompt(state)
+            
+            assistant_text = None
+            if self.inference_client:
+                try:
+                    assistant_text = await self.inference_client.generate_text(
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt
+                    )
+                    print(f"✅ 추론 서버 성공: {self.streamer_id}")
+                except Exception as e:
+                    print(f"⚠️ 추론 서버 실패: {self.streamer_id} - {e}, OpenAI로 폴백합니다.")
+                    assistant_text = None
+            
+            if assistant_text is None:
+                try:
+                    res = await self.llm.ainvoke([SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)])
+                    assistant_text = Utils.text_of(res)
+                    print(f"✅ OpenAI API 폴백 성공: {self.streamer_id}")
+                except Exception as e:
+                    print(f"❌ 추론서버와 OpenAI 모두 실패: {self.streamer_id} - {e}")
+                    assistant_text = "죄송합니다. 현재 답변을 생성할 수 없습니다."
+            
+            final_text = assistant_text
 
-        # --- 2. 후처리: 인용구 필터링 및 병합 ---
-        import re
-
-        def is_meaningless(text: str) -> bool:
-            text = text.strip()
-            if not text: return True
-            # "ㅋㅋ", "ㅎㅎㅎ", "ㅜㅜ" 등 자음/모음만으로 된 짧은 메시지
-            if len(text) < 4 and re.fullmatch(r'^[ㅋㅎㅇㅠㅜ!?~. ]+' , text)\
-                : return True
-            # "........" 처럼 한 문자로만 반복되는 경우
-            if len(set(text.replace(" ", ""))) == 1: return True
-            return False
-
-        original_user_message = state.get("best_chat", "")
-        # 정규표현식: "지금 읽은 댓글 - [사용자명]: \"[인용문\"\n\n[AI 답변]" 형식을 찾음
-        prefix_pattern = re.compile(r"지금 읽은 댓글.*?:*\s*\"(.*?)\"\s*\n*(.*)", re.DOTALL)
-        match = prefix_pattern.match(assistant_text)
-        
-        final_text = assistant_text
-        if match:
-            ai_response_body = match.group(2).strip()
-            if is_meaningless(original_user_message):
-                # 의미 없는 메시지는 인용 생략
-                final_text = ai_response_body
-            else:
-                # 의미 있는 메시지는 앞부분의 무의미한 자음/모음 제거 후 자연스럽게 연결
-                cleaned_user_message = re.sub(r'^[ㅋㅎㅠㅜ!?~\s]+', '', original_user_message).strip()
-                final_text = f"{cleaned_user_message}. {ai_response_body}"
-        
         assistant = AIMessage(content=final_text)
         
-        # --- 3. 감정 분류 ---
         emotion = await asyncio.to_thread(self.emotion_cls.classify, final_text) if self.emotion_cls else "neutral"
 
-        # --- 4. MediaPacket 생성 요청 ---
         if self.media_processor and self.stream_session:
             request_data = {
                 'message': final_text,
@@ -167,16 +183,10 @@ class Responder:
                 'emotion': emotion,
                 'room_name': self.streamer_id  # streamer_id를 room_name으로 사용
             }
-            # 1. 트랙 생성을 기다리고 결과를 받습니다.
             tracks = await self.media_processor.generate_tracks_no_cancellation(request_data)
-            
-            # 2. 트랙이 성공적으로 생성되었는지 확인합니다.
             if tracks:
-                # 3. 트랙으로 미디어 패킷을 만듭니다.
                 media_packet = self.stream_session.build_packet(tracks)
-                # 4. 생성된 패킷을 송출 큐에 넣습니다.
                 await self.stream_session.enqueue_response(media_packet)
 
-        # --- 5. 최종 상태 반환 ---
         return {**state, "messages": [assistant], "assistant_emotion": emotion}
 
