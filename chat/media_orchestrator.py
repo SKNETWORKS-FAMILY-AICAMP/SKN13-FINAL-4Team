@@ -288,7 +288,7 @@ class MediaProcessingHub:
             logger.error(f"❌ 자막 트랙 생성 실패: {e}")
             return None
     
-    async def _create_audio_track_cancellable(self, text: str, streamer_config: Dict, cancel_event: 'asyncio.Event'):
+    async def _create_audio_track_cancellable(self, text: str, streamer_config: Dict, cancel_event: 'asyncio.Event', room_name: str = None):
         """취소 가능한 오디오 트랙 생성"""
         try:
             if cancel_event.is_set():
@@ -298,7 +298,7 @@ class MediaProcessingHub:
             logger.info(f"🎵 오디오 트랙 생성 시작: {text[:30]}...")
             
             # TTS 생성 (취소 가능한 버전)
-            tts_result = await self._generate_tts_async(text, streamer_config, cancel_event)
+            tts_result = await self._generate_tts_async(text, streamer_config, cancel_event, room_name)
             
             if cancel_event.is_set():
                 logger.info("🚫 오디오 트랙 TTS 생성 후 취소됨")
@@ -412,7 +412,7 @@ class MediaProcessingHub:
             return 'neutral'
     
     
-    async def _generate_tts_async(self, text: str, streamer_config: Dict, cancel_event: Optional['asyncio.Event'] = None) -> Dict[str, Any]:
+    async def _generate_tts_async(self, text: str, streamer_config: Dict, cancel_event: Optional['asyncio.Event'] = None, room_name: str = None) -> Dict[str, Any]:
         """TTS 생성 (비동기, 취소 가능, fallback 지원)"""
         logger.info(f"🔊 TTS 생성 시작: {text[:30]}...")
         
@@ -428,12 +428,12 @@ class MediaProcessingHub:
         # 우선 설정된 엔진 시도
         try:
             if engine == 'elevenlabs':
-                return await self._generate_elevenlabs_tts_async(text, voice_settings, cancel_event)
+                return await self._generate_elevenlabs_tts_async(text, voice_settings, cancel_event, room_name)
             elif engine == 'openai':
                 return await self._generate_openai_tts_async(text, voice_settings, cancel_event)
             else:
                 # 기본값: ElevenLabs 시도
-                return await self._generate_elevenlabs_tts_async(text, voice_settings, cancel_event)
+                return await self._generate_elevenlabs_tts_async(text, voice_settings, cancel_event, room_name)
                 
         except Exception as primary_error:
             logger.warning(f"⚠️ 기본 TTS 엔진 ({engine}) 실패: {primary_error}")
@@ -454,7 +454,7 @@ class MediaProcessingHub:
             elif engine != 'elevenlabs':
                 try:
                     logger.info(f"🔄 ElevenLabs TTS fallback 시도: {text[:30]}...")
-                    return await self._generate_elevenlabs_tts_async(text, voice_settings, cancel_event)
+                    return await self._generate_elevenlabs_tts_async(text, voice_settings, cancel_event, room_name)
                 except Exception as fallback_error:
                     logger.error(f"❌ ElevenLabs TTS fallback도 실패: {fallback_error}")
             
@@ -470,8 +470,34 @@ class MediaProcessingHub:
                 }
             }
     
-    async def _generate_elevenlabs_tts_async(self, text: str, voice_settings: Dict, cancel_event: Optional['asyncio.Event'] = None) -> Dict[str, Any]:
-        """ElevenLabs TTS 생성 (비동기, 취소 가능)"""
+    def _get_room_tts_settings(self, room_name: str) -> Dict[str, Any]:
+        """채팅방의 TTS 설정을 가져옵니다. (DB 기반)"""
+        try:
+            from .models import ChatRoom
+            room = ChatRoom.objects.select_related('influencer').get(name=room_name)
+            tts_settings = room.get_tts_settings()
+            if tts_settings:
+                logger.info(f"🎤 DB에서 TTS 설정 로드 성공: {room_name} -> {tts_settings.get('influencer_name', 'Unknown')}")
+                return tts_settings
+        except ChatRoom.DoesNotExist:
+            logger.warning(f"⚠️ 채팅방을 찾을 수 없음: {room_name}")
+        except Exception as e:
+            logger.error(f"❌ TTS 설정 로드 실패: {room_name}, {e}")
+        
+        # 폴백: 기본 설정 반환
+        return {
+            'ttsEngine': 'elevenlabs',
+            'elevenLabsVoice': 'aneunjin',
+            'elevenLabsVoiceName': '안은진',
+            'elevenLabsModel': 'eleven_multilingual_v2',
+            'elevenLabsStability': 0.5,
+            'elevenLabsSimilarity': 0.8,
+            'elevenLabsStyle': 0.0,
+            'elevenLabsSpeakerBoost': True,
+        }
+
+    async def _generate_elevenlabs_tts_async(self, text: str, voice_settings: Dict, cancel_event: Optional['asyncio.Event'] = None, room_name: str = None) -> Dict[str, Any]:
+        """ElevenLabs TTS 생성 (비동기, 취소 가능) - DB 기반 설정 지원"""
         try:
             logger.info(f"🎤 ElevenLabs TTS 호출 시작: {text[:30]}...")
             
@@ -485,9 +511,15 @@ class MediaProcessingHub:
                 logger.error("❌ ElevenLabs API key not configured")
                 raise ValueError("ElevenLabs API key not configured")
             
-            # 프론트엔드 설정 키 매핑 처리
-            voice_id = voice_settings.get('voice_id') or voice_settings.get('elevenLabsVoice', 'aneunjin')
-            logger.info(f"🎵 선택된 음성: {voice_id}")
+            # DB에서 TTS 설정 가져오기 (room_name이 있는 경우)
+            db_settings = {}
+            if room_name:
+                db_settings = self._get_room_tts_settings(room_name)
+                logger.info(f"🎯 DB TTS 설정 적용: {db_settings.get('elevenLabsVoice', 'aneunjin')}")
+            
+            # 프론트엔드 설정과 DB 설정을 병합 (프론트엔드 우선, DB가 폴백)
+            voice_id = voice_settings.get('voice_id') or voice_settings.get('elevenLabsVoice') or db_settings.get('elevenLabsVoice', 'aneunjin')
+            logger.info(f"🎵 최종 선택된 음성: {voice_id}")
             
             # 음성 설정 매핑 (tts_elevenlabs_service.py와 동일하게 통일)
             voice_map = {
@@ -509,16 +541,30 @@ class MediaProcessingHub:
                 "xi-api-key": api_key
             }
             
-            # 프론트엔드 설정 키 매핑
-            model_id = voice_settings.get('model_id') or voice_settings.get('elevenLabsModel', 'eleven_multilingual_v2')
-            stability = voice_settings.get('stability') or voice_settings.get('elevenLabsStability', 0.75)
-            similarity = voice_settings.get('similarity_boost') or voice_settings.get('elevenLabsSimilarity', 0.85)
-            style = voice_settings.get('style') or voice_settings.get('elevenLabsStyle', 0.0)
+            # 프론트엔드 설정, DB 설정 순으로 우선순위 적용
+            model_id = (voice_settings.get('model_id') or 
+                       voice_settings.get('elevenLabsModel') or 
+                       db_settings.get('elevenLabsModel', 'eleven_multilingual_v2'))
+            
+            stability = (voice_settings.get('stability') or 
+                        voice_settings.get('elevenLabsStability') or 
+                        db_settings.get('elevenLabsStability', 0.5))
+            
+            similarity = (voice_settings.get('similarity_boost') or 
+                         voice_settings.get('elevenLabsSimilarity') or 
+                         db_settings.get('elevenLabsSimilarity', 0.8))
+            
+            style = (voice_settings.get('style') or 
+                    voice_settings.get('elevenLabsStyle') or 
+                    db_settings.get('elevenLabsStyle', 0.0))
+            
             speaker_boost = voice_settings.get('use_speaker_boost') 
             if speaker_boost is None:
-                speaker_boost = voice_settings.get('elevenLabsSpeakerBoost', True)
+                speaker_boost = voice_settings.get('elevenLabsSpeakerBoost')
+                if speaker_boost is None:
+                    speaker_boost = db_settings.get('elevenLabsSpeakerBoost', True)
             
-            logger.info(f"🎛️ TTS 파라미터: model={model_id}, stability={stability}, similarity={similarity}")
+            logger.info(f"🎛️ TTS 파라미터: model={model_id}, stability={stability}, similarity={similarity}, style={style}, boost={speaker_boost}")
             
             data = {
                 "text": text,

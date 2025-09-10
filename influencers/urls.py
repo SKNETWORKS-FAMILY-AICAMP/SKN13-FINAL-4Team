@@ -13,6 +13,7 @@ influencer_router.register(r'stories', views.StoryViewSet, basename='influencer-
 urlpatterns = [
     path('<int:pk>/rankings/', views.get_donation_rankings, name='influencer-rankings'),
     path('<int:pk>/like/', views.toggle_like, name='influencer-toggle-like'),
+    path('<int:pk>/tts-settings/', views.manage_tts_settings, name='influencer-tts-settings'),
 
     path('', include(router.urls)),
     path('', include(influencer_router.urls)),

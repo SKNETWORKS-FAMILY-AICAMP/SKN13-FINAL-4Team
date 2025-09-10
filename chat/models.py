@@ -85,6 +85,20 @@ class ChatRoom(models.Model):
 
     def __str__(self):
         return self.name
+    
+    def get_tts_settings(self):
+        """해당 채팅방의 인플루언서 TTS 설정을 가져옵니다."""
+        if self.influencer:
+            try:
+                from influencers.models import InfluencerTTSSettings
+                tts_settings, _ = InfluencerTTSSettings.get_or_create_for_influencer(self.influencer)
+                return tts_settings.to_dict()
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"TTS 설정 로드 실패 (room: {self.id}, influencer: {self.influencer.id}): {e}")
+                return None
+        return None
 
 class ChatRoomLog(models.Model):
     """

@@ -188,3 +188,145 @@ class Like(models.Model):
 
     def __str__(self):
         return f"{self.user.username} likes {self.influencer.name}"
+
+
+class InfluencerTTSSettings(models.Model):
+    """
+    인플루언서별 TTS 설정 모델
+    StreamerTTSSettings에서 이동 및 통합
+    """
+    influencer = models.OneToOneField(
+        Influencer,
+        on_delete=models.CASCADE,
+        primary_key=True,
+        related_name='tts_settings',
+        help_text='TTS 설정이 적용될 인플루언서'
+    )
+    
+    # TTS 엔진 설정 (ElevenLabs 통일)
+    tts_engine = models.CharField(
+        max_length=50,
+        default='elevenlabs',
+        help_text='사용할 TTS 엔진 (elevenlabs)'
+    )
+    
+    # ElevenLabs 설정
+    elevenlabs_voice = models.CharField(
+        max_length=100,
+        default='aneunjin',
+        help_text='ElevenLabs 음성 ID'
+    )
+    elevenlabs_voice_name = models.CharField(
+        max_length=100,
+        default='안은진',
+        blank=True,
+        help_text='ElevenLabs 음성 이름 (표시용)'
+    )
+    elevenlabs_model = models.CharField(
+        max_length=100,
+        default='eleven_multilingual_v2',
+        help_text='ElevenLabs 모델'
+    )
+    elevenlabs_stability = models.FloatField(
+        default=0.5,
+        help_text='ElevenLabs 안정성 (0.0-1.0)'
+    )
+    elevenlabs_similarity = models.FloatField(
+        default=0.8,
+        help_text='ElevenLabs 유사성 (0.0-1.0)'
+    )
+    elevenlabs_style = models.FloatField(
+        default=0.0,
+        help_text='ElevenLabs 스타일 (0.0-1.0)'
+    )
+    elevenlabs_speaker_boost = models.BooleanField(
+        default=True,
+        help_text='ElevenLabs 스피커 부스트'
+    )
+    
+    # 기타 설정
+    auto_play = models.BooleanField(
+        default=True,
+        help_text='AI 메시지 자동 음성 재생'
+    )
+    streaming_delay = models.IntegerField(
+        default=50,
+        help_text='스트리밍 지연 시간 (ms)'
+    )
+    tts_delay = models.IntegerField(
+        default=500,
+        help_text='TTS 지연 시간 (ms)'
+    )
+    chunk_size = models.IntegerField(
+        default=3,
+        help_text='텍스트 청크 크기'
+    )
+    sync_mode = models.CharField(
+        max_length=20,
+        default='after_complete',
+        help_text='동기화 모드 (real_time, after_complete, chunked)'
+    )
+    
+    # 메타 정보
+    last_updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text='마지막 설정 변경자'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Influencer TTS Setting'
+        verbose_name_plural = 'Influencer TTS Settings'
+        ordering = ['influencer__name']
+    
+    def __str__(self):
+        return f"{self.influencer.name} TTS Settings ({self.tts_engine})"
+    
+    def to_dict(self):
+        """TTS 설정을 딕셔너리로 변환 (프론트엔드 전송용)"""
+        return {
+            'influencer_id': self.influencer.id,
+            'influencer_name': self.influencer.name,
+            'ttsEngine': self.tts_engine,
+            'elevenLabsVoice': self.elevenlabs_voice,
+            'elevenLabsVoiceName': self.elevenlabs_voice_name,
+            'elevenLabsModel': self.elevenlabs_model,
+            'elevenLabsStability': self.elevenlabs_stability,
+            'elevenLabsSimilarity': self.elevenlabs_similarity,
+            'elevenLabsStyle': self.elevenlabs_style,
+            'elevenLabsSpeakerBoost': self.elevenlabs_speaker_boost,
+            'autoPlay': self.auto_play,
+            'streamingDelay': self.streaming_delay,
+            'ttsDelay': self.tts_delay,
+            'chunkSize': self.chunk_size,
+            'syncMode': self.sync_mode,
+            'lastUpdatedBy': self.last_updated_by.username if self.last_updated_by else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    @classmethod
+    def get_or_create_for_influencer(cls, influencer):
+        """인플루언서로 설정을 가져오거나 기본값으로 생성"""
+        settings, created = cls.objects.get_or_create(
+            influencer=influencer,
+            defaults={
+                'tts_engine': 'elevenlabs',
+                'elevenlabs_voice': 'aneunjin',
+                'elevenlabs_voice_name': '안은진',
+                'elevenlabs_model': 'eleven_multilingual_v2',
+                'elevenlabs_stability': 0.5,
+                'elevenlabs_similarity': 0.8,
+                'elevenlabs_style': 0.0,
+                'elevenlabs_speaker_boost': True,
+                'auto_play': True,
+                'streaming_delay': 50,
+                'tts_delay': 500,
+                'chunk_size': 3,
+                'sync_mode': 'after_complete'
+            }
+        )
+        return settings, created

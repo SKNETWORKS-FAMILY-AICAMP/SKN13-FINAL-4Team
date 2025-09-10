@@ -4,8 +4,8 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated ,IsAuthentic
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Influencer, Story, Like, Donation
-from .serializers import InfluencerSerializer, InfluencerWriteSerializer, StorySerializer, DonationRankingSerializer
+from .models import Influencer, Story, Like, Donation, InfluencerTTSSettings
+from .serializers import InfluencerSerializer, InfluencerWriteSerializer, StorySerializer, DonationRankingSerializer, InfluencerTTSSettingsSerializer
 
 class InfluencerViewSet(viewsets.ModelViewSet):
     """인플루언서 관리용 뷰 셋"""
@@ -85,3 +85,90 @@ def get_donation_rankings(request, pk=None):
 
     except Influencer.DoesNotExist:
         return Response({'status': 'error', 'message': 'Influencer not found'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['GET', 'POST', 'PATCH', 'DELETE'])
+@permission_classes([IsAdminUser])
+def manage_tts_settings(request, pk=None):
+    """특정 인플루언서의 TTS 설정 관리"""
+    try:
+        influencer = Influencer.objects.get(pk=pk)
+    except Influencer.DoesNotExist:
+        return Response({'status': 'error', 'message': 'Influencer not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'GET':
+        # TTS 설정 조회 (없으면 기본값으로 생성)
+        tts_settings, created = InfluencerTTSSettings.get_or_create_for_influencer(influencer)
+        serializer = InfluencerTTSSettingsSerializer(tts_settings, context={'request': request})
+        return Response({
+            'status': 'success', 
+            'data': serializer.data,
+            'created': created
+        })
+    
+    elif request.method == 'POST':
+        # TTS 설정 생성
+        try:
+            # 기존 설정이 있는지 확인
+            existing_settings = InfluencerTTSSettings.objects.get(influencer=influencer)
+            return Response({
+                'status': 'error', 
+                'message': 'TTS settings already exist for this influencer. Use PATCH to update.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except InfluencerTTSSettings.DoesNotExist:
+            # 새 설정 생성
+            data = request.data.copy()
+            data['influencer'] = influencer.id
+            
+            serializer = InfluencerTTSSettingsSerializer(data=data, context={'request': request})
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    'status': 'success', 
+                    'data': serializer.data,
+                    'message': 'TTS settings created successfully'
+                }, status=status.HTTP_201_CREATED)
+            return Response({
+                'status': 'error', 
+                'errors': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'PATCH':
+        # TTS 설정 수정
+        try:
+            tts_settings = InfluencerTTSSettings.objects.get(influencer=influencer)
+        except InfluencerTTSSettings.DoesNotExist:
+            # 설정이 없으면 기본값으로 생성 후 수정
+            tts_settings, _ = InfluencerTTSSettings.get_or_create_for_influencer(influencer)
+        
+        serializer = InfluencerTTSSettingsSerializer(
+            tts_settings, 
+            data=request.data, 
+            partial=True, 
+            context={'request': request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'status': 'success', 
+                'data': serializer.data,
+                'message': 'TTS settings updated successfully'
+            })
+        return Response({
+            'status': 'error', 
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        # TTS 설정 삭제
+        try:
+            tts_settings = InfluencerTTSSettings.objects.get(influencer=influencer)
+            tts_settings.delete()
+            return Response({
+                'status': 'success', 
+                'message': 'TTS settings deleted successfully'
+            })
+        except InfluencerTTSSettings.DoesNotExist:
+            return Response({
+                'status': 'error', 
+                'message': 'TTS settings not found'
+            }, status=status.HTTP_404_NOT_FOUND)
