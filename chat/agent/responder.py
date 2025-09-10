@@ -164,7 +164,8 @@ class Responder:
             request_data = {
                 'message': final_text,
                 'streamer_config': {'streamer_id': self.streamer_id},
-                'emotion': emotion
+                'emotion': emotion,
+                'room_name': self.streamer_id  # streamer_id를 room_name으로 사용
             }
             # 1. 트랙 생성을 기다리고 결과를 받습니다.
             tracks = await self.media_processor.generate_tracks_no_cancellation(request_data)

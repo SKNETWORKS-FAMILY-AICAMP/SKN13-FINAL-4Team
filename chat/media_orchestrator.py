@@ -117,7 +117,7 @@ class MediaProcessingHub:
         취소 없는 MediaTrack 생성 (완전 순차 처리용)
         
         Args:
-            request_data: 요청 데이터 (message, streamer_config 등)
+            request_data: 요청 데이터 (message, streamer_config, room_name 등)
             
         Returns:
             List[MediaTrack] or None: 생성된 트랙들
@@ -125,6 +125,7 @@ class MediaProcessingHub:
         try:
             text = request_data.get('message', '')
             streamer_config = request_data.get('streamer_config', {})
+            room_name = request_data.get('room_name')
             emotion = self._extract_emotion_from_text(text)
             
             logger.info(f"🎬 [NO-CANCEL] MediaTrack 생성 시작: {text[:30]}... (감정: {emotion})")
@@ -139,7 +140,7 @@ class MediaProcessingHub:
             
             # 🆕 병렬 MediaTrack 생성 (취소 없음 - 순차 처리 보장)
             tasks = [
-                asyncio.create_task(self._create_audio_track_no_cancel(clean_response, streamer_config)),
+                asyncio.create_task(self._create_audio_track_no_cancel(clean_response, streamer_config, room_name)),
                 asyncio.create_task(self._create_video_track_no_cancel(emotion, streamer_config)),
                 asyncio.create_task(self._create_subtitle_track_no_cancel(clean_response))
             ]
@@ -202,13 +203,13 @@ class MediaProcessingHub:
         # 취소 없는 버전으로 리다이렉트
         return await self.generate_tracks_no_cancellation(request_data)
 
-    async def _create_audio_track_no_cancel(self, text: str, streamer_config: Dict):
+    async def _create_audio_track_no_cancel(self, text: str, streamer_config: Dict, room_name: str = None):
         """취소 없는 오디오 트랙 생성 (순차 처리용)"""
         try:
             logger.info(f"🎵 [NO-CANCEL] 오디오 트랙 생성 시작: {text[:30]}...")
             
             # TTS 생성 (취소 없음)
-            tts_result = await self._generate_tts_async(text, streamer_config, None)
+            tts_result = await self._generate_tts_async(text, streamer_config, None, room_name)
             
             if not tts_result:
                 logger.warning(f"⚠️ TTS 결과가 None임: {text[:30]}...")
@@ -470,25 +471,46 @@ class MediaProcessingHub:
                 }
             }
     
-    def _get_room_tts_settings(self, room_name: str) -> Dict[str, Any]:
-        """채팅방의 TTS 설정을 가져옵니다. (DB 기반)"""
+    async def _get_room_tts_settings(self, room_name: str) -> Dict[str, Any]:
+        """인플루언서의 TTS 설정을 가져옵니다. (DB 기반, async 지원)"""
+        logger.info(f"🔍 TTS 설정 조회 시작: influencer_name='{room_name}'")
+        
         try:
-            from .models import ChatRoom
-            room = ChatRoom.objects.select_related('influencer').get(name=room_name)
-            tts_settings = room.get_tts_settings()
+            from influencers.models import Influencer
+            from asgiref.sync import sync_to_async
+            
+            # 인플루언서 이름으로 직접 조회 (async 지원)
+            influencer = await sync_to_async(
+                lambda: Influencer.objects.get(name=room_name)
+            )()
+            logger.info(f"✅ 인플루언서 발견: {influencer.name} (ID: {influencer.id})")
+            
+            # TTS 설정 조회 (async 지원)
+            from influencers.models import InfluencerTTSSettings
+            tts_settings, created = await sync_to_async(
+                InfluencerTTSSettings.get_or_create_for_influencer
+            )(influencer)
+            
             if tts_settings:
-                logger.info(f"🎤 DB에서 TTS 설정 로드 성공: {room_name} -> {tts_settings.get('influencer_name', 'Unknown')}")
-                return tts_settings
-        except ChatRoom.DoesNotExist:
-            logger.warning(f"⚠️ 채팅방을 찾을 수 없음: {room_name}")
+                settings_dict = await sync_to_async(tts_settings.to_dict)()
+                logger.info(f"🎤 DB에서 TTS 설정 로드 성공: {room_name} -> {settings_dict.get('influencerName', 'Unknown')} (음성: {settings_dict.get('elevenLabsVoice', 'unknown')})")
+                return settings_dict
+            else:
+                logger.warning(f"⚠️ TTS 설정이 None: influencer={room_name}")
+                
+        except Influencer.DoesNotExist:
+            logger.warning(f"⚠️ 인플루언서를 찾을 수 없음: '{room_name}' - DB에 해당 이름의 인플루언서가 존재하지 않음")
         except Exception as e:
-            logger.error(f"❌ TTS 설정 로드 실패: {room_name}, {e}")
+            logger.error(f"❌ TTS 설정 로드 실패: {room_name}, 오류: {e}")
+            import traceback
+            logger.error(f"스택 트레이스: {traceback.format_exc()}")
         
         # 폴백: 기본 설정 반환
+        logger.info(f"🔄 기본 TTS 설정 사용: {room_name}")
         return {
             'ttsEngine': 'elevenlabs',
-            'elevenLabsVoice': 'aneunjin',
-            'elevenLabsVoiceName': '안은진',
+            'elevenLabsVoice': 'jinseonkyu',  # 진선규로 변경 (강시현 설정)
+            'elevenLabsVoiceName': '진선규',
             'elevenLabsModel': 'eleven_multilingual_v2',
             'elevenLabsStability': 0.5,
             'elevenLabsSimilarity': 0.8,
@@ -514,7 +536,7 @@ class MediaProcessingHub:
             # DB에서 TTS 설정 가져오기 (room_name이 있는 경우)
             db_settings = {}
             if room_name:
-                db_settings = self._get_room_tts_settings(room_name)
+                db_settings = await self._get_room_tts_settings(room_name)
                 logger.info(f"🎯 DB TTS 설정 적용: {db_settings.get('elevenLabsVoice', 'aneunjin')}")
             
             # 프론트엔드 설정과 DB 설정을 병합 (프론트엔드 우선, DB가 폴백)
@@ -523,11 +545,11 @@ class MediaProcessingHub:
             
             # 음성 설정 매핑 (tts_elevenlabs_service.py와 동일하게 통일)
             voice_map = {
-                'kimtaeri': '6ZND2SlfJqI0OOEHe2by',    # 김태리 (한국 여성 배우)
-                'kimminjeong': 'eTiuJAsb9mqCyH5gFsS9', # 김민정 (한국 여성 배우)  
-                'jinseonkyu': 'pWPHfY5KntyWbx2FxSb7', # 진선규 (한국 남성 배우)
-                'parkchangwook': 'RQVmMEdMMcmOuv6Fz268', # 박창욱 (한국 남성 배우)
-                'aneunjin': 'pRxVZ0v1oH2CqQJWHAty',  # 안은진 (한국 여성 배우)
+                'kimtaeri': 'PYIEHCvteC0ap3heCDbb',    # 김태리 (한국 여성 배우)
+                'kimminjeong': 'bVX97o47RYQtk03GL6wm', # 김민정 (한국 여성 배우)  
+                'jinseonkyu': '1dvyGqeOCue02PTfuv8y', # 진선규 (한국 남성 배우)
+                'parkchangwook': 'lTnybkYVn5xKJh4m1CFW', # 박창욱 (한국 남성 배우)
+                'aneunjin': 'RKTNVKtxs81mm8C5aFU6', # 안은진 (한국 여성 배우)
                 'jiyoung': 'AW5wrnG1jVizOYY7R1Oo'     # JiYoung (활기찬 젊은 여성 음성) - 올바른 여성 Voice ID
             }
             

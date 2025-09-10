@@ -18,11 +18,11 @@ class ElevenLabsService:
         self.base_url = "https://api.elevenlabs.io/v1"
         self.voice_map = {
             # 한국 배우 음성 (검증된 유효한 음성만)
-            'kimtaeri': '6ZND2SlfJqI0OOEHe2by',    # 김태리 (한국 여성 배우)
-            'kimminjeong': 'eTiuJAsb9mqCyH5gFsS9', # 김민정 (한국 여성 배우)  
-            'jinseonkyu': 'pWPHfY5KntyWbx2FxSb7', # 진선규 (한국 남성 배우)
-            'parkchangwook': 'RQVmMEdMMcmOuv6Fz268', # 박창욱 (한국 남성 배우)
-            'aneunjin': 'pRxVZ0v1oH2CqQJWHAty',  # 안은진 (한국 여성 배우)
+            'kimtaeri': 'PYIEHCvteC0ap3heCDbb',    # 김태리 (한국 여성 배우)
+            'kimminjeong': 'bVX97o47RYQtk03GL6wm', # 김민정 (한국 여성 배우)  
+            'jinseonkyu': '1dvyGqeOCue02PTfuv8y', # 진선규 (한국 남성 배우)
+            'parkchangwook': 'lTnybkYVn5xKJh4m1CFW', # 박창욱 (한국 남성 배우)
+            'aneunjin': 'RKTNVKtxs81mm8C5aFU6', # 안은진 (한국 여성 배우)
             
             # 다국어 지원 음성 (검증된 유효한 음성만)
             'charlie': 'IKne3meq5aSn9XLyUdCD',  # Charlie (호주 남성, 다국어)
