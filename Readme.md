@@ -137,8 +137,7 @@ LLM은 두 영역의 장점을 묶는다. **맞춤 대화의 전문성**과 **�
   <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white">
 </p>
 
-<p align="center:
-">
+<p align="center">
   <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=PostgreSQL&logoColor=white">
   <img src="https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=Redis&logoColor=white">
 </p>
@@ -151,7 +150,6 @@ LLM은 두 영역의 장점을 묶는다. **맞춤 대화의 전문성**과 **�
   <img src="https://img.shields.io/badge/LangGraph-8A2BE2?style=for-the-badge&logoColor=white">
 </p>
 
-**요약**
 - 언어: Python, JavaScript  
 - 프레임워크: Django(웹/어드민), Django Channels(Daphne, 웹소켓), FastAPI(LLM 서버)  
 - 프론트: React  
