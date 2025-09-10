@@ -152,7 +152,7 @@ function StreamingPage() {
                 }
 
                 // 4. 모든 정보가 준비된 후 웹소켓 연결
-                websocketClient = new W3CWebSocket(`${websocketBaseUrl}/ws/chat/${roomId}/?token=${token}`);
+                websocketClient = new W3CWebSocket(`${websocketBaseUrl}/ws/stream/${roomId}/?token=${token}`);
                 chatClientRef.current = websocketClient;
 
                 websocketClient.onopen = () => {
