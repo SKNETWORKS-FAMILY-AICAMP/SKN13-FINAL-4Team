@@ -10,6 +10,8 @@ from .queue_manager import QueueManager
 from .responder import Responder
 from .pipeline import GraphPipeline
 from .idle import IdleManager
+from ..response_manager import ResponseManager
+from ..activity_manager import ActivityManager
 from .story import StoryRepository
 from .db import UserDB, Utils
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
@@ -33,6 +35,9 @@ class LoveStreamerAgent:
         self.streamer_id = streamer_id
         self._idle_loop_started = False
         self.persona_profile = {} # 페르소나 프로필을 저장할 변수
+        # Managers (외부에서 주입)
+        self.response_manager: ResponseManager | None = None
+        self.activity_manager: ActivityManager | None = None
 
         self.idle.set_graph_trigger(self.trigger_graph_async)
         self.idle.set_bootstrap_helpers(
@@ -65,6 +70,17 @@ class LoveStreamerAgent:
         }
 
     async def on_new_input_async(self, input_msg: dict):
+        # 활동 마킹 (가능한 즉시)
+        try:
+            if self.activity_manager:
+                content = input_msg.get("content", "") or ""
+                self.activity_manager.mark_activity(
+                    source="agent_input",
+                    details=f"len={len(content)} type={input_msg.get('type','')}",
+                    user_info={"user_id": input_msg.get("user_id")}
+                )
+        except Exception:
+            pass
         msg_type = input_msg.get("type", "normal")
         content = input_msg.get("content", "")
         msg_id = input_msg.get("msg_id") or str(uuid.uuid4())
@@ -124,7 +140,7 @@ class LoveStreamerAgent:
                 }
                 
                 # 후원 전용 응답 생성
-                response = await self.responder.generate_final_response(superchat_state)
+                response = await self.responder.generate_final_response(superchat_state, source="superchat")
                 
                 # 응답이 생성되었다면 TTS 및 미디어 처리
                 if response and response.get("assistant_text"):

@@ -74,6 +74,8 @@ class Responder:
         
         self.media_processor: Optional['MediaProcessingHub'] = None
         self.stream_session: Optional['StreamSession'] = None
+        # ResponseManager는 외부에서 주입됨 (단일 응답 보장용)
+        self.response_manager = None
 
     def _format_persona_prompt(self) -> str:
         """에이전트의 페르소나 프로필을 마스터 템플릿에 주입하여 최종 페르소나 프롬프트를 생성합니다."""
@@ -136,10 +138,17 @@ class Responder:
         final_system_prompt = f"{base_persona_prompt}\n{situation_prompt}"
         return final_system_prompt, user_content
 
-    async def generate_final_response(self, state: AgentState):
+    async def generate_final_response(self, state: AgentState, source: str = "unknown"):
+        """ResponseManager를 통해 단일 응답을 보장하면서 최종 응답을 생성합니다."""
+        if hasattr(self, "response_manager") and self.response_manager:
+            return await self.response_manager.generate_response_exclusive(self._internal_generate_response, state, source)
+        return await self._internal_generate_response(state)
+
+    async def _internal_generate_response(self, state: AgentState):
         print(f"!!! DEBUG: generate_final_response 진입. Type: {state.get('type')}, Content: {state.get('best_chat')}") # 디버깅 로그
-        if state.get("__no_selection"): return state
-        
+        if state.get("__no_selection"):
+            return state
+
         final_text = ""
         # 1. LLM 생성을 건너뛸지 결정
         if state.get("skip_llm_generation", False):
@@ -148,7 +157,7 @@ class Responder:
         else:
             # 2. 기존 LLM 호출 로직
             system_prompt, user_prompt = self._build_final_prompt(state)
-            
+
             assistant_text = None
             if self.inference_client:
                 try:
@@ -160,7 +169,7 @@ class Responder:
                 except Exception as e:
                     print(f"⚠️ 추론 서버 실패: {self.streamer_id} - {e}, OpenAI로 폴백합니다.")
                     assistant_text = None
-            
+
             if assistant_text is None:
                 try:
                     res = await self.llm.ainvoke([SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)])
@@ -169,24 +178,31 @@ class Responder:
                 except Exception as e:
                     print(f"❌ 추론서버와 OpenAI 모두 실패: {self.streamer_id} - {e}")
                     assistant_text = "죄송합니다. 현재 답변을 생성할 수 없습니다."
-            
+
             final_text = assistant_text
 
         assistant = AIMessage(content=final_text)
-        
+
         emotion = await asyncio.to_thread(self.emotion_cls.classify, final_text) if self.emotion_cls else "neutral"
 
-        if self.media_processor and self.stream_session:
-            request_data = {
-                'message': final_text,
-                'streamer_config': {'streamer_id': self.streamer_id},
-                'emotion': emotion,
-                'room_name': self.streamer_id  # streamer_id를 room_name으로 사용
-            }
-            tracks = await self.media_processor.generate_tracks_no_cancellation(request_data)
-            if tracks:
-                media_packet = self.stream_session.build_packet(tracks)
-                await self.stream_session.enqueue_response(media_packet)
+        # 미디어 생성·적재는 StreamSession의 Request Queue를 통해 순차 처리
+        if self.stream_session and self.media_processor:
+            try:
+                request_data = {
+                    'message': final_text,
+                    'user_id': state.get('user_id', 'guest'),
+                    'username': state.get('user_id', 'guest'),
+                    'room_group': self.streamer_id,
+                    'room_name': self.streamer_id,  # DB TTS 설정 조회용 (인플루언서 이름)
+                    'streamer_config': {
+                        'streamer_id': self.streamer_id,
+                        # voice_settings는 DB 병합을 위해 비워둠 (room_name으로 조회)
+                    }
+                }
+                await self.stream_session.enqueue_request(request_data)
+            except Exception:
+                # 실패해도 응답 텍스트는 반환
+                pass
 
         return {**state, "messages": [assistant], "assistant_emotion": emotion}
 

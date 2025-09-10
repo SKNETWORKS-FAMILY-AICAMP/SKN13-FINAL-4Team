@@ -33,7 +33,7 @@ class GraphPipeline:
         return {**new_state, "db_greeting_info": info}
 
     async def node_final_responder(self, state: AgentState):
-        return await self.responder.generate_final_response(state)
+        return await self.responder.generate_final_response(state, source="chat")
 
     def build(self):
         self.graph.add_node("check_general_queue", self.node_passthrough)

@@ -37,6 +37,25 @@ class VideoSelector:
             # 기본 설정 사용
             self.video_config = self._get_default_config()
     
+    def _resolve_character_id(self, character_or_name: Optional[str]) -> str:
+        """키(id) 또는 표시 이름으로 캐릭터 ID를 해석한다."""
+        try:
+            characters = (self.video_config or {}).get('characters', {})
+            default_char = (self.video_config or {}).get('systemSettings', {}).get('defaultCharacter', 'hongseohyun')
+            if not character_or_name:
+                return default_char
+            # 이미 키로 존재하면 그대로 사용
+            if character_or_name in characters:
+                return character_or_name
+            # name 필드로 역검색
+            for cid, cfg in characters.items():
+                if str(cfg.get('name', '')).strip() == str(character_or_name).strip():
+                    return cid
+            # 미일치 시 기본값
+            return default_char
+        except Exception:
+            return 'hongseohyun'
+    
     
     def _get_default_config(self):
         """기본 비디오 설정 반환 (JSON 로드 실패 시 폴백)"""
@@ -76,7 +95,8 @@ class VideoSelector:
             talk 비디오 파일명 (basePath 포함)
         """
         try:
-            character_id = character_id or self.video_config['systemSettings']['defaultCharacter']
+            # 이름이 들어와도 캐릭터 ID로 해석
+            character_id = self._resolve_character_id(character_id or (self.video_config and self.video_config.get('systemSettings', {}).get('defaultCharacter')))
             
             # JSON 설정에서 비디오 파일 선택
             character_config = self.video_config['characters'].get(character_id)
@@ -129,7 +149,8 @@ class VideoSelector:
             idle 비디오 파일명 (basePath 포함)
         """
         try:
-            character_id = character_id or self.video_config['systemSettings']['defaultCharacter']
+            # 이름이 들어와도 캐릭터 ID로 해석
+            character_id = self._resolve_character_id(character_id or (self.video_config and self.video_config.get('systemSettings', {}).get('defaultCharacter')))
             
             # JSON 설정에서 비디오 파일 선택
             character_config = self.video_config['characters'].get(character_id)

@@ -95,6 +95,8 @@ class StreamSession:
         self.is_playing = False  # 재생 상태 플래그
         self.playback_start_time: Optional[int] = None  # 재생 시작 시간
         self.playback_timeout = 60.0  # 재생 타임아웃 (초)
+        # 재생 완료 동기화 이벤트 (패킷 단위)
+        self._playback_done_event: Optional[asyncio.Event] = None
         
         # 🆕 취소 및 에러 복구
         self.cancellation_events: Dict[str, asyncio.Event] = {}  # 요청별 취소 이벤트
@@ -290,6 +292,8 @@ class StreamSession:
                 # 재생 시작 (lock 없이 간단하게)
                 self.current_playing = media_packet
                 self.playback_start_time = now_ms()
+                # 새 패킷에 대한 완료 이벤트 준비
+                self._playback_done_event = asyncio.Event()
                 
                 logger.info(f"🎬 연속 재생: seq={media_packet.seq}, hash={media_packet.hash[:8]} (대기열: {self.response_queue.qsize()})")
                 
@@ -308,7 +312,26 @@ class StreamSession:
                 # MediaPacket 브로드캐스트를 위해 yield
                 yield media_packet
                 
-                # 즉시 다음 패킷 처리 가능하도록 설정
+                # 재생 완료를 대기 (클라이언트가 'playback_completed'를 보낼 때까지)
+                # 오디오 트랙 길이를 기반으로 합리적 타임아웃 계산 (fallback)
+                expected_audio_sec = 0.0
+                try:
+                    for track in media_packet.tracks:
+                        if track.kind == "audio":
+                            expected_audio_sec = max(expected_audio_sec, track.dur_ms / 1000.0)
+                except Exception:
+                    expected_audio_sec = 0.0
+                wait_sec = min(self.playback_timeout, max(expected_audio_sec + 1.0, 2.0))
+                try:
+                    if self._playback_done_event:
+                        await asyncio.wait_for(self._playback_done_event.wait(), timeout=wait_sec)
+                except asyncio.TimeoutError:
+                    logger.warning(f"⏰ 재생 완료 신호 타임아웃: seq={media_packet.seq}, waited={wait_sec:.1f}s")
+                finally:
+                    # 다음 패킷 처리를 위해 정리
+                    self._playback_done_event = None
+                
+                # 처리 완료 표시
                 self.response_queue.task_done()
                     
             except asyncio.CancelledError:
@@ -339,6 +362,12 @@ class StreamSession:
             self.is_playing = False
             self.playback_start_time = None
             self.total_played += 1
+            # 대기 중인 재생 완료 이벤트 해제
+            if self._playback_done_event and not self._playback_done_event.is_set():
+                try:
+                    self._playback_done_event.set()
+                except Exception:
+                    pass
         else:
             logger.warning(f"⚠️ 재생 완료 신호 불일치: 현재={self.current_playing.seq if self.current_playing else None}, 요청={seq}")
     

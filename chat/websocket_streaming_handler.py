@@ -21,6 +21,8 @@ from .agent.agent import LoveStreamerAgent
 from .agent.story import DjangoStoryRepository
 from .streaming.domain.stream_session import StreamSession
 from .media_orchestrator import MediaProcessingHub
+from .response_manager import ResponseManager
+from .activity_manager import ActivityManager
 from .models import ChatRoom, StreamerTTSSettings, ChatMessage
 
 logger = logging.getLogger(__name__)
@@ -53,6 +55,8 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
     AI Streamer Agent와 통합된 스트리밍 채팅 컨슈머
     """
     stream_sessions = {}
+    response_processors = {}
+    request_processors = {}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -113,8 +117,11 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             StreamingChatConsumer.stream_sessions[self.room_group_name] = StreamSession(session_id=self.room_group_name)
         self.session = StreamingChatConsumer.stream_sessions[self.room_group_name]
         
-        if not self.response_processor_task or self.response_processor_task.done():
-            self.response_processor_task = asyncio.create_task(self.process_response_queue())
+        # 방 단위 단일 Response Processor 보장
+        rp_key = self.room_group_name
+        existing = StreamingChatConsumer.response_processors.get(rp_key)
+        if not existing or existing.done():
+            StreamingChatConsumer.response_processors[rp_key] = asyncio.create_task(self.process_response_queue())
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
@@ -136,25 +143,51 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             )
             agent_manager.connection_counts[self.streamer_id] = 0
             
-            # StreamSession (송출 큐) 생성 및 연결
-            session = StreamSession(session_id=self.room_group_name)
+            # StreamSession (송출 큐) 재사용 및 연결 (방 단일 세션 공유)
+            session = StreamingChatConsumer.stream_sessions[self.room_group_name]
             media_processor = MediaProcessingHub()
             
             # Responder와 MediaProcessingHub 연결
             agent_manager.active_agents[self.streamer_id].responder.media_processor = media_processor
             agent_manager.active_agents[self.streamer_id].responder.stream_session = session
             
+            # 매니저 생성 및 배선
+            rm = ResponseManager()
+            am = ActivityManager(
+                idle_manager=agent_manager.active_agents[self.streamer_id].idle,
+                queue_manager=agent_manager.active_agents[self.streamer_id].queue
+            )
+            agent_manager.active_agents[self.streamer_id].response_manager = rm
+            agent_manager.active_agents[self.streamer_id].activity_manager = am
+            agent_manager.active_agents[self.streamer_id].responder.response_manager = rm
+            agent_manager.active_agents[self.streamer_id].idle.activity_manager = am
+            
             # IdleManager의 자율 행동 루프 시작
             asyncio.create_task(agent_manager.active_agents[self.streamer_id].idle.idle_loop())
             # 슈퍼챗 워커 시작
             asyncio.create_task(agent_manager.active_agents[self.streamer_id].superchat_worker_coro())
 
+            # 방 단위 Request Processor 시작 (MediaPacket 생성 담당)
+            req_key = self.room_group_name
+            req_existing = StreamingChatConsumer.request_processors.get(req_key)
+            if not req_existing or req_existing.done():
+                StreamingChatConsumer.request_processors[req_key] = asyncio.create_task(
+                    session.process_queue(media_processor)
+                )
+
         self.agent = agent_manager.active_agents[self.streamer_id]
         self.session = self.agent.responder.stream_session
         
-        # Response Queue 처리 태스크 시작 (각 연결마다 독립적으로)
-        self.response_processor_task = asyncio.create_task(self.process_response_queue())
-        logger.info(f"✅ New response processor started for connection {self.channel_name}")
+        # 방 단위 Processor만 운용하므로 개별 시작은 생략
+        logger.info(f"✅ Response processor active for room {self.room_group_name}")
+
+        # 방 단위 Request Processor 확인/시작 (에이전트가 이미 있던 경우)
+        req_key2 = self.room_group_name
+        req_existing2 = StreamingChatConsumer.request_processors.get(req_key2)
+        if (not req_existing2 or req_existing2.done()) and self.session and self.agent and self.agent.responder and self.agent.responder.media_processor:
+            StreamingChatConsumer.request_processors[req_key2] = asyncio.create_task(
+                self.session.process_queue(self.agent.responder.media_processor)
+            )
         
         # 정기 큐 브로드캐스트 태스크 시작 (각 연결마다 독립적으로)
         self.periodic_broadcast_task = asyncio.create_task(self._periodic_queue_broadcast())
@@ -215,6 +248,16 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         message_type = data.get('type')
+        # 활동 마킹: 모든 수신 메시지에 대해
+        try:
+            if hasattr(self, 'agent') and self.agent and self.agent.activity_manager:
+                self.agent.activity_manager.mark_activity(
+                    source="websocket",
+                    details=f"type={message_type}",
+                    user_info={"username": getattr(self, 'user', None) and getattr(self.user, 'username', None)}
+                )
+        except Exception:
+            pass
 
         if message_type == 'playback_completed' and self.session:
             self.session.mark_playback_completed(data.get('seq'))
@@ -277,6 +320,7 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         #             await self.broadcast_mediapacket(media_packet)
         #             await self.broadcast_queue_status()
         try:
+            # 방 단일 세션만 처리 (이미 class-level에서 보장)
             async for media_packet in self.session.process_response_queue():
                 if media_packet:
                     logger.info(f"📦 Broadcasting MediaPacket: seq={media_packet.seq}, hash={media_packet.hash[:8]}")

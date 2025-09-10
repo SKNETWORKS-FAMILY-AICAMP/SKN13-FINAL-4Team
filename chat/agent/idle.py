@@ -46,6 +46,8 @@ class IdleManager:
         self.trigger_graph = lambda reason: None
         self.topic_label = lambda: ""
         self.bootstrap_topic_from_tail = lambda: None
+        # 외부 매니저 참조 (선택적)
+        self.activity_manager = None
 
     def reset_cooldown(self):
         print("[IdleManager] ⏰ 쿨다운 타이머가 초기화되었습니다.")
@@ -128,7 +130,7 @@ class IdleManager:
             "msg_id": f"story-{story.story_id}"
         }
 
-        asyncio.create_task(self.responder.generate_final_response(story_state))
+        asyncio.create_task(self.responder.generate_final_response(story_state, source="story"))
         print(f"!!! DEBUG: Responder에 사연 처리 작업 전달 완료. Story ID: {story.story_id}")
 
         await self.story_repo.save_resume(story.story_id, "")
@@ -169,7 +171,7 @@ class IdleManager:
                 "msg_id": f"idle-{uuid.uuid4()}",
                 "skip_llm_generation": True  # --- 리팩토링된 부분 ---
             }
-            asyncio.create_task(self.responder.generate_final_response(autonomous_state))
+            asyncio.create_task(self.responder.generate_final_response(autonomous_state, source="idle"))
             await asyncio.sleep(max(5, interval // 3))
             return True
         return False
@@ -178,9 +180,20 @@ class IdleManager:
         while True:
             await asyncio.sleep(10)
             try:
-                busy = self.queue_mgr.is_busy()
+                # ResponseManager가 있으면 시스템 바쁨 여부 우선 확인
+                system_busy = False
+                try:
+                    if hasattr(self.agent, 'response_manager') and self.agent.response_manager:
+                        system_busy = self.agent.response_manager.is_busy()
+                except Exception:
+                    system_busy = False
+                busy = self.queue_mgr.is_busy() or system_busy
                 has_work = self.queue_mgr.has_active_work()
-                quiet = (time.time() - self.queue_mgr.last_event_ts) >= min(interval, self.PREIDLE_MIN_QUIET_SEC)
+                # ActivityManager가 있으면 더 정확한 idle 판단 사용
+                if self.activity_manager:
+                    quiet = self.activity_manager.is_idle(self.PREIDLE_MIN_QUIET_SEC)
+                else:
+                    quiet = (time.time() - self.queue_mgr.last_event_ts) >= min(interval, self.PREIDLE_MIN_QUIET_SEC)
                 if self.START_WITH_STORY and not self._did_start_with_story:
                     if not busy and not has_work:
                         if await self._resume_or_new_or_recap(interval, force_story=True, story_only=True): continue
