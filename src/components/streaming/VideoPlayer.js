@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { getDefaultIdleVideo } from '../../utils/videoConfig';
+import { getDefaultIdleVideo, getVideoAssetsConfig } from '../../utils/videoConfig';
 import styles from './VideoPlayer.module.css';
 
 const VideoPlayer = React.forwardRef(({ 
@@ -7,25 +7,65 @@ const VideoPlayer = React.forwardRef(({
     onVideoLoaded,
     className = "",
     donationOverlay,
-    characterId = "hongseohyun"  // DB 연동: characterId prop 추가
+    characterId  // DB 연동: characterId prop (필수)
 }, ref) => {
+    console.log('🚨 VideoPlayer 컴포넌트 시작:', { characterId, currentVideo, className });
+    
     const [isLoading, setIsLoading] = useState(false);
     const videoRef = useRef(null);
 
     // 비디오 경로 정리 함수 (DB 연동: characterId 기반 동적 경로)
     const cleanVideoPath = (videoPath) => {
+        console.log('🔧 cleanVideoPath 호출됨:', { videoPath, characterId });
+        
         if (!videoPath) {
+            console.log('🔍 비디오 경로가 없음, 기본 idle 비디오 가져오기:', characterId);
             const defaultVideo = getDefaultIdleVideo(characterId);
-            return `${characterId}/${defaultVideo}`;
+            console.log('📹 기본 비디오 결과:', defaultVideo);
+            const result = `/videos/${characterId}/${defaultVideo}`;
+            console.log('🎯 최종 경로:', result);
+            return result;
         }
         
-        // Backend에서 온 경로 정리: /videos/hongseohyun/hongseohyun_talk_1.mp4 -> hongseohyun/hongseohyun_talk_1.mp4
-        let cleanPath = videoPath.replace(/^\/videos\//, '');
+        // 경로 정리: 중복 제거 및 정규화
+        let cleanPath = videoPath;
+        console.log('🔧 정리 전 경로:', cleanPath);
         
-        // characterId/ 경로가 없으면 추가 (하위 호환성)
-        if (!cleanPath.includes('/')) {
-            cleanPath = `${characterId}/${cleanPath}`;
+        // 이미 올바른 /videos/ 경로로 시작하는 경우 그대로 반환 (중복 방지)
+        if (cleanPath.startsWith('/videos/') && !cleanPath.includes('//')) {
+            console.log('🔧 이미 올바른 경로임, 그대로 반환:', cleanPath);
+            return cleanPath;
         }
+        
+        // 중복된 /videos/ 제거 및 정규화
+        cleanPath = cleanPath.replace(/\/videos\/+/g, '/videos/');
+        cleanPath = cleanPath.replace(/\/videos\/\/videos\//g, '/videos/');
+        console.log('🔧 중복 제거 후:', cleanPath);
+        
+        // /videos/로 시작하지 않으면 추가
+        if (!cleanPath.startsWith('/videos/')) {
+            if (!cleanPath.includes('/')) {
+                // 파일명만 있는 경우
+                console.log('🔧 파일명만 있는 경우:', cleanPath);
+                cleanPath = `/videos/${characterId}/${cleanPath}`;
+            } else {
+                // 경로가 있지만 /videos/로 시작하지 않는 경우
+                // 절대 경로가 아닌 경우에만 /videos/ 추가
+                if (!cleanPath.startsWith('/')) {
+                    console.log('🔧 상대 경로인 경우:', cleanPath);
+                    cleanPath = `/videos/${cleanPath}`;
+                } else {
+                    // 이미 절대 경로인 경우는 그대로 유지
+                    console.log('🔧 이미 절대 경로인 경우:', cleanPath);
+                    cleanPath = cleanPath;
+                }
+            }
+        }
+        
+        // 최종 중복 제거 및 정규화
+        cleanPath = cleanPath.replace(/\/+/g, '/');
+        cleanPath = cleanPath.replace(/\/videos\/\/videos\//g, '/videos/');
+        console.log('🔧 최종 정리 후:', cleanPath);
         
         console.log('🔧 비디오 경로 정리 (DB 연동):', {
             characterId,
@@ -48,7 +88,7 @@ const VideoPlayer = React.forwardRef(({
         try {
             const video = videoRef.current;
             video.pause();
-            video.src = `/videos/${cleanPath}`;
+            video.src = cleanPath;
             
             // 비디오 로딩 대기
             await new Promise((resolve, reject) => {
@@ -89,7 +129,9 @@ const VideoPlayer = React.forwardRef(({
             
             // 폴백: video_assets.json에서 캐릭터별 기본 idle 비디오로 복귀
             try {
+                console.log('🔄 폴백 시도 - characterId:', characterId);
                 const fallbackVideo = getDefaultIdleVideo(characterId);
+                console.log('🔄 폴백 비디오 결과:', fallbackVideo);
                 const fallbackPath = `${characterId}/${fallbackVideo}`;
                 console.log(`🔄 폴백 비디오로 복귀: ${fallbackPath}`);
                 
@@ -123,46 +165,149 @@ const VideoPlayer = React.forwardRef(({
         }
     }, [currentVideo]);
 
-    // 초기 비디오 설정 (characterId 의존성 추가)
+    // 초기 비디오 설정 - characterId 필수, 없으면 렌더링 방지
     useEffect(() => {
-        if (videoRef.current) {
-            const video = videoRef.current;
-            const defaultVideo = getDefaultIdleVideo(characterId);
-            const initialVideo = cleanVideoPath(currentVideo || defaultVideo);
-            
-            console.log('🎬 초기 비디오 설정 (DB 연동):', {
-                characterId,
-                initialVideo
-            });
-            
-            video.muted = true;
-            video.loop = true;
-            video.playsInline = true;
-            video.preload = 'auto';
-            video.src = `/videos/${initialVideo}`;
-            
-            video.addEventListener('loadeddata', () => {
-                console.log('✅ 초기 비디오 로딩 완료:', initialVideo);
-                video.play().then(() => {
-                    console.log('▶️ 초기 비디오 재생 시작');
-                }).catch(error => {
-                    console.warn('⚠️ 초기 재생 실패:', error);
-                });
-            });
-            
-            video.load();
+        console.log('🔍 VideoPlayer useEffect 호출됨:', { characterId, videoRefReady: !!videoRef.current });
+        if (!characterId || !videoRef.current) {
+            console.warn('⚠️ VideoPlayer: characterId가 없거나 videoRef가 준비되지 않음', { characterId, videoRef: !!videoRef.current });
+            return;
         }
-    }, [characterId]); // characterId 의존성 추가
+        
+        const initializeVideo = async () => {
+            try {
+                const video = videoRef.current;
+                
+                // 즉시 기본 비디오 설정 - video_assets.json 설정 우선, 없으면 _idle_1.mp4 fallback
+                let defaultVideo;
+                try {
+                    // 비디오 설정에서 해당 캐릭터의 기본 idle 비디오 가져오기
+                    const config = getVideoAssetsConfig();
+                    const characterConfig = config.characters && config.characters[characterId];
+                    
+                    if (characterConfig && characterConfig.videoCategories && characterConfig.videoCategories.idle) {
+                        const videoBasePath = characterConfig.videoBasePath || `/videos/${characterId}/`;
+                        const fileName = characterConfig.videoCategories.idle.defaultFile;
+                        defaultVideo = `${videoBasePath}${fileName}`;
+                        console.log(`🎯 video_assets.json에서 기본 비디오 조합: ${videoBasePath} + ${fileName} = ${defaultVideo}`);
+                    } else {
+                        // 일반적인 fallback: _idle_1.mp4
+                        defaultVideo = `/videos/${characterId}/${characterId}_idle_2.mp4`;
+                        console.log(`📋 fallback 기본 비디오 사용: ${defaultVideo}`);
+                    }
+                } catch (error) {
+                    // 최종 fallback
+                    defaultVideo = `/videos/${characterId}/${characterId}_idle_2.mp4`;
+                    console.log(`⚠️ 설정 로드 실패, 최종 fallback: ${defaultVideo}`);
+                }
+                
+                const initialVideo = currentVideo || defaultVideo;
+                
+                console.log('🎬 즉시 비디오 설정 (race condition 방지):', {
+                    characterId,
+                    initialVideo,
+                    currentVideo
+                });
+                
+                video.muted = true;
+                video.loop = true;
+                video.playsInline = true;
+                video.preload = 'auto';
+                console.log('🎬 video.src 설정 직전:', initialVideo);
+                video.src = initialVideo;
+                console.log('🎬 video.src 설정 완료:', video.src);
+                
+                const handleLoadedData = () => {
+                    console.log('✅ 즉시 비디오 로딩 완료:', initialVideo);
+                    console.log('🎬 비디오 상태:', {
+                        readyState: video.readyState,
+                        networkState: video.networkState,
+                        paused: video.paused,
+                        ended: video.ended,
+                        currentSrc: video.currentSrc
+                    });
+                    
+                    video.play().then(() => {
+                        console.log('▶️ 즉시 비디오 재생 시작 성공');
+                        console.log('🎬 재생 후 비디오 상태:', {
+                            paused: video.paused,
+                            currentTime: video.currentTime,
+                            duration: video.duration
+                        });
+                        
+                        // 백그라운드에서 설정 기반 최적 비디오로 교체 시도
+                        setTimeout(() => {
+                            const config = getVideoAssetsConfig();
+                            if (config.characters && config.characters[characterId]) {
+                                const optimalVideo = getDefaultIdleVideo(characterId);
+                                const optimalPath = cleanVideoPath(optimalVideo);
+                                
+                                // 현재와 다른 비디오면 교체
+                                if (optimalPath !== initialVideo) {
+                                    console.log('🔄 최적 비디오로 백그라운드 교체:', optimalPath);
+                                    changeVideo(optimalPath);
+                                }
+                            }
+                        }, 1000);
+                        
+                    }).catch(error => {
+                        console.error('❌ 즉시 재생 실패 상세:', error);
+                        console.log('🎬 재생 실패 시 비디오 상태:', {
+                            readyState: video.readyState,
+                            networkState: video.networkState,
+                            error: video.error ? {
+                                code: video.error.code,
+                                message: video.error.message
+                            } : null
+                        });
+                    });
+                };
+                
+                const handleError = (error) => {
+                    console.error('❌ 비디오 로드 실패, 폴백 시도:', error);
+                    // 폴백: 캐릭터별 기본 파일
+                    const fallbackVideo = getDefaultIdleVideo(characterId);
+                    const fallbackPath = `/videos/${characterId}/${fallbackVideo}`;
+                    video.src = fallbackPath;
+                    video.load();
+                };
+                
+                video.addEventListener('loadeddata', handleLoadedData, { once: true });
+                video.addEventListener('error', handleError, { once: true });
+                
+                video.load();
+                
+            } catch (error) {
+                console.error('❌ 초기 비디오 설정 오류:', error);
+                // 최종 폴백
+                const video = videoRef.current;
+                video.src = `/videos/${characterId}/hongseohyun_idle_2.mp4`;
+                video.load();
+            }
+        };
+        
+        initializeVideo();
+    }, [characterId]); // characterId 의존성만 유지
+
+    console.log('🎬 VideoPlayer 렌더링 도달:', { characterId, isLoading, currentVideo });
+
+    // characterId가 없으면 빈 div 반환 (디버깅용)
+    if (!characterId) {
+        console.log('❌ characterId가 없어서 빈 div 반환');
+        return <div style={{ border: '5px solid orange', width: '200px', height: '100px', position: 'fixed', top: '10px', left: '10px', zIndex: 9999 }}>NO CHARACTER ID</div>;
+    }
 
     return (
         <div 
             className={`${styles.container} ${className}`}
             style={{
-                position: 'relative',
-                width: '100%',
-                height: '100%',
+                position: 'fixed',  // 강제로 화면에 표시
+                top: '50px',
+                left: '50px', 
+                width: '400px',
+                height: '300px',
                 backgroundColor: '#000',
-                overflow: 'hidden'
+                border: '10px solid blue',  // 컨테이너 디버깅용
+                zIndex: 9999  // 최상위로
             }}
         >
             <video
@@ -174,9 +319,13 @@ const VideoPlayer = React.forwardRef(({
                     left: '0',
                     width: '100%',
                     height: '100%',
-                    objectFit: 'contain',
-                    zIndex: 1
+                    objectFit: 'cover',
+                    zIndex: 1,
+                    border: '2px solid red',  // 디버깅용
+                    backgroundColor: 'rgba(255,0,0,0.1)'  // 디버깅용
                 }}
+                autoPlay
+                loop
                 muted
                 playsInline
                 preload="auto"

@@ -85,9 +85,19 @@ function HomeTemporary() {
                     list.map((room) => {
                         const isLive = room.status === 'live';
             
-                        const thumbnailUrl = room.thumbnail && (room.thumbnail.startsWith('http') || room.thumbnail.startsWith('/media'))
-                            ? room.thumbnail.startsWith('http') ? room.thumbnail : `${apiBaseUrl}${room.thumbnail}`
-                            : `https://via.placeholder.com/400x225.png?text=No+Image`;
+                        // 썸네일 URL 인코딩 처리
+                        const getThumbnailUrl = (thumbnail) => {
+                            if (!thumbnail) {
+                                return "data:image/svg+xml,%3Csvg width='400' height='225' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='400' height='225' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' font-size='16' fill='%23999' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
+                            }
+                            if (thumbnail.startsWith('http')) {
+                                return thumbnail;
+                            }
+                            const encodedPath = thumbnail.split('/').map(segment => encodeURIComponent(segment)).join('/');
+                            return `${apiBaseUrl}/media/${encodedPath}`;
+                        };
+                        
+                        const thumbnailUrl = getThumbnailUrl(room.thumbnail);
         
                         const cardContent = (
                             <div className={isMainLive ? styles.mainLiveCard : styles.card}>

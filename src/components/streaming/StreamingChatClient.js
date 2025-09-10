@@ -311,6 +311,21 @@ const StreamingChatWithTTS = ({
                             
                             return;
                         }
+
+                        // 🆕 비디오 전환 이벤트 처리
+                        if (data.type === 'video_transition') {
+                            console.log('🎬 비디오 전환 이벤트 수신:', data.transition);
+                            
+                            // 부모 컴포넌트로 비디오 전환 데이터 전달
+                            if (onWebSocketMessage) {
+                                onWebSocketMessage({
+                                    type: 'video_transition',
+                                    transition: data.transition
+                                });
+                            }
+                            
+                            return;
+                        }
                         
                         // synchronized_media 메시지 처리 (AI 응답 + TTS + 비디오)
                         if (data.type === 'synchronized_media') {

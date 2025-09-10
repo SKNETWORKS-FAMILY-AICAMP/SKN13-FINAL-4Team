@@ -4,7 +4,7 @@ import { Card, Button, Form, ButtonGroup, Badge } from 'react-bootstrap';
 // 비디오 설정 유틸리티 임포트
 import { getVideoAssetsConfig } from '../../utils/videoConfig';
 
-function VideoControlPanel({ onVideoChange, characterId = "hongseohyun" }) {
+function VideoControlPanel({ onVideoChange, characterId }) {
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
     const [isVisible, setIsVisible] = useState(false);
     const [videoFiles, setVideoFiles] = useState([]);
@@ -73,7 +73,8 @@ function VideoControlPanel({ onVideoChange, characterId = "hongseohyun" }) {
     // 비디오 설정 로딩
     useEffect(() => {
         const initVideoFiles = async () => {
-            const files = await loadVideoFiles(characterId);
+            const effectiveCharacterId = characterId || getVideoAssetsConfig().systemSettings?.defaultCharacter || "hongseohyun";
+            const files = await loadVideoFiles(effectiveCharacterId);
             setVideoFiles(files);
             setIsConfigLoaded(true);
             

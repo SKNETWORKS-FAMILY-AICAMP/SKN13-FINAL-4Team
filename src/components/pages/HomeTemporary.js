@@ -57,12 +57,24 @@ function HomeTemporary() {
     const mainLive = liveRooms.slice(0, 4);
     
     // 카드 렌더링 함수
+    // 썸네일 URL 생성 함수 (한글 인코딩 처리)
+    const getThumbnailUrl = (thumbnail) => {
+        if (!thumbnail) {
+            return "data:image/svg+xml,%3Csvg width='400' height='225' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='400' height='225' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' font-size='16' fill='%23999' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
+        }
+        
+        if (thumbnail.startsWith('http')) {
+            return thumbnail;
+        }
+        
+        // 상대 경로인 경우 인코딩 처리
+        const encodedPath = thumbnail.split('/').map(segment => encodeURIComponent(segment)).join('/');
+        return `${apiBaseUrl}/media/${encodedPath}`;
+    };
+
     const renderRoomCard = (room) => {
         const isLive = room.status === 'live';
-
-        const thumbnailUrl = room.thumbnail && (room.thumbnail.startsWith('http') || room.thumbnail.startsWith('/media'))
-            ? room.thumbnail.startsWith('http') ? room.thumbnail : `${apiBaseUrl}${room.thumbnail}`
-            : `https://via.placeholder.com/400x225.png?text=No+Image`;
+        const thumbnailUrl = getThumbnailUrl(room.thumbnail);
         
         return (
             <Link to={`/stream/${room.id}`} key={room.id} className={styles.cardLink}>
@@ -97,13 +109,13 @@ function HomeTemporary() {
             {/* 1. 메인 라이브 섹션 */}
             <header className={styles.mainLiveHeader}>
                 <div className={styles.headerText}>
-                    <h1>지금 뜨는 라이브를 한눈에</h1>
+                    <h1>🔥 지금 뜨는 라이브를 한눈에</h1>
                     <p>실시간 연애 상담, 사연 읽기까지 고민, AI 스트리머에게 물어보세요</p>
                 </div>
                 <div className={styles.mainLiveGrid}>
                     {mainLive.map(room => (
                         <Link to={`/stream/${room.id}`} key={room.id} className={styles.mainLiveCard}>
-                            <img src={room.thumbnail ? `${apiBaseUrl}${room.thumbnail}` : `https://via.placeholder.com/400x225.png?text=LIVE`} alt={room.name} />
+                            <img src={getThumbnailUrl(room.thumbnail)} alt={room.name} />
                             <div className={styles.liveOverlay}>
                                 <div className={styles.liveIndicator}></div>
                                 <span>LIVE</span>
@@ -147,7 +159,7 @@ function HomeTemporary() {
                     {influencers.slice(0, 6).map(inf => (
                         <Link to={`/influencers/${inf.id}`} key={inf.id} className={styles.influencerCard}>
                             <img 
-                                src={inf.profile_image ? `${inf.profile_image}` : `https://via.placeholder.com/100`}
+                                src={inf.profile_image ? `${inf.profile_image}` : "data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100' height='100' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23999' text-anchor='middle' dy='.3em'%3E👤%3C/text%3E%3C/svg%3E"}
                                 alt={inf.name}
                             />
                             <span>{inf.name}</span>
