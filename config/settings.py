@@ -244,3 +244,5 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # EMAIL_HOST_USER = 'your_email@gmail.com'      # 실제 발신자 이메일
 # EMAIL_HOST_PASSWORD = 'your_app_password'    # Gmail 앱 비밀번호
 # DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+BACKEND_BASE_URL = os.getenv('BACKEND_BASE_URL', 'http://localhost:8000')

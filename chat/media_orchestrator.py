@@ -247,7 +247,11 @@ class MediaProcessingHub:
         """취소 없는 비디오 트랙 생성 (순차 처리용)"""
         try:
             character_id = streamer_config.get('character_id', streamer_config.get('streamer_id', 'hongseohyun'))  # DB 연동: character_id 우선 사용
-            talk_video = self.video_selector.get_talk_video(emotion, character_id)
+            relative_video_path = self.video_selector.get_talk_video(emotion, character_id)
+            
+            # BACKEND_BASE_URL을 사용하여 절대 URL 생성
+            base_url = settings.BACKEND_BASE_URL.rstrip('/')
+            absolute_video_url = f"{base_url}{relative_video_path}"
             
             from .streaming.domain.stream_session import MediaTrack
             
@@ -255,7 +259,7 @@ class MediaProcessingHub:
                 kind="video",
                 pts_ms=0,  # 즉시 시작
                 dur_ms=5000,  # 기본 5초 (TTS 길이에 맞춤)
-                payload_ref=talk_video,
+                payload_ref=absolute_video_url,
                 codec="video/mp4",
                 meta={
                     'emotion': emotion,
