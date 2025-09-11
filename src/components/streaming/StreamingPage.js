@@ -59,8 +59,9 @@ function StreamingPage() {
     const [donationOverlay, setDonationOverlay] = useState({ visible: false, data: null });
     
     const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
-    const websocketBaseUrl = process.env.REACT_APP_WEBSOCKET_BASE_URL || 'ws://localhost:8000';
-    
+    // const websocketBaseUrl = process.env.REACT_APP_WEBSOCKET_BASE_URL || 'ws://localhost:8000';
+    const websocketBaseUrl = apiBaseUrl.replace(/^http/, 'ws');
+
     // 방별 독립적인 MediaPacketSyncController 초기화
     useEffect(() => {
         if (!mediaPacketSyncControllerRef.current) {
