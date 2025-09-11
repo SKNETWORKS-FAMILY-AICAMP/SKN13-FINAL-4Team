@@ -48,7 +48,7 @@ class ModelManager:
             )
             
             # 3. LoRA Adapter 적용 (있는 경우)
-            if adapter_path and os.path.exists(adapter_path):
+            if adapter_path:
                 logger.info(f"Loading LoRA adapter: {adapter_path}")
                 self.model = PeftModel.from_pretrained(
                     self.base_model, 
