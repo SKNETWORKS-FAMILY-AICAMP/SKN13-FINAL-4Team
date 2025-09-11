@@ -216,11 +216,11 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         # 개별 연결의 태스크들 정리
         
         # request processor task 검토
-        if hasattr(self, 'response_processor_task') and not self.response_processor_task.done():
+        if hasattr(self, 'response_processor_task') and self.response_processor_task is not None and not self.response_processor_task.done():
             self.response_processor_task.cancel()
             logger.info(f"🗑️ Response processor cancelled for connection {self.channel_name}")
             
-        if hasattr(self, 'periodic_broadcast_task') and not self.periodic_broadcast_task.done():
+        if hasattr(self, 'periodic_broadcast_task') and self.periodic_broadcast_task is not None and not self.periodic_broadcast_task.done():
             self.periodic_broadcast_task.cancel()
             logger.info(f"🗑️ Periodic broadcast cancelled for connection {self.channel_name}")
             
