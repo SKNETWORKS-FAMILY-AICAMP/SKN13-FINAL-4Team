@@ -36,6 +36,7 @@
 .headerText p {
     font-size: 1.1rem;
     color: #b0b3b8;
+    text-align: center; /* 중앙정렬 추가 */
 }
 .mainLiveGrid {
     flex: 1.2;

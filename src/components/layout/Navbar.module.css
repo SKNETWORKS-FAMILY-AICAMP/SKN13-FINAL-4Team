@@ -77,8 +77,8 @@
 }
 .logoLlm {
   height: calc(100% - 16px);
-  max-height: 40px;
-  width: 125px;
+  max-height: 50px;
+  width: 100%;
   margin-right: 0.5rem;
   object-fit: fill;
 }

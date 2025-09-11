@@ -110,7 +110,7 @@ function HomeTemporary() {
             <header className={styles.mainLiveHeader}>
                 <div className={styles.headerText}>
                     <h1>🔥 지금 뜨는 라이브를 한눈에</h1>
-                    <p>실시간 연애 상담, 사연 읽기까지 고민, AI 스트리머에게 물어보세요</p>
+                    <p>실시간 연애상담, 사연읽기까지 <br></br> AI 스트리머에게 고민을 털어놔보세요.</p>
                 </div>
                 <div className={styles.mainLiveGrid}>
                     {mainLive.map(room => (
@@ -142,17 +142,8 @@ function HomeTemporary() {
                 </div>
                 <button className={styles.adButton}>참여하기</button>
             </section>
-            <br></br>
 
-            {/* 4. AI 크리에이터의 연애 상담 섹션 */}
-            <section className={styles.sectionContainer}>
-                <h2 className={styles.sectionTitle}>🤖 AI 크리에이터의 연애 상담</h2>
-                <div className={styles.broadcastList}>
-                    {rooms.length > 0 ? rooms.slice(0, 5).map(renderRoomCard) : <p>방송 목록이 없습니다.</p>}
-                </div>
-            </section>
-
-            {/* 5. 추천 스트리머 방송국 바로가기 */}
+            {/* 4. 추천 스트리머 방송국 바로가기 */}
             <section className={styles.sectionContainer}>
                 <h2 className={styles.sectionTitle}>⭐ 추천 스트리머 방송국 바로가기</h2>
                 <div className={styles.influencerGrid}>
@@ -168,7 +159,7 @@ function HomeTemporary() {
                 </div>
             </section>
 
-            {/* 6. 팔로우하는 크리에이터의 실시간 방송 */}
+            {/* 5. 팔로우하는 크리에이터의 실시간 방송 */}
             <section className={styles.sectionContainer}>
                 <h2 className={styles.sectionTitle}>❤️ {user?.nickname || '회원'}님이 좋아하는 크리에이터의 실시간 방송</h2>
                 <div className={styles.broadcastList}>

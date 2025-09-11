@@ -1,13 +1,45 @@
+/* CSS 변수 정의 */
+:root {
+    --bg-primary: #f0f2f5;
+    --bg-secondary: #fff;
+    --text-primary: #1f2937;
+    --text-secondary: #374151;
+    --text-muted: #6b7280;
+    --accent-primary: #e91e63;
+    --accent-secondary: #faad14;
+    --accent-donation: #F59E0B;
+    --border-light: #e5e7eb;
+    --border-medium: #d1d5db;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --font-sm: 0.85rem;
+    --font-base: 0.9rem;
+    --font-md: 1rem;
+    --font-lg: 1.1rem;
+    --font-xl: 1.2rem;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --spacing-xl: 20px;
+    --spacing-2xl: 24px;
+}
+
 /* --- 페이지 기본 레이아웃 --- */
 .pageContainer {
     display: flex;
-    background-color: #f0f2f5;
-    padding: 24px;
-    padding-top: 88px; /* Navbar 높이 고려 */
-    min-height: 100vh;
-    gap: 24px;
+    background-color: var(--bg-primary);
+    padding: var(--spacing-2xl);
+    padding-top: 25px; /* Navbar 높이 축소 */
+    min-height: 100vh; /* height를 min-height로 변경 */
+    max-height: 100vh; /* 최대 높이 제한 추가 */
+    gap: var(--spacing-2xl);
     max-width: 1800px;
     margin: 0 auto;
+    overflow: hidden;
 }
 
 /* --- 왼쪽 메인 콘텐츠 --- */
@@ -15,19 +47,26 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: var(--spacing-md); /* 24px에서 12px로 축소 */
     min-width: 0;
+    overflow-y: auto;
+    max-height: calc(100vh - 73px); /* padding-top 25px 고려해서 조정 */
 }
 
 /* --- 비디오 플레이어 --- */
 .videoPlayerContainer {
     position: relative;
     background-color: #000;
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     overflow: hidden;
     width: 100%;
-    padding-top: 56.25%; /* 16:9 비율 */
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    aspect-ratio: 16 / 9;
+    max-height: 75vh; /* 비디오 최대 높이 더 증가 */
+    min-height: 300px; /* 최소 높이 보장 */
+    box-shadow: var(--shadow-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 .videoPlayer {
     position: absolute;
@@ -35,6 +74,7 @@
     left: 0;
     width: 100%;
     height: 100%;
+    object-fit: contain; /* 전체 비디오가 보이도록 contain 유지 */
 }
 
 /* --- 영상 위 후원 오버레이 --- */
@@ -126,32 +166,60 @@
 
 /* --- 스트림 정보 --- */
 .streamInfoContainer {
-    background-color: #fff;
-    padding: 24px;
-    border-radius: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    background-color: var(--bg-secondary);
+    padding: var(--spacing-md); /* 16px에서 12px로 추가 축소 */
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.streamDetails {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
 }
 .streamTitle {
-    font-size: 1.8rem;
+    font-size: 1.4rem; /* 폰트 크기 추가 축소 */
     font-weight: 700;
-    margin-bottom: 20px;
-    color: #1c1e21;
+    margin: 0; /* 마진 제거로 한 줄 레이아웃 */
+    color: var(--text-primary);
+    flex: 1; /* 남은 공간 차지 */
+    white-space: nowrap; /* 줄바꿈 방지 */
+    overflow: hidden;
+    text-overflow: ellipsis; /* 긴 텍스트 말줂표 처리 */
 }
 .streamTitle span { color: #888; }
 .streamerInfo {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--spacing-sm); /* 12px에서 8px로 축소 */
+    flex-shrink: 0; /* 축소 방지 */
+}
+
+.likeSection {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm); /* 버튼과 좋아요 수 사이 간격 */
 }
 .streamerProfilePic {
-    width: 48px;
-    height: 48px;
+    width: 40px; /* 48px에서 40px로 축소 */
+    height: 40px;
     border-radius: 50%;
     object-fit: cover;
 }
 .streamerText { flex-grow: 1; }
-.streamerName { font-size: 1.1rem; font-weight: 600; }
-.likesCount { font-size: 0.9rem; color: #65676b; }
+.streamerName { 
+    font-size: var(--font-md); /* 1.1rem에서 1rem로 축소 */
+    font-weight: 600; 
+    margin-bottom: 2px;
+    color: var(--text-primary); /* 더 진한 색상으로 가독성 개선 */
+}
+.likesCount { 
+    font-size: var(--font-sm); /* 0.9rem에서 0.85rem로 축소 */
+    color: var(--text-muted);
+    font-weight: 500; /* 숫자 강조 */
+    white-space: nowrap; /* 줄바꿈 방지 */
+}
 .likeButton {
     width: 40px;
     height: 40px;
@@ -176,50 +244,89 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 24px;
+    padding: var(--spacing-sm); /* 16px에서 8px로 추가 축소 */
     background-color: #fff1f5;
-    border-radius: 16px;
+    border-radius: var(--radius-md);
 }
-.adText h2 { margin: 0 0 4px 0; font-size: 1.2rem; font-weight: 600; color: #d81b60; }
-.adText p { margin: 0; color: #555; font-size: 0.9rem; }
+.adText h2 { 
+    margin: 0 0 2px 0; /* 마진 축소 */
+    font-size: var(--font-md); /* 1.1rem에서 1rem로 추가 축소 */
+    font-weight: 600; 
+    color: #d81b60; 
+}
+.adText p { 
+    margin: 0; 
+    color: var(--text-muted); 
+    font-size: var(--font-sm); 
+    line-height: 1.3; /* 줄 간격 축소 */
+}
 .adButton {
     background-color: #e91e63;
     color: white;
     border: none;
-    padding: 10px 20px;
-    border-radius: 20px;
+    padding: 6px 14px; /* 패딩 축소 */
+    border-radius: 16px; /* 반지름 축소 */
     font-weight: 500;
+    font-size: var(--font-sm); /* 폰트 크기 축소 */
     cursor: pointer;
     transition: background-color 0.2s;
 }
 
 /* --- 오른쪽 채팅 사이드바 --- */
 .chatSidebar {
-    width: 360px;
+    width: 420px; /* 360px에서 420px로 확대 */
     flex-shrink: 0;
-    background-color: #fff;
-    border-radius: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
     display: flex;
     flex-direction: column;
-    padding: 24px;
+    padding: var(--spacing-2xl);
+    height: calc(100vh - 73px); /* padding-top 25px 고려해서 조정 */
+    overflow: hidden;
 }
 .chatTitle {
-    font-size: 1.2rem;
+    font-size: var(--font-xl);
     font-weight: 600;
-    margin-bottom: 20px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #f0f2f5;
+    margin-bottom: var(--spacing-xl);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--bg-primary);
+    color: var(--text-primary);
+    flex-shrink: 0;
 }
 
 .chatMessages {
-    flex-grow: 1;
+    flex: 1;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 16px;
     margin-bottom: 20px;
     padding-right: 10px;
+    min-height: 0; /* Flexbox shrinking 활성화 */
+    max-height: none; /* 높이 제한 제거하여 flex로 관리 */
+    
+    /* 스크롤바 스타일링 */
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db #f9fafb;
+}
+
+.chatMessages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chatMessages::-webkit-scrollbar-track {
+    background: #f9fafb;
+    border-radius: 3px;
+}
+
+.chatMessages::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+
+.chatMessages::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
 }
 
 .chatMessage {
@@ -250,60 +357,124 @@
 }
 .messageAuthor {
     font-weight: 600;
-    color: #333;
+    color: var(--text-secondary);
     margin-bottom: 4px;
-}
-.messageContent {
-    color: #1c1e21;
-    word-break: break-all;
-}
-.messageAuthor {
-    font-weight: 600;
-    color: #333; /* 작성자 이름 색상 */
-    margin-right: 8px; /* 이름과 메시지 사이 간격 */
+    font-size: var(--font-base);
 }
 
 .messageContent {
-    color: #1c1e21;
+    color: var(--text-primary);
+    word-break: break-word;
+    line-height: 1.5;
+    font-size: var(--font-base);
 }
 
 .donationMessage {
-    background-color: #FFFBE6;
-    border: none;
+    background: linear-gradient(135deg, #FFFBE6 0%, #FFF7D6 100%); /* 그라데이션 배경 */
+    border: 2px solid #F59E0B; /* 경계선 추가 */
     padding: 16px;
     border-radius: 12px;
     font-size: 0.95rem;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.1); /* 그림자 추가 */
+    position: relative;
+    overflow: hidden;
+}
+
+.donationMessage::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: #F59E0B;
 }
 
 .donationHeader {
     display: flex;
-    align-items: baseline;
-    gap: 6px;
-    margin-bottom: 6px;
+    align-items: center; /* baseline에서 center로 변경 */
+    gap: 8px; /* 간격 증가 */
+    margin-bottom: 8px;
     font-weight: 600;
     flex-wrap: wrap;
     line-height: 1.4;
 }
 
-.donationEmoji { font-size: 1rem; }
-.donorName { color: #333; white-space: nowrap; word-break: keep-all; }
-.donationText { color: #333; word-break: keep-all; }
-.donationAmount { color: #E6A23C; }
+.donationEmoji { 
+    font-size: 1.2rem; 
+    animation: bounce 0.6s ease-in-out;
+}
+
+@keyframes bounce {
+    0%, 20%, 60%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-4px); }
+    80% { transform: translateY(-2px); }
+}
+
+.donorName { 
+    color: #1f2937; /* 더 진한 색상 */
+    white-space: nowrap; 
+    word-break: keep-all;
+    font-weight: 700; /* 더 두껏게 */
+}
+
+.donationText { 
+    color: #374151; 
+    word-break: keep-all; 
+}
+
+.donationAmount { 
+    color: #D97706; /* 더 진한 주황색 */
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
 .donationMessage .messageContent {
-    color: #555;
+    color: #4b5563; /* 더 진한 색상 */
+    font-style: italic;
+    margin-top: 4px;
+    padding: 8px 12px;
+    background-color: rgba(255, 255, 255, 0.6);
+    border-radius: 8px;
 }
 
 /* --- 채팅 입력부 --- */
 .chatInputSection {
-    margin-top: auto;
+    flex-shrink: 0; /* 입력 영역 크기 고정 */
     display: flex;
+    flex-direction: column;
     gap: 10px;
+    margin-top: auto;
+    position: sticky; /* 하단 고정 */
+    bottom: 0;
+    background-color: #fff; /* 배경색으로 내용과 분리 */
+    padding-top: 12px; /* 위쪽 여백 추가 */
 }
 
 .inputActionWrapper {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    align-items: stretch;
+    gap: var(--spacing-lg); /* spacing-md에서 spacing-lg로 간격 증가 */
+    width: 100%;
+    flex-wrap: nowrap; /* 같은 줄에 유지 */
+}
+
+/* 모바일에서 입력 영역 최적화 */
+@media (max-width: 480px) {
+    .inputActionWrapper {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+    
+    .chatInputForm {
+        order: 1;
+    }
+    
+    .sponsorButton {
+        order: 2;
+        width: 100%;
+        justify-content: center;
+    }
 }
 
 .chatInputForm {
@@ -312,23 +483,28 @@
     gap: 10px;
     background-color: #f0f2f5;
     border-radius: 20px;
-    padding: 6px;
-    flex-grow: 1;
+    padding: 8px; /* 패딩 약간 증가 */
+    flex: 1; /* flex-grow대신 flex 사용 */
+    min-height: 36px; /* 최소 높이 설정 */
 }
 
 .messageInput {
-    flex-grow: 1;
+    flex: 1; /* flex-grow 대신 flex 사용 */
     border: none;
     background-color: transparent;
     outline: none;
-    padding: 8px 12px;
+    padding: 10px 12px; /* 패딩 약간 증가 */
+    font-size: 0.9rem; /* 폰트 크기 명시적 지정 */
+    line-height: 1.4;
+    resize: none; /* textarea 리사이즈 방지 */
+    min-height: 20px; /* 최소 높이 */
 }
 
 .sendButton {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    background-color: #e91e63;
+    background-color: var(--accent-primary);
     color: white;
     border: none;
     cursor: pointer;
@@ -336,30 +512,224 @@
     justify-content: center;
     align-items: center;
     flex-shrink: 0;
+    font-size: 0.75rem; /* var(--font-sm)에서 더 작게 */
+    font-weight: 500;
+    transition: all 0.2s ease;
+    line-height: 1; /* 줄 간격 최소화 */
+    white-space: nowrap; /* 줄바꿈 방지 */
+}
+
+.sendButton:hover {
+    background-color: #d81b60;
+    transform: scale(1.05);
 }
 
 
 .sponsorButton {
-    background-color: #faad14;
-    color: #1c1e21;
+    background-color: var(--accent-secondary);
+    color: var(--text-primary);
     border: none;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-weight: bold;
+    padding: 10px 22px; /* 18px에서 22px로 패딩 증가 */
+    border-radius: var(--radius-xl);
+    font-weight: 600;
+    font-size: var(--font-base);
     cursor: pointer;
     flex-shrink: 0;
     white-space: nowrap;
+    transition: all 0.2s ease;
+    min-height: 36px;
+    min-width: 80px; /* 최소 너비 추가 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* 반응형 */
-@media (max-width: 1200px) {
-    .pageContainer { flex-direction: column; }
-    .chatSidebar { width: 100%; max-height: 500px; }
+.sponsorButton:hover {
+    background-color: #f39c12;
+    transform: translateY(-1px);
+}
+
+/* 반응형 디자인 */
+
+/* 태블릿 레이아웃 (1024px ~ 1200px) */
+@media (max-width: 1200px) and (min-width: 1024px) {
+    .pageContainer {
+        gap: var(--spacing-xl);
+    }
+    .chatSidebar {
+        width: 380px; /* 사이드바 너비 조정 (420px에서 약간 축소) */
+    }
+}
+
+/* 작은 데스크톱/태블릿 (768px ~ 1024px) */
+@media (max-width: 1024px) {
+    .pageContainer {
+        flex-direction: column;
+        height: auto;
+        min-height: 100vh;
+        gap: var(--spacing-lg); /* 간격 축소 */
+        padding-top: 20px; /* 모바일에서 padding-top 추가 축소 */
+    }
+    
+    .streamMainContent {
+        max-height: none;
+        order: 1;
+        gap: var(--spacing-md); /* 간격 일관성 유지 */
+    }
+    
+    .chatSidebar {
+        width: 100%;
+        height: 400px;
+        max-height: 400px;
+        order: 2;
+        margin-top: 0;
+    }
+    
+    .videoPlayerContainer {
+        max-height: 50vh; /* 비디오 높이 증가 */
+    }
+}
+
+/* 모바일 레이아웃 (768px 이하) */
+@media (max-width: 768px) {
+    .pageContainer {
+        padding: var(--spacing-md);
+        padding-top: 15px; /* padding-top 추가 축소 */
+        gap: var(--spacing-md);
+    }
+    
+    .streamMainContent {
+        gap: var(--spacing-sm); /* 모바일에서 추가 축소 */
+    }
+    
+    .videoPlayerContainer {
+        max-height: 40vh; /* 비디오 높이 증가 */
+        border-radius: var(--radius-md);
+    }
+    
+    .chatSidebar {
+        padding: var(--spacing-lg);
+        border-radius: var(--radius-md);
+        height: 350px;
+        max-height: 350px;
+    }
+    
+    .chatTitle {
+        font-size: var(--font-lg);
+        margin-bottom: var(--spacing-lg);
+        padding-bottom: var(--spacing-md);
+    }
+    
+    .streamInfoContainer {
+        padding: var(--spacing-md); /* 패딩 추가 축소 */
+        border-radius: var(--radius-md);
+    }
+    
+    .streamDetails {
+        flex-direction: column; /* 모바일에서 세로 배치 */
+        align-items: flex-start;
+        gap: var(--spacing-sm);
+    }
+    
+    .streamTitle {
+        white-space: normal; /* 모바일에서 줄바꿈 허용 */
+        overflow: visible;
+        text-overflow: unset;
+    }
+    
+    .streamTitle {
+        font-size: 1.4rem; /* 폰트 사이즈 약간 증가 */
+        margin-bottom: var(--spacing-md); /* 마진 축소 */
+    }
+    
+    .adBanner {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        text-align: center;
+        padding: var(--spacing-md); /* 패딩 축소 */
+        border-radius: var(--radius-md);
+    }
+}
+
+/* 잠은 모바일 (480px 이하) */
+@media (max-width: 480px) {
+    .pageContainer {
+        padding: var(--spacing-sm);
+        padding-top: 10px; /* 최소 padding-top */
+        gap: var(--spacing-sm);
+    }
+    
+    .videoPlayerContainer {
+        max-height: 35vh; /* 비디오 높이 증가 */
+        border-radius: var(--radius-sm);
+    }
+    
+    .chatSidebar {
+        padding: var(--spacing-md);
+        height: 300px;
+        max-height: 300px;
+    }
+    
+    .chatMessages {
+        gap: var(--spacing-md);
+    }
+    
+    .messageInput {
+        font-size: var(--font-sm);
+    }
+    
+    .sendButton,
+    .sponsorButton {
+        font-size: var(--font-sm);
+    }
+    
+    .sponsorButton {
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+    
+    .streamTitle {
+        font-size: 1.3rem;
+        margin-bottom: var(--spacing-sm); /* 마진 축소 */
+    }
+    
+    .streamerInfo {
+        gap: var(--spacing-sm);
+    }
+    
+    .streamerProfilePic {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .streamInfoContainer {
+        padding: var(--spacing-sm); /* 패딩 최소화 */
+    }
+    
+    .streamDetails {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-sm);
+    }
+    
+    .streamTitle {
+        font-size: 1.2rem; /* 소형 모바일에서 폰트 축소 */
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+    }
+    
+    .adBanner {
+        padding: var(--spacing-sm); /* 패딩 최소화 */
+    }
 }
 
 .systemMessage {
-    color: #888;
-    font-size: 0.9rem;
+    color: #6b7280; /* 더 나은 대비비로 가독성 개선 */
+    font-size: 0.85rem;
     text-align: center;
-    padding: 4px 0;
+    padding: 8px 12px;
+    background-color: #f9fafb; /* 배경색 추가 */
+    border-radius: 12px;
+    font-style: italic;
+    border: 1px solid #e5e7eb;
 }
