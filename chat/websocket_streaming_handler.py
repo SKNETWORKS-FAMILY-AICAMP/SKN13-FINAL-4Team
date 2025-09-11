@@ -115,6 +115,12 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         if self.room_group_name not in StreamingChatConsumer.stream_sessions:
             logger.info(f"💡 새로운 StreamSession 생성: {self.room_group_name}")
             StreamingChatConsumer.stream_sessions[self.room_group_name] = StreamSession(session_id=self.room_group_name)
+        else:
+            # 🆕 기존 StreamSession이 있지만 첫 번째 연결인 경우 시퀀스 리셋
+            if self.streamer_id in agent_manager.connection_counts and agent_manager.connection_counts[self.streamer_id] == 0:
+                logger.info(f"🔄 첫 연결 감지: StreamSession 시퀀스 리셋 {self.room_group_name}")
+                StreamingChatConsumer.stream_sessions[self.room_group_name].reset_sequence()
+        
         self.session = StreamingChatConsumer.stream_sessions[self.room_group_name]
         
         # 방 단위 단일 Response Processor 보장
