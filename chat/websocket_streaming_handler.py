@@ -136,11 +136,12 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
         # --- Agent & Session 초기화 ---
         if self.streamer_id not in agent_manager.active_agents:
             story_repo = DjangoStoryRepository()
-            agent_manager.active_agents[self.streamer_id] = await LoveStreamerAgent.create(
+            new_agent = await LoveStreamerAgent.create(
                 api_key=settings.OPENAI_API_KEY,
                 story_repo=story_repo,
                 streamer_id=self.streamer_id
             )
+            agent_manager.active_agents[self.streamer_id] = new_agent
             agent_manager.connection_counts[self.streamer_id] = 0
             
             # StreamSession (송출 큐) 재사용 및 연결 (방 단일 세션 공유)
@@ -148,24 +149,22 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
             media_processor = MediaProcessingHub()
             
             # Responder와 MediaProcessingHub 연결
-            agent_manager.active_agents[self.streamer_id].responder.media_processor = media_processor
-            agent_manager.active_agents[self.streamer_id].responder.stream_session = session
+            new_agent.responder.media_processor = media_processor
+            new_agent.responder.stream_session = session
             
             # 매니저 생성 및 배선
             rm = ResponseManager()
             am = ActivityManager(
-                idle_manager=agent_manager.active_agents[self.streamer_id].idle,
-                queue_manager=agent_manager.active_agents[self.streamer_id].queue
+                idle_manager=new_agent.idle,
+                queue_manager=new_agent.queue
             )
-            agent_manager.active_agents[self.streamer_id].response_manager = rm
-            agent_manager.active_agents[self.streamer_id].activity_manager = am
-            agent_manager.active_agents[self.streamer_id].responder.response_manager = rm
-            agent_manager.active_agents[self.streamer_id].idle.activity_manager = am
+            new_agent.response_manager = rm
+            new_agent.activity_manager = am
+            new_agent.responder.response_manager = rm
+            new_agent.idle.activity_manager = am
             
-            # IdleManager의 자율 행동 루프 시작
-            asyncio.create_task(agent_manager.active_agents[self.streamer_id].idle.idle_loop())
-            # 슈퍼챗 워커 시작
-            asyncio.create_task(agent_manager.active_agents[self.streamer_id].superchat_worker_coro())
+            # 에이전트 백그라운드 작업 시작
+            new_agent.run()
 
             # 방 단위 Request Processor 시작 (MediaPacket 생성 담당)
             req_key = self.room_group_name
@@ -233,11 +232,15 @@ class StreamingChatConsumer(AsyncWebsocketConsumer):
                 logger.info(f"User {self.user.username} disconnected. Remaining connections for {self.streamer_id}: {connections}")
 
                 if connections == 0:
-                    # 마지막 클라이언트 퇴장 시 에이전트 및 세션 정리
+                    logger.info(f"Last user disconnected from {self.streamer_id}. Shutting down agent.")
                     if self.streamer_id in agent_manager.active_agents:
+                        agent_to_shutdown = agent_manager.active_agents[self.streamer_id]
+                        agent_to_shutdown.shutdown()
                         del agent_manager.active_agents[self.streamer_id]
-                    del agent_manager.connection_counts[self.streamer_id]
-                    logger.info(f"Agent for {self.streamer_id} has been shut down.")
+                        logger.info(f"Agent for {self.streamer_id} has been shut down and removed.")
+                    
+                    if self.streamer_id in agent_manager.connection_counts:
+                        del agent_manager.connection_counts[self.streamer_id]
 
             if hasattr(self, 'user'):
                 await self.channel_layer.group_send(

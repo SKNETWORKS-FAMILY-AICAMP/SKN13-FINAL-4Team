@@ -102,7 +102,7 @@ class TopicThreading:
         cur_tid = self.topic_ctx["active_tid"]
         if cur_tid == new_tid:
             self.topic_ctx["score"] += salience
-            self.topic_ctx["started_at"] = now_mono
+            # self.topic_ctx["started_at"] = now_mono # 버그 수정: 동일 주제 유입 시 만료 시간 갱신 방지
             return
 
         should_switch = (salience >= 0.8 or similarity >= 0.85 or recent_new >= max(2, recent_cur + 1) or

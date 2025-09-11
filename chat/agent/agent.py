@@ -3,6 +3,7 @@ import asyncio
 import uuid
 from datetime import datetime
 from typing import Callable
+import time
 from .state import AgentState
 from .classifiers import LiteClassifier, EmotionClassifier
 from .topic import TopicThreading
@@ -33,11 +34,12 @@ class LoveStreamerAgent:
         self.graph = GraphPipeline(self.responder, self.queue, UserDB()).build()
         self.superchat_q = asyncio.Queue()
         self.streamer_id = streamer_id
-        self._idle_loop_started = False
         self.persona_profile = {} # 페르소나 프로필을 저장할 변수
         # Managers (외부에서 주입)
         self.response_manager: ResponseManager | None = None
         self.activity_manager: ActivityManager | None = None
+        self.idle_task = None
+        self.superchat_task = None
 
         self.idle.set_graph_trigger(self.trigger_graph_async)
         self.idle.set_bootstrap_helpers(
@@ -52,6 +54,27 @@ class LoveStreamerAgent:
         agent = cls(api_key, story_repo, streamer_id)
         await agent._load_persona()
         return agent
+
+    def run(self):
+        """에이전트의 백그라운드 작업을 시작합니다."""
+        if self.idle_task is None:
+            self.idle_task = asyncio.create_task(self.idle.idle_loop())
+            print(f"✅ [{self.streamer_id}] IdleManager task started.")
+        if self.superchat_task is None:
+            self.superchat_task = asyncio.create_task(self.superchat_worker_coro())
+            print(f"✅ [{self.streamer_id}] Superchat worker task started.")
+
+    def shutdown(self):
+        """에이전트의 모든 백그라운드 작업을 종료합니다."""
+        print(f"🗑️ [{self.streamer_id}] LoveStreamerAgent shutting down...")
+        if self.idle_task:
+            self.idle_task.cancel()
+            self.idle_task = None
+            print(f"🛑 [{self.streamer_id}] IdleManager task cancelled.")
+        if self.superchat_task:
+            self.superchat_task.cancel()
+            self.superchat_task = None
+            print(f"🛑 [{self.streamer_id}] Superchat worker task cancelled.")
 
     async def _load_persona(self):
         """DB에서 페르소나 프로필을 로드하여 인스턴스에 저장"""
@@ -120,8 +143,8 @@ class LoveStreamerAgent:
     async def superchat_worker_coro(self):
         """Superchat queue consumer coroutine"""
         while True:
-            msg = await self.superchat_q.get()
             try:
+                msg = await self.superchat_q.get()
                 print(f"💰 Handling superchat: {msg}")
                 
                 # 후원 메시지를 AI 응답 생성 파이프라인으로 전달
@@ -181,12 +204,16 @@ class LoveStreamerAgent:
                 else:
                     print("⚠️ No response generated for superchat")
                     
+            except asyncio.CancelledError:
+                print("Superchat worker task cancelled.")
+                break
             except Exception as e:
                 print(f"❌ Error handling superchat: {e}")
                 import traceback
                 traceback.print_exc()
             finally:
-                self.superchat_q.task_done()
+                if 'msg' in locals() and self.superchat_q.empty():
+                    self.superchat_q.task_done()
 
     async def broadcast_queue_state(self, room_id: str):
         """큐 상태를 프론트엔드에 브로드캐스트"""
