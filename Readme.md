@@ -36,7 +36,7 @@ AI 인플루언서 연애 상담 스트리밍 플랫폼
 - 스마트폰 보급 이후 시청 중심은 TV에서 개인 미디어로 이동.(한국 스마트폰 사용자 중 94%가 동영상 앱을 이용, 유튜브가 압도적인 1위-사용시간 점유율 67.4%)
 - 유튜브가 사용시간 점유율에서 1위를 장기 유지하고, 신흥 스트리밍(치지직, SOOP)의 빠른 성장과 시청자 수 확대, 경쟁력 강화 
 **개인화·실시간·참여형** 포맷이 표준이 된다.
-<img width="928" height="1024" alt="Image" src="https://github.com/user-attachments/assets/d15d44df-be53-4518-b5a2-6abf1916187d" />
+<img width="550" height="1024" alt="Image" src="https://github.com/user-attachments/assets/d15d44df-be53-4518-b5a2-6abf1916187d" />
 <img width="550" height="369" alt="Image" src="https://github.com/user-attachments/assets/58f1be6e-0f62-4fda-8864-54b941d49da0" />
 
 ### 1.2.2 스트리머 포맷의 가치
