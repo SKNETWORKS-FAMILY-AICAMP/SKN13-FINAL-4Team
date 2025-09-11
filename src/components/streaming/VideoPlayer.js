@@ -78,10 +78,19 @@ const VideoPlayer = React.forwardRef(({
 
     // 비디오 변경 함수 (즉시 전환)
     const changeVideo = async (videoPath) => {
-        if (!videoRef.current) return;
+        console.log(`🎥 VideoPlayer.changeVideo 호출됨:`, {
+            videoPath,
+            hasVideoRef: !!videoRef.current,
+            characterId
+        });
+        
+        if (!videoRef.current) {
+            console.error('❌ VideoPlayer.changeVideo: videoRef가 없음');
+            return;
+        }
 
         const cleanPath = cleanVideoPath(videoPath);
-        console.log(`🎥 비디오 즉시 전환: ${cleanPath}`);
+        console.log(`🎥 비디오 즉시 전환: ${videoPath} -> ${cleanPath}`);
         
         setIsLoading(true);
 
@@ -151,11 +160,14 @@ const VideoPlayer = React.forwardRef(({
     };
 
     // ref 메서드 노출
-    React.useImperativeHandle(ref, () => ({
-        changeVideo,
-        getCurrentVideo: () => currentVideo,
-        isLoading: () => isLoading
-    }));
+    React.useImperativeHandle(ref, () => {
+        console.log('🔗 VideoPlayer ref 메서드 노출됨', { characterId });
+        return {
+            changeVideo,
+            getCurrentVideo: () => currentVideo,
+            isLoading: () => isLoading
+        };
+    });
 
     // currentVideo 변경 감지
     useEffect(() => {
@@ -290,26 +302,14 @@ const VideoPlayer = React.forwardRef(({
 
     console.log('🎬 VideoPlayer 렌더링 도달:', { characterId, isLoading, currentVideo });
 
-    // characterId가 없으면 빈 div 반환 (디버깅용)
+    // characterId가 없으면 null 반환
     if (!characterId) {
-        console.log('❌ characterId가 없어서 빈 div 반환');
-        return <div style={{ border: '5px solid orange', width: '200px', height: '100px', position: 'fixed', top: '10px', left: '10px', zIndex: 9999 }}>NO CHARACTER ID</div>;
+        console.log('❌ characterId가 없어서 컴포넌트 렌더링 안함');
+        return null;
     }
 
     return (
-        <div 
-            className={`${styles.container} ${className}`}
-            style={{
-                position: 'fixed',  // 강제로 화면에 표시
-                top: '50px',
-                left: '50px', 
-                width: '400px',
-                height: '300px',
-                backgroundColor: '#000',
-                border: '10px solid blue',  // 컨테이너 디버깅용
-                zIndex: 9999  // 최상위로
-            }}
-        >
+        <div className={`${styles.container} ${className}`}>
             <video
                 ref={videoRef}
                 className={`${styles.streamingVideo} ${styles.videoLayer}`}
@@ -320,9 +320,7 @@ const VideoPlayer = React.forwardRef(({
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover',
-                    zIndex: 1,
-                    border: '2px solid red',  // 디버깅용
-                    backgroundColor: 'rgba(255,0,0,0.1)'  // 디버깅용
+                    zIndex: 1
                 }}
                 autoPlay
                 loop

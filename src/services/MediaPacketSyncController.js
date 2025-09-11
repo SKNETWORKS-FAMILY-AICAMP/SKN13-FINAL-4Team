@@ -197,36 +197,44 @@ class MediaPacketSyncController {
     console.log(`▶️ MediaPacket 재생 시작: seq=${packet.seq}, 트랙 수=${packet.tracks.length}`);
     
     try {
-      const playPromises = [];
-      
       // 🆕 재생 지연 시간 계산 (예정 시간 대비)
       const playbackLatency = playStartTime - packet.scheduledPlayTime;
       this.updatePlaybackLatency(playbackLatency);
       
-      // 각 트랙별 재생 처리
-      for (const track of packet.tracks) {
-        switch (track.kind) {
-          case 'audio':
-            playPromises.push(this.playAudioTrack(track, packet));
-            break;
-          case 'video':
-            playPromises.push(this.playVideoTrack(track, packet));
-            break;
-          case 'subtitle':
-            playPromises.push(this.playSubtitleTrack(track, packet));
-            break;
-          default:
-            console.warn(`⚠️ 알 수 없는 트랙 타입: ${track.kind}`);
-        }
-      }
+      // 오디오 트랙을 먼저 찾아서 실제 재생 시간을 기준으로 함
+      const audioTrack = packet.tracks.find(track => track.kind === 'audio');
+      const videoTrack = packet.tracks.find(track => track.kind === 'video');
+      const subtitleTrack = packet.tracks.find(track => track.kind === 'subtitle');
       
       // 재생 시작 알림
       if (this.onPacketPlay) {
         this.onPacketPlay(packet);
       }
       
+      // 🆕 모든 트랙을 동시에 시작하되, 오디오 완료 시점으로 동기화
+      const allPromises = [];
+      let audioEndPromise = null;
+      
+      // 오디오 트랙 재생 시작 (완료 Promise 반환)
+      if (audioTrack) {
+        console.log('🎵 오디오 재생 시작 (동시 실행)');
+        audioEndPromise = this.playAudioTrackWithDuration(audioTrack, packet);
+        allPromises.push(audioEndPromise);
+      }
+      
+      // 비디오와 자막을 즉시 시작하고, 오디오 완료와 동기화
+      if (videoTrack && audioEndPromise) {
+        allPromises.push(this.playVideoTrackWithAudioSync(videoTrack, packet, audioEndPromise));
+      }
+      
+      if (subtitleTrack && audioEndPromise) {
+        allPromises.push(this.playSubtitleTrackWithAudioSync(subtitleTrack, packet, audioEndPromise));
+      }
+      
       // 모든 트랙 재생 완료 대기
-      await Promise.all(playPromises);
+      if (allPromises.length > 0) {
+        await Promise.all(allPromises);
+      }
       
       // 🆕 처리 시간 계산 및 기록
       const processingTime = Date.now() - playStartTime;
@@ -251,7 +259,70 @@ class MediaPacketSyncController {
   }
 
   /**
-   * 오디오 트랙 재생
+   * 실제 재생 시간을 측정하면서 오디오 트랙 재생
+   * @param {Object} track - 오디오 트랙
+   * @param {Object} packet - 부모 패킷
+   * @returns {Promise<number>} 실제 재생 시간(ms)
+   */
+  async playAudioTrackWithDuration(track, packet) {
+    return new Promise((resolve, reject) => {
+      try {
+        const startTime = Date.now();
+        console.log(`🔊 오디오 재생 시작 (시간 측정): ${track.dur}ms, engine=${track.meta?.engine || 'unknown'}`);
+        
+        // AudioRef 사용 (React 컴포넌트의 audio 요소)
+        if (this.audioRef?.current) {
+          const audio = this.audioRef.current;
+          audio.src = track.payload_ref;
+          audio.volume = 0.8;
+          
+          const handleEnded = () => {
+            const actualDuration = Date.now() - startTime;
+            audio.removeEventListener('ended', handleEnded);
+            audio.removeEventListener('error', handleError);
+            console.log(`🔊 오디오 재생 완료 (실제 시간): seq=${packet.seq}, ${actualDuration}ms`);
+            resolve(actualDuration);
+          };
+          
+          const handleError = (error) => {
+            audio.removeEventListener('ended', handleEnded);
+            audio.removeEventListener('error', handleError);
+            console.error(`❌ 오디오 재생 실패: seq=${packet.seq}`, error);
+            resolve(track.dur); // 폴백으로 예상 시간 반환
+          };
+          
+          audio.addEventListener('ended', handleEnded);
+          audio.addEventListener('error', handleError);
+          
+          audio.play().catch(handleError);
+        } else {
+          // AudioRef가 없으면 새로운 Audio 객체 사용
+          const audio = new Audio(track.payload_ref);
+          audio.volume = 0.8;
+          
+          audio.onended = () => {
+            const actualDuration = Date.now() - startTime;
+            console.log(`🔊 오디오 재생 완료 (실제 시간): seq=${packet.seq}, ${actualDuration}ms`);
+            resolve(actualDuration);
+          };
+          
+          audio.onerror = (error) => {
+            console.error(`❌ 오디오 재생 실패: seq=${packet.seq}`, error);
+            resolve(track.dur); // 폴백으로 예상 시간 반환
+          };
+          
+          audio.play().catch(() => resolve(track.dur));
+        }
+        
+      } catch (error) {
+        console.error(`❌ 오디오 트랙 처리 실패: seq=${packet.seq}`, error);
+        resolve(track.dur); // 폴백으로 예상 시간 반환
+      }
+    });
+  }
+
+  /**
+   * 오디오 트랙 재생 (기존 메서드 유지)
    * @param {Object} track - 오디오 트랙
    * @param {Object} packet - 부모 패킷
    */
@@ -317,12 +388,25 @@ class MediaPacketSyncController {
   async playVideoTrack(track, packet) {
     return new Promise((resolve) => {
       try {
-        console.log(`🎥 비디오 전환: ${track.payload_ref}, 감정=${track.meta?.emotion || 'neutral'}`);
+        console.log(`🎥 MediaPacketSyncController.playVideoTrack 시작:`, {
+          payloadRef: track.payload_ref,
+          emotion: track.meta?.emotion || 'neutral',
+          duration: track.dur,
+          hasVideoTransitionManager: !!this.videoTransitionManager?.current,
+          hasChangeVideoMethod: !!this.videoTransitionManager?.current?.changeVideo
+        });
         
         // VideoTransitionManager 사용 (React 컴포넌트)
         if (this.videoTransitionManager?.current?.changeVideo) {
           const videoPath = track.payload_ref.replace(/^\/videos\//, '').replace(/^jammin-i\//, '');
+          console.log(`🎥 VideoTransitionManager.changeVideo 호출: ${track.payload_ref} -> ${videoPath}`);
           this.videoTransitionManager.current.changeVideo(videoPath);
+        } else {
+          console.error('❌ VideoTransitionManager 또는 changeVideo 메서드가 없음:', {
+            hasManager: !!this.videoTransitionManager,
+            hasCurrent: !!this.videoTransitionManager?.current,
+            hasChangeVideo: !!this.videoTransitionManager?.current?.changeVideo
+          });
         }
         
         // 비디오 전환 이벤트 발생 (추가적인 UI 업데이트용)
@@ -335,11 +419,146 @@ class MediaPacketSyncController {
           }
         }));
         
-        // 비디오 지속 시간 후 완료
+        // 비디오 지속 시간 후 완료 및 idle 복귀
         setTimeout(() => {
-          console.log(`🎥 비디오 재생 완료: seq=${packet.seq}`);
+          console.log(`🎥 비디오 재생 완료: seq=${packet.seq}, idle로 복귀 시작`);
+          
+          // idle 비디오로 복귀
+          if (this.videoTransitionManager?.current?.changeVideo) {
+            // characterId는 비디오 경로에서 추출 가능
+            const characterMatch = track.payload_ref.match(/\/videos\/(\w+)\//);
+            const characterId = characterMatch ? characterMatch[1] : 'hongseohyun';
+            const idleVideo = `${characterId}_idle_2.mp4`;
+            
+            console.log(`🔄 idle 복귀: ${characterId} -> ${idleVideo}`);
+            this.videoTransitionManager.current.changeVideo(idleVideo);
+          }
+          
           resolve();
         }, track.dur);
+        
+      } catch (error) {
+        console.error(`❌ 비디오 트랙 처리 실패: seq=${packet.seq}`, error);
+        resolve(); // 비디오 실패해도 전체 재생은 계속
+      }
+    });
+  }
+
+  /**
+   * 오디오 완료와 동기화된 비디오 트랙 재생 (즉시 시작)
+   * @param {Object} track - 비디오 트랙
+   * @param {Object} packet - 부모 패킷
+   * @param {Promise} audioEndPromise - 오디오 완료 Promise
+   */
+  async playVideoTrackWithAudioSync(track, packet, audioEndPromise) {
+    return new Promise(async (resolve) => {
+      try {
+        console.log(`🎥 비디오 트랙 즉시 시작 (오디오와 동기화):`, {
+          payloadRef: track.payload_ref,
+          originalDuration: track.dur
+        });
+        
+        // 비디오를 즉시 시작
+        if (this.videoTransitionManager?.current?.changeVideo) {
+          const videoPath = track.payload_ref.replace(/^\/videos\//, '').replace(/^jammin-i\//, '');
+          console.log(`🎥 VideoTransitionManager.changeVideo 즉시 호출: ${track.payload_ref} -> ${videoPath}`);
+          this.videoTransitionManager.current.changeVideo(videoPath);
+        } else {
+          console.error('❌ VideoTransitionManager 또는 changeVideo 메서드가 없음');
+        }
+        
+        // 비디오 전환 이벤트 발생
+        window.dispatchEvent(new CustomEvent('videoTrackChange', {
+          detail: {
+            videoPath: track.payload_ref,
+            emotion: track.meta?.emotion,
+            duration: track.dur, // 초기에는 예상 시간
+            packet: packet
+          }
+        }));
+        
+        // 오디오 완료를 기다린 후 idle로 복귀
+        try {
+          const actualDuration = await audioEndPromise;
+          console.log(`🎥 오디오 완료 감지, idle로 복귀: 실제 시간=${actualDuration}ms`);
+          
+          // idle 비디오로 복귀
+          if (this.videoTransitionManager?.current?.changeVideo) {
+            const characterMatch = track.payload_ref.match(/\/videos\/(\w+)\//);
+            const characterId = characterMatch ? characterMatch[1] : 'hongseohyun';
+            
+            // 사용 가능한 idle 비디오 찾기
+            const idleOptions = [`${characterId}_idle_1.mp4`, `${characterId}_idle_2.mp4`, `${characterId}_idle_3.mp4`];
+            const idleVideo = idleOptions[0]; // 첫 번째 옵션 사용
+            
+            console.log(`🔄 오디오 동기화 idle 복귀: ${characterId} -> ${idleVideo}`);
+            this.videoTransitionManager.current.changeVideo(idleVideo);
+          }
+          
+          resolve();
+        } catch (error) {
+          console.error('❌ 오디오 완료 대기 중 오류:', error);
+          resolve();
+        }
+        
+      } catch (error) {
+        console.error(`❌ 동기화된 비디오 트랙 처리 실패: seq=${packet.seq}`, error);
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * 실제 오디오 재생 시간에 동기화된 비디오 트랙 재생 (기존 메서드)
+   * @param {Object} track - 비디오 트랙
+   * @param {Object} packet - 부모 패킷
+   * @param {number} actualAudioDuration - 실제 오디오 재생 시간(ms)
+   */
+  async playVideoTrackSynchronized(track, packet, actualAudioDuration) {
+    return new Promise((resolve) => {
+      try {
+        console.log(`🎥 동기화된 비디오 트랙 재생:`, {
+          payloadRef: track.payload_ref,
+          originalDuration: track.dur,
+          actualAudioDuration,
+          emotion: track.meta?.emotion || 'neutral'
+        });
+        
+        // VideoTransitionManager 사용 (React 컴포넌트)
+        if (this.videoTransitionManager?.current?.changeVideo) {
+          const videoPath = track.payload_ref.replace(/^\/videos\//, '').replace(/^jammin-i\//, '');
+          console.log(`🎥 VideoTransitionManager.changeVideo 호출 (동기화): ${track.payload_ref} -> ${videoPath}`);
+          this.videoTransitionManager.current.changeVideo(videoPath);
+        } else {
+          console.error('❌ VideoTransitionManager 또는 changeVideo 메서드가 없음');
+        }
+        
+        // 비디오 전환 이벤트 발생 (추가적인 UI 업데이트용)
+        window.dispatchEvent(new CustomEvent('videoTrackChange', {
+          detail: {
+            videoPath: track.payload_ref,
+            emotion: track.meta?.emotion,
+            duration: actualAudioDuration, // 실제 오디오 시간 사용
+            packet: packet
+          }
+        }));
+        
+        // 실제 오디오 재생 시간 후 완료 및 idle 복귀
+        setTimeout(() => {
+          console.log(`🎥 동기화된 비디오 재생 완료: seq=${packet.seq}, idle로 복귀 시작`);
+          
+          // idle 비디오로 복귀
+          if (this.videoTransitionManager?.current?.changeVideo) {
+            const characterMatch = track.payload_ref.match(/\/videos\/(\w+)\//);
+            const characterId = characterMatch ? characterMatch[1] : 'hongseohyun';
+            const idleVideo = `${characterId}_idle_2.mp4`;
+            
+            console.log(`🔄 동기화된 idle 복귀: ${characterId} -> ${idleVideo}`);
+            this.videoTransitionManager.current.changeVideo(idleVideo);
+          }
+          
+          resolve();
+        }, actualAudioDuration);
         
       } catch (error) {
         console.error(`❌ 비디오 트랙 처리 실패: seq=${packet.seq}`, error);
@@ -356,10 +575,20 @@ class MediaPacketSyncController {
   async playSubtitleTrack(track, packet) {
     return new Promise((resolve) => {
       try {
+        console.log(`💬 MediaPacketSyncController.playSubtitleTrack 시작:`, {
+          payloadRef: track.payload_ref?.substring(0, 100) + '...',
+          duration: track.dur,
+          rawPayload: track.payload_ref
+        });
+        
         const subtitleData = JSON.parse(track.payload_ref);
-        console.log(`💬 자막 표시: ${subtitleData.segments?.length || 0}개 세그먼트`);
+        console.log(`💬 자막 파싱 성공:`, {
+          segmentCount: subtitleData.segments?.length || 0,
+          segments: subtitleData.segments
+        });
         
         // 자막 표시 이벤트 발생
+        console.log('💬 subtitleTrackChange 이벤트 발생');
         window.dispatchEvent(new CustomEvent('subtitleTrackChange', {
           detail: {
             subtitleData,
@@ -376,6 +605,113 @@ class MediaPacketSyncController {
         
       } catch (error) {
         console.error(`❌ 자막 트랙 처리 실패: seq=${packet.seq}`, error);
+        console.error('❌ 자막 payload_ref:', track.payload_ref);
+        resolve(); // 자막 실패해도 전체 재생은 계속
+      }
+    });
+  }
+
+  /**
+   * 오디오 완료와 동기화된 자막 트랙 재생 (즉시 시작)
+   * @param {Object} track - 자막 트랙
+   * @param {Object} packet - 부모 패킷
+   * @param {Promise} audioEndPromise - 오디오 완료 Promise
+   */
+  async playSubtitleTrackWithAudioSync(track, packet, audioEndPromise) {
+    return new Promise(async (resolve) => {
+      try {
+        console.log(`💬 자막 트랙 즉시 시작 (오디오와 동기화):`, {
+          originalDuration: track.dur,
+          payloadRef: track.payload_ref?.substring(0, 100) + '...'
+        });
+        
+        // 자막을 즉시 파싱하고 표시
+        const subtitleData = JSON.parse(track.payload_ref);
+        console.log(`💬 자막 즉시 파싱:`, {
+          segmentCount: subtitleData.segments?.length || 0,
+          segments: subtitleData.segments
+        });
+        
+        // 자막 표시 이벤트 즉시 발생
+        console.log('💬 자막 즉시 표시 이벤트 발생');
+        window.dispatchEvent(new CustomEvent('subtitleTrackChange', {
+          detail: {
+            subtitleData,
+            duration: track.dur, // 초기에는 예상 시간
+            packet: packet
+          }
+        }));
+        
+        // 오디오 완료를 기다린 후 자막 숨김
+        try {
+          console.log('💬 오디오 완료 대기 시작...');
+          const actualDuration = await audioEndPromise;
+          console.log(`💬 오디오 완료 감지! 자막 숨김 실행: 실제 시간=${actualDuration}ms`);
+          
+          // 자막 숨김을 위한 커스텀 이벤트 발생
+          console.log('💬 자막 숨김 이벤트 발생');
+          window.dispatchEvent(new CustomEvent('subtitleHide', {
+            detail: {
+              reason: 'audio_completed',
+              actualDuration: actualDuration,
+              packet: packet
+            }
+          }));
+          
+          resolve();
+        } catch (error) {
+          console.error('❌ 오디오 완료 대기 중 오류 (자막):', error);
+          resolve();
+        }
+        
+      } catch (error) {
+        console.error(`❌ 동기화된 자막 트랙 처리 실패: seq=${packet.seq}`, error);
+        console.error('❌ 자막 payload_ref:', track.payload_ref);
+        resolve();
+      }
+    });
+  }
+
+  /**
+   * 실제 오디오 재생 시간에 동기화된 자막 트랙 재생 (기존 메서드)
+   * @param {Object} track - 자막 트랙
+   * @param {Object} packet - 부모 패킷
+   * @param {number} actualAudioDuration - 실제 오디오 재생 시간(ms)
+   */
+  async playSubtitleTrackSynchronized(track, packet, actualAudioDuration) {
+    return new Promise((resolve) => {
+      try {
+        console.log(`💬 동기화된 자막 트랙 재생:`, {
+          originalDuration: track.dur,
+          actualAudioDuration,
+          payloadRef: track.payload_ref?.substring(0, 100) + '...'
+        });
+        
+        const subtitleData = JSON.parse(track.payload_ref);
+        console.log(`💬 동기화된 자막 파싱 성공:`, {
+          segmentCount: subtitleData.segments?.length || 0,
+          segments: subtitleData.segments
+        });
+        
+        // 자막 표시 이벤트 발생 (실제 오디오 시간 사용)
+        console.log('💬 동기화된 subtitleTrackChange 이벤트 발생');
+        window.dispatchEvent(new CustomEvent('subtitleTrackChange', {
+          detail: {
+            subtitleData,
+            duration: actualAudioDuration, // 실제 오디오 시간 사용
+            packet: packet
+          }
+        }));
+        
+        // 실제 오디오 재생 시간 후 완료
+        setTimeout(() => {
+          console.log(`💬 동기화된 자막 표시 완료: seq=${packet.seq}`);
+          resolve();
+        }, actualAudioDuration);
+        
+      } catch (error) {
+        console.error(`❌ 동기화된 자막 트랙 처리 실패: seq=${packet.seq}`, error);
+        console.error('❌ 자막 payload_ref:', track.payload_ref);
         resolve(); // 자막 실패해도 전체 재생은 계속
       }
     });
@@ -542,7 +878,5 @@ class MediaPacketSyncController {
   }
 }
 
-// 전역 인스턴스 (싱글톤)
-const mediaPacketSyncController = new MediaPacketSyncController();
-
-export default mediaPacketSyncController;
+// 방별 독립적인 인스턴스 생성을 위해 클래스만 export
+export default MediaPacketSyncController;

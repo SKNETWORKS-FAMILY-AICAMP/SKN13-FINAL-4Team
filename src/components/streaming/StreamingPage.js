@@ -5,11 +5,12 @@ import { getValidToken } from '../../utils/tokenUtils';
 import api from '../../api';
 // import { getDefaultIdleVideo, getRandomIdleVideo } from '../../utils/videoConfig';
 
-// import VideoPlayer from './VideoPlayer';
+import VideoPlayer from './VideoPlayer';
 
 import styles from './StreamingPage.module.css';
 import DonationIsland from './DonationIsland';
 import { w3cwebsocket as W3CWebSocket } from 'websocket';
+import MediaPacketSyncController from '../../services/MediaPacketSyncController';
 
 // 한글 이름을 영문 캐릭터 ID로 매핑
 const getCharacterIdFromName = (name) => {
@@ -27,6 +28,13 @@ function StreamingPage() {
     const navigate = useNavigate();
     const videoRef = useRef(null);
     const videoTransitionRef = useRef(null);
+    const subtitleRef = useRef(null);
+    const audioRef = useRef(null);
+    
+    // 방별 독립적인 MediaPacketSyncController 인스턴스
+    const mediaPacketSyncControllerRef = useRef(null);
+    const [currentSubtitle, setCurrentSubtitle] = useState('');
+    const [showSubtitle, setShowSubtitle] = useState(false);
     // hlsRef 제거
     const [room, setRoom] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -52,6 +60,22 @@ function StreamingPage() {
     
     const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
     const websocketBaseUrl = process.env.REACT_APP_WEBSOCKET_BASE_URL || 'ws://localhost:8000';
+    
+    // 방별 독립적인 MediaPacketSyncController 초기화
+    useEffect(() => {
+        if (!mediaPacketSyncControllerRef.current) {
+            console.log(`🎬 방 ${roomId}별 MediaPacketSyncController 생성`);
+            mediaPacketSyncControllerRef.current = new MediaPacketSyncController();
+        }
+        
+        return () => {
+            // 컴포넌트 언마운트 시 정리
+            if (mediaPacketSyncControllerRef.current) {
+                console.log(`🗑️ 방 ${roomId} MediaPacketSyncController 정리`);
+                mediaPacketSyncControllerRef.current = null;
+            }
+        };
+    }, [roomId]);
 
     // WebSocket 메시지 처리 (TTS 설정 변경 및 새로운 Broadcasting 포함)
     const handleWebSocketMessage = (data) => {
@@ -85,58 +109,51 @@ function StreamingPage() {
             console.log('💰 후원 오버레이(직접 변환) 표시:', overlayData);
             setDonationOverlay({ visible: true, data: overlayData });
         }
-        // 🆕 비디오 전환 이벤트 처리
+        // 🆕 비디오 전환 이벤트 처리 (직접 비디오 전환 메시지)
         else if (data.type === 'video_transition' && data.transition) {
             console.log('🎬 비디오 전환 이벤트 처리:', data.transition);
             
             const { video_file, state, character_id, emotion } = data.transition;
             
             // VideoPlayer에 비디오 전환 요청
-            if (videoTransitionRef.current && video_file) {
+            if (videoTransitionRef.current && videoTransitionRef.current.changeVideo && video_file) {
                 console.log(`🎥 비디오 전환 실행: ${state} -> ${video_file}`);
                 videoTransitionRef.current.changeVideo(video_file);
             }
         }
-        // 🆕 MediaPacket 처리 (FIFO 순차 처리)
+        // 🆕 MediaPacket 처리 (MediaPacketSyncController 사용)
         else if (data.type === 'media_packet' && data.packet) {
-            console.log('📦 MediaPacket 수신 (FIFO 순차 처리):', data.packet);
+            console.log('📦 MediaPacket 수신 (방별 SyncController로 전달):', {
+                roomId,
+                packet: data.packet,
+                timestamp: data.timestamp,
+                tracks: data.packet.tracks?.length || 0,
+                seq: data.packet.seq,
+                hasVideoRef: !!videoTransitionRef.current,
+                hasAudioRef: !!audioRef.current,
+                hasSyncController: !!mediaPacketSyncControllerRef.current,
+                syncControllerReady: !!(mediaPacketSyncControllerRef.current?.videoTransitionManager && mediaPacketSyncControllerRef.current?.audioRef)
+            });
             
-            // MediaPacket의 트랙들을 처리
-            const packet = data.packet;
-            if (packet.tracks && packet.tracks.length > 0) {
-                packet.tracks.forEach(track => {
-                    console.log(`🎵 트랙 처리: ${track.kind} (duration: ${track.dur}ms)`);
-                    
-                    if (track.kind === 'audio' && track.payload_ref) {
-                        // 오디오 트랙 재생
-                        console.log('🎵 오디오 재생:', track.payload_ref.substring(0, 50) + '...');
-                        const audio = new Audio(track.payload_ref);
-                        audio.play().catch(e => console.error('오디오 재생 실패:', e));
-                    }
-                    
-                    if (track.kind === 'video' && track.payload_ref) {
-                        // 비디오 트랙 전환
-                        console.log('🎬 비디오 전환:', track.payload_ref);
-                        if (videoTransitionRef.current) {
-                            videoTransitionRef.current.changeVideo(track.payload_ref);
-                        }
-                    }
-                    
-                    if (track.kind === 'subtitle' && track.payload_ref) {
-                        const subtitleData = JSON.parse(track.payload_ref);
-                        console.log('💬 자막 데이터:', subtitleData);
-                        
-                        // 기존 자막 이벤트 발생 (MediaPacketSyncController와 동일하게)
-                        window.dispatchEvent(new CustomEvent('subtitleTrackChange', {
-                            detail: {
-                                subtitleData,
-                                duration: track.dur,
-                                packet: packet
-                            }
-                        }));
-                    }
-                });
+            // 방별 MediaPacketSyncController에 위임
+            try {
+                if (mediaPacketSyncControllerRef.current) {
+                    mediaPacketSyncControllerRef.current.onMediaPacketReceived(data.packet, data.timestamp);
+                    console.log(`✅ 방 ${roomId} MediaPacket SyncController 전달 성공`);
+                } else {
+                    console.error(`❌ 방 ${roomId} MediaPacketSyncController가 초기화되지 않음`);
+                }
+            } catch (error) {
+                console.error(`❌ 방 ${roomId} MediaPacket SyncController 전달 실패:`, error);
             }
+        }
+        // 🆕 처리되지 않은 메시지 타입 로깅
+        else {
+            console.log('❓ 처리되지 않은 메시지 타입:', {
+                type: data.type,
+                hasPacket: !!data.packet,
+                keys: Object.keys(data)
+            });
         }
     };
 
@@ -198,13 +215,30 @@ function StreamingPage() {
                 chatClientRef.current = websocketClient;
 
                 websocketClient.onopen = () => {
-                    console.log('WebSocket Client Connected');
+                    console.log('✅ WebSocket Client Connected to:', `${websocketBaseUrl}/ws/stream/${roomId}/`);
+                    console.log('🔗 연결 상태:', {
+                        readyState: websocketClient.readyState,
+                        url: websocketClient.url,
+                        protocol: websocketClient.protocol
+                    });
                 };
 
                 websocketClient.onmessage = (message) => {
-                    const dataFromServer = JSON.parse(message.data);
-                    setChatMessages(prev => [...prev, dataFromServer]);
-                    handleWebSocketMessage(dataFromServer);
+                    try {
+                        const dataFromServer = JSON.parse(message.data);
+                        console.log('🔍 WebSocket 메시지 수신:', {
+                            type: dataFromServer.type,
+                            hasPacket: !!dataFromServer.packet,
+                            messageSize: message.data.length,
+                            timestamp: dataFromServer.timestamp,
+                            data: dataFromServer
+                        });
+                        
+                        setChatMessages(prev => [...prev, dataFromServer]);
+                        handleWebSocketMessage(dataFromServer);
+                    } catch (error) {
+                        console.error('❌ WebSocket 메시지 파싱 오류:', error, message.data);
+                    }
                 };
 
                 websocketClient.onerror = (err) => {
@@ -232,60 +266,74 @@ function StreamingPage() {
         };
     }, [roomId, navigate, websocketBaseUrl]);
 
-    // 비디오 초기화 useEffect (room과 DOM 준비 후)
+    // 방별 MediaPacketSyncController 참조 설정
     useEffect(() => {
-        console.log('🎥 비디오 초기화 useEffect:', { 
-            hasRoom: !!room, 
-            hasInfluencer: !!room?.influencer,
-            hasVideoRef: !!videoRef.current 
+        console.log(`🔍 방 ${roomId} MediaPacketSyncController 참조 설정 시도:`, {
+            hasVideoRef: !!videoTransitionRef.current,
+            hasAudioRef: !!audioRef.current,
+            hasRoom: !!room,
+            hasSyncController: !!mediaPacketSyncControllerRef.current,
+            roomInfluencer: room?.influencer?.name
         });
-        // 로딩 중에는 비디오 엘리먼트가 렌더되지 않아 ref가 null일 수 있음
-        if (loading) return;
-
-        if (room && room.influencer && videoRef.current) {
-            const characterId = getCharacterIdFromName(room.influencer.name);
-            
-            // 캐릭터별 기본 비디오 파일 정의 (fallback 포함)
-            const getDefaultVideoFile = (charId) => {
-                const videoOptions = {
-                    'hongseohyun': ['idle_2', 'idle_3', 'idle_4'], // idle_1이 없음
-                    'kimchunki': ['idle_1', 'idle_2', 'idle_3'],
-                    'ohyul': ['idle_1', 'idle_2', 'idle_3'],
-                    'kangsihyun': ['idle_1', 'idle_2', 'idle_3']
-                };
-                
-                const options = videoOptions[charId] || ['idle_1'];
-                return `${charId}_${options[0]}.mp4`; // 첫 번째 옵션 사용
-            };
-            
-            const videoFileName = getDefaultVideoFile(characterId);
-            const defaultVideo = `/videos/${characterId}/${videoFileName}`;
-            
-            console.log('📹 비디오 경로 생성 (fallback 적용):', { 
-                influencerName: room.influencer.name,
-                characterId, 
-                videoFileName,
-                videoPath: defaultVideo 
-            });
-            
-            console.log('🎬 비디오 요소에 설정 중...');
-            const video = videoRef.current;
-            video.src = defaultVideo;
-            
-            // 비디오 로드 및 재생 이벤트 확인
-            video.addEventListener('loadstart', () => console.log('📼 비디오 로드 시작:', defaultVideo));
-            video.addEventListener('loadeddata', () => console.log('✅ 비디오 데이터 로드됨'));
-            video.addEventListener('canplay', () => console.log('▶️ 비디오 재생 가능'));
-            video.addEventListener('play', () => console.log('🎬 비디오 재생 시작'));
-            video.addEventListener('error', (e) => {
-                console.error('❌ 비디오 에러:', e, video.error);
-                console.log('🔄 폴백 시도...');
-            });
-            
-            video.load();
-            console.log('🔄 비디오 로드 호출됨');
+        
+        if (mediaPacketSyncControllerRef.current && videoTransitionRef.current && audioRef.current) {
+            console.log(`🔗 방 ${roomId} MediaPacketSyncController 참조 설정 성공`);
+            mediaPacketSyncControllerRef.current.setReferences(videoTransitionRef, audioRef);
+        } else {
+            console.warn(`⚠️ 방 ${roomId} MediaPacketSyncController 참조 설정 실패 - ref가 준비되지 않음`);
         }
-    }, [room, loading]); // 로딩 완료 시에도 재실행
+    }, [roomId, room, videoTransitionRef.current, audioRef.current, mediaPacketSyncControllerRef.current]); // 더 세밀한 의존성 추가
+
+    // 자막 이벤트 리스너 설정
+    useEffect(() => {
+        const handleSubtitleChange = (event) => {
+            const { subtitleData, duration } = event.detail;
+            console.log('💬 자막 이벤트 수신:', {
+                subtitleData,
+                duration,
+                hasSegments: subtitleData?.segments?.length > 0
+            });
+            
+            if (subtitleData && subtitleData.segments && subtitleData.segments.length > 0) {
+                // 모든 세그먼트의 텍스트를 합쳐서 표시
+                const allText = subtitleData.segments
+                    .map(segment => segment.word || segment.text || segment.content || '')
+                    .join(' ')
+                    .trim();
+                
+                console.log('💬 자막 텍스트 추출:', allText);
+                
+                if (allText) {
+                    setCurrentSubtitle(allText);
+                    setShowSubtitle(true);
+                    console.log('💬 자막 표시 완료');
+                    
+                    // 더 이상 duration 기반 타이머는 사용하지 않음 (오디오 동기화로 대체)
+                } else {
+                    console.warn('⚠️ 자막 텍스트가 비어있음');
+                }
+            } else {
+                console.log('💬 자막 데이터 없음 또는 빈 세그먼트');
+            }
+        };
+        
+        // 별도의 자막 숨김 이벤트 리스너
+        const handleSubtitleHide = (event) => {
+            const { reason, actualDuration } = event.detail;
+            console.log(`💬 자막 숨김 이벤트 수신: ${reason}, duration=${actualDuration}ms`);
+            setShowSubtitle(false);
+            setCurrentSubtitle('');
+            console.log('💬 자막 숨김 완료');
+        };
+        
+        window.addEventListener('subtitleTrackChange', handleSubtitleChange);
+        window.addEventListener('subtitleHide', handleSubtitleHide);
+        
+        return () => {
+            window.removeEventListener('subtitleTrackChange', handleSubtitleChange);
+            window.removeEventListener('subtitleHide', handleSubtitleHide);
+        };
+    }, []);
 
     // 채팅 스크롤 자동 내리기
     useEffect(() => {
@@ -376,30 +424,18 @@ function StreamingPage() {
             {/* 왼쪽 메인 콘텐츠 영역 */}
             <div className={styles.streamMainContent}>
                 <div className={styles.videoPlayerContainer}>
-                    <video
-                        ref={videoRef}
+                    <VideoPlayer
+                        ref={videoTransitionRef}
+                        characterId={room.influencer ? getCharacterIdFromName(room.influencer.name) : 'hongseohyun'}
                         className={styles.videoPlayer}
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
+                        donationOverlay={donationOverlay}
                     />
-                    {donationOverlay?.visible && donationOverlay?.data && (
-                        <div className={styles.donationOverlay}>
-                            <div className={styles.donationOverlayTitle}>
-                                <span className={styles.donationEmoji}>💰</span>
-                                <strong>{donationOverlay.data.username}</strong>
-                                <span>님이 </span>
-                                <strong className={styles.donationOverlayAmount}>
-                                    {Number(donationOverlay.data.amount).toLocaleString()}
-                                </strong>
-                                <span> 크레딧을 후원하셨습니다.</span>
+                    {/* 자막 오버레이 */}
+                    {showSubtitle && currentSubtitle && (
+                        <div className={styles.subtitleOverlay}>
+                            <div className={styles.subtitleText}>
+                                {currentSubtitle}
                             </div>
-                            {donationOverlay.data.message && (
-                                <div className={styles.donationOverlayMessage}>
-                                    {donationOverlay.data.message}
-                                </div>
-                            )}
                         </div>
                     )}
                     {room.status === 'live' && (
@@ -440,6 +476,9 @@ function StreamingPage() {
                     </div>
                     <button className={styles.adButton}>자세히 보기</button>
                 </div>
+                
+                {/* 숨겨진 오디오 엘리먼트 (MediaPacket TTS 재생용) */}
+                <audio ref={audioRef} style={{ display: 'none' }} />
             </div>
 
             {/* 오른쪽 라이브 채팅 사이드바 */}
