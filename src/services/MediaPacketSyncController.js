@@ -75,7 +75,13 @@ class MediaPacketSyncController {
     // 세션 ID 설정 (첫 패킷)
     if (!this.sessionId) {
       this.sessionId = packet.session_id;
-      console.log(`🆔 세션 ID 설정: ${this.sessionId}`);
+      // 🆕 중간 접속 처리: seq 가 0이 아니면 현재 시퀀스로 동기화
+      if (packet.seq > 0) {
+        this.lastProcessedSeq = packet.seq - 1;
+        console.log(`🆔 중간 접속 감지: 세션 ${this.sessionId}, 시작 시퀀스: ${packet.seq}`);
+      } else {
+        console.log(`🆔 세션 ID 설정: ${this.sessionId}, 첫 번째 클라이언트`);
+      }
     }
     
     // 세션 ID 불일치 체크
