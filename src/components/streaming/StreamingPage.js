@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate  } from 'react-router-dom';
 import { getValidToken } from '../../utils/tokenUtils'; 
 // HLS.js 완전 제거
@@ -9,18 +9,19 @@ import VideoPlayer from './VideoPlayer';
 
 import styles from './StreamingPage.module.css';
 import DonationIsland from './DonationIsland';
-import { w3cwebsocket as W3CWebSocket } from 'websocket';
+// 브라우저 네이티브 WebSocket 사용
 import MediaPacketSyncController from '../../services/MediaPacketSyncController';
 
-// 한글 이름을 영문 캐릭터 ID로 매핑
+// 한글 이름을 영문 캐릭터 ID로 매핑 (컴포넌트 외부로 이동)
+const NAME_MAPPING = {
+    '홍세현': 'hongseohyun',
+    '김춘기': 'kimchunki', 
+    '오율': 'ohyul',
+    '강시현': 'kangsihyun'
+};
+
 const getCharacterIdFromName = (name) => {
-    const nameMapping = {
-        '홍세현': 'hongseohyun',
-        '김춘기': 'kimchunki', 
-        '오율': 'ohyul',
-        '강시현': 'kangsihyun'
-    };
-    return nameMapping[name] || 'hongseohyun'; // 기본값
+    return NAME_MAPPING[name] || 'hongseohyun'; // 기본값
 };
 
 function StreamingPage() {
@@ -73,6 +74,10 @@ function StreamingPage() {
             // 컴포넌트 언마운트 시 정리
             if (mediaPacketSyncControllerRef.current) {
                 console.log(`🗑️ 방 ${roomId} MediaPacketSyncController 정리`);
+                // MediaPacketSyncController 인스턴스에 cleanup 메소드가 있다면 호출
+                if (typeof mediaPacketSyncControllerRef.current.cleanup === 'function') {
+                    mediaPacketSyncControllerRef.current.cleanup();
+                }
                 mediaPacketSyncControllerRef.current = null;
             }
         };
@@ -212,7 +217,7 @@ function StreamingPage() {
                 
 
                 // 4. 모든 정보가 준비된 후 웹소켓 연결
-                websocketClient = new W3CWebSocket(`${websocketBaseUrl}/ws/stream/${roomId}/?token=${token}`);
+                websocketClient = new WebSocket(`${websocketBaseUrl}/ws/stream/${roomId}/?token=${token}`);
                 chatClientRef.current = websocketClient;
 
                 websocketClient.onopen = () => {
@@ -261,9 +266,17 @@ function StreamingPage() {
 
         initializePage();
 
-        // 컴포넌트가 사라질 때 웹소켓 연결만 정리 (HLS 제거됨)
+        // 컴포넌트가 사라질 때 메모리 누수 방지를 위한 정리
         return () => {
-            websocketClient?.close();
+            if (websocketClient) {
+                websocketClient.onopen = null;
+                websocketClient.onmessage = null;
+                websocketClient.onerror = null;
+                websocketClient.onclose = null;
+                if (websocketClient.readyState === WebSocket.OPEN || websocketClient.readyState === WebSocket.CONNECTING) {
+                    websocketClient.close();
+                }
+            }
         };
     }, [roomId, navigate, websocketBaseUrl]);
 
@@ -331,6 +344,7 @@ function StreamingPage() {
         window.addEventListener('subtitleHide', handleSubtitleHide);
         
         return () => {
+            // 이벤트 리스너 정리
             window.removeEventListener('subtitleTrackChange', handleSubtitleChange);
             window.removeEventListener('subtitleHide', handleSubtitleHide);
         };
@@ -378,12 +392,12 @@ function StreamingPage() {
         }
     }, [messageInput]);
 
-    const handleMessageSubmit = (e) => {
+    const handleMessageSubmit = useCallback((e) => {
         e.preventDefault();
         sendMessage();
-    };
+    }, [sendMessage]);
 
-    const handleLikeClick = async () => {
+    const handleLikeClick = useCallback(async () => {
         if (!user || !room?.influencer?.id) {
             alert('로그인이 필요한 기능입니다.');
             return;
@@ -407,18 +421,23 @@ function StreamingPage() {
             setLikeCount(prevCount);
             alert('좋아요 처리에 실패했습니다.');
         }
-    };
+    }, [user, room?.influencer?.id, isLiked, likeCount]);
 
+    // 이미지 URL 최적화를 위한 memoization (조건부 리턴 전에 호출)
+    const defaultProfileImage = useMemo(() => {
+        return "data:image/svg+xml,%3Csvg width='50' height='50' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='50' height='50' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23999' text-anchor='middle' dy='.3em'%3E👤%3C/text%3E%3C/svg%3E";
+    }, []);
+    
+    const profileImageUrl = useMemo(() => {
+        if (!room?.influencer?.profile_image) return defaultProfileImage;
+        return room.influencer.profile_image.startsWith('http') 
+            ? room.influencer.profile_image 
+            : `${apiBaseUrl}${room.influencer.profile_image}`;
+    }, [room?.influencer?.profile_image, apiBaseUrl, defaultProfileImage]);
     
     if (loading) return <div className={styles.pageContainer}><p>로딩 중...</p></div>;
     if (error) return <div className={styles.pageContainer}><p>{error}</p></div>;
     if (!room) return <div className={styles.pageContainer}><p>방 정보를 찾을 수 없습니다.</p></div>;
-
-    const defaultProfileImage = "data:image/svg+xml,%3Csvg width='50' height='50' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='50' height='50' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23999' text-anchor='middle' dy='.3em'%3E👤%3C/text%3E%3C/svg%3E";
-    
-    const profileImageUrl = room.influencer?.profile_image 
-        ? (room.influencer.profile_image.startsWith('http') ? room.influencer.profile_image : `${apiBaseUrl}${room.influencer.profile_image}`)
-        : defaultProfileImage;
 
     return (
         <div className={styles.pageContainer}>
@@ -455,17 +474,19 @@ function StreamingPage() {
                             <img src={profileImageUrl} alt={room.influencer?.name} className={styles.streamerProfilePic} />
                             <div className={styles.streamerText}>
                                 <span className={styles.streamerName}>{room.influencer?.name}</span>
-                                <span className={styles.likesCount}>좋아요 수 : {likeCount?.toLocaleString() || 0}</span>
                             </div>
-                            <button 
-                                className={`${styles.likeButton} ${isLiked ? styles.likeButtonActive : ''}`}
-                                onClick={handleLikeClick}
-                                title={isLiked ? '좋아요 취소' : '좋아요'}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                    <path fillRule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z"/>
-                                </svg>
-                            </button>
+                            <div className={styles.likeSection}>
+                                <button 
+                                    className={`${styles.likeButton} ${isLiked ? styles.likeButtonActive : ''}`}
+                                    onClick={handleLikeClick}
+                                    title={isLiked ? '좋아요 취소' : '좋아요'}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                        <path fillRule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z"/>
+                                    </svg>
+                                </button>
+                                <span className={styles.likesCount}>{likeCount?.toLocaleString() || 0}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
