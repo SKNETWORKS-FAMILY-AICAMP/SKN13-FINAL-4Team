@@ -404,14 +404,23 @@ class MediaPacketSyncController {
         
         // VideoTransitionManager 사용 (React 컴포넌트)
         if (this.videoTransitionManager?.current?.changeVideo) {
-          const videoPath = track.payload_ref.replace(/^\/videos\//, '').replace(/^jammin-i\//, '');
+          // 완전한 URL에서 파일명만 추출
+          let videoPath = track.payload_ref;
+          if (videoPath.startsWith('http://') || videoPath.startsWith('https://')) {
+            // URL에서 마지막 파일명만 추출
+            videoPath = videoPath.split('/').pop();
+          } else {
+            // 상대 경로일 경우 기존 로직 사용
+            videoPath = videoPath.replace(/^\/videos\//, '').replace(/^jammin-i\//, '');
+          }
           console.log(`🎥 VideoTransitionManager.changeVideo 호출: ${track.payload_ref} -> ${videoPath}`);
           this.videoTransitionManager.current.changeVideo(videoPath);
         } else {
           console.error('❌ VideoTransitionManager 또는 changeVideo 메서드가 없음:', {
             hasManager: !!this.videoTransitionManager,
             hasCurrent: !!this.videoTransitionManager?.current,
-            hasChangeVideo: !!this.videoTransitionManager?.current?.changeVideo
+            hasChangeVideo: !!this.videoTransitionManager?.current?.changeVideo,
+            rawPayloadRef: track.payload_ref
           });
         }
         
@@ -438,6 +447,12 @@ class MediaPacketSyncController {
             
             console.log(`🔄 idle 복귀: ${characterId} -> ${idleVideo}`);
             this.videoTransitionManager.current.changeVideo(idleVideo);
+          } else {
+            console.error('❌ idle 복귀 실패 - VideoTransitionManager가 없음:', {
+              hasManager: !!this.videoTransitionManager,
+              hasCurrent: !!this.videoTransitionManager?.current,
+              hasChangeVideo: !!this.videoTransitionManager?.current?.changeVideo
+            });
           }
           
           resolve();
@@ -466,11 +481,24 @@ class MediaPacketSyncController {
         
         // 비디오를 즉시 시작
         if (this.videoTransitionManager?.current?.changeVideo) {
-          const videoPath = track.payload_ref.replace(/^\/videos\//, '').replace(/^jammin-i\//, '');
+          // 완전한 URL에서 파일명만 추출
+          let videoPath = track.payload_ref;
+          if (videoPath.startsWith('http://') || videoPath.startsWith('https://')) {
+            // URL에서 마지막 파일명만 추출
+            videoPath = videoPath.split('/').pop();
+          } else {
+            // 상대 경로일 경우 기존 로직 사용
+            videoPath = videoPath.replace(/^\/videos\//, '').replace(/^jammin-i\//, '');
+          }
           console.log(`🎥 VideoTransitionManager.changeVideo 즉시 호출: ${track.payload_ref} -> ${videoPath}`);
           this.videoTransitionManager.current.changeVideo(videoPath);
         } else {
-          console.error('❌ VideoTransitionManager 또는 changeVideo 메서드가 없음');
+          console.error('❌ 동기화된 비디오 전환 실패 - VideoTransitionManager가 없음:', {
+            hasManager: !!this.videoTransitionManager,
+            hasCurrent: !!this.videoTransitionManager?.current,
+            hasChangeVideo: !!this.videoTransitionManager?.current?.changeVideo,
+            rawPayloadRef: track.payload_ref
+          });
         }
         
         // 비디오 전환 이벤트 발생
@@ -499,6 +527,12 @@ class MediaPacketSyncController {
             
             console.log(`🔄 오디오 동기화 idle 복귀: ${characterId} -> ${idleVideo}`);
             this.videoTransitionManager.current.changeVideo(idleVideo);
+          } else {
+            console.error('❌ 동기화된 idle 복귀 실패 - VideoTransitionManager가 없음:', {
+              hasManager: !!this.videoTransitionManager,
+              hasCurrent: !!this.videoTransitionManager?.current,
+              hasChangeVideo: !!this.videoTransitionManager?.current?.changeVideo
+            });
           }
           
           resolve();
@@ -532,7 +566,15 @@ class MediaPacketSyncController {
         
         // VideoTransitionManager 사용 (React 컴포넌트)
         if (this.videoTransitionManager?.current?.changeVideo) {
-          const videoPath = track.payload_ref.replace(/^\/videos\//, '').replace(/^jammin-i\//, '');
+          // 완전한 URL에서 파일명만 추출
+          let videoPath = track.payload_ref;
+          if (videoPath.startsWith('http://') || videoPath.startsWith('https://')) {
+            // URL에서 마지막 파일명만 추출
+            videoPath = videoPath.split('/').pop();
+          } else {
+            // 상대 경로일 경우 기존 로직 사용
+            videoPath = videoPath.replace(/^\/videos\//, '').replace(/^jammin-i\//, '');
+          }
           console.log(`🎥 VideoTransitionManager.changeVideo 호출 (동기화): ${track.payload_ref} -> ${videoPath}`);
           this.videoTransitionManager.current.changeVideo(videoPath);
         } else {

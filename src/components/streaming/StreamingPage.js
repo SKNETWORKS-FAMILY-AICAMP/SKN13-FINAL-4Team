@@ -287,14 +287,34 @@ function StreamingPage() {
             hasAudioRef: !!audioRef.current,
             hasRoom: !!room,
             hasSyncController: !!mediaPacketSyncControllerRef.current,
-            roomInfluencer: room?.influencer?.name
+            roomInfluencer: room?.influencer?.name,
+            videoTransitionRefType: typeof videoTransitionRef.current,
+            videoTransitionRefChangeVideo: !!videoTransitionRef.current?.changeVideo,
+            audioRefType: typeof audioRef.current
         });
         
         if (mediaPacketSyncControllerRef.current && videoTransitionRef.current && audioRef.current) {
             console.log(`🔗 방 ${roomId} MediaPacketSyncController 참조 설정 성공`);
+            console.log(`🔍 설정 전 videoTransitionRef 상태:`, {
+                current: !!videoTransitionRef.current,
+                changeVideo: !!videoTransitionRef.current?.changeVideo,
+                methods: videoTransitionRef.current ? Object.keys(videoTransitionRef.current) : []
+            });
+            
             mediaPacketSyncControllerRef.current.setReferences(videoTransitionRef, audioRef);
+            
+            // 설정 후 확인
+            console.log(`🔍 설정 후 MediaPacketSyncController 상태:`, {
+                hasVideoTransitionManager: !!mediaPacketSyncControllerRef.current.videoTransitionManager,
+                hasVideoTransitionManagerCurrent: !!mediaPacketSyncControllerRef.current.videoTransitionManager?.current,
+                hasChangeVideoMethod: !!mediaPacketSyncControllerRef.current.videoTransitionManager?.current?.changeVideo
+            });
         } else {
-            console.warn(`⚠️ 방 ${roomId} MediaPacketSyncController 참조 설정 실패 - ref가 준비되지 않음`);
+            console.warn(`⚠️ 방 ${roomId} MediaPacketSyncController 참조 설정 실패 - ref가 준비되지 않음:`, {
+                mediaPacketSyncController: !!mediaPacketSyncControllerRef.current,
+                videoTransitionRef: !!videoTransitionRef.current,
+                audioRef: !!audioRef.current
+            });
         }
     }, [roomId, room, videoTransitionRef.current, audioRef.current, mediaPacketSyncControllerRef.current]); // 더 세밀한 의존성 추가
 
