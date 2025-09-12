@@ -1,0 +1,31 @@
+# docker-compose.yml
+
+services:
+  backend:
+    build: ./backend
+    restart: always
+    command: bash -c "python manage.py collectstatic --no-input && python manage.py migrate && daphne -b 0.0.0.0 -p 8000 config.asgi:application"
+    volumes:
+      - ./backend:/app
+    env_file: .env
+    networks:
+      - app-net
+      
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./backend/static:/app/static
+      - ./backend/media:/app/media
+    depends_on:
+      - backend
+    networks:
+      - app-net
+
+networks:
+  app-net:
+    driver: bridge

@@ -1,0 +1,58 @@
+.sidebar {
+    width: 220px;
+    background-color: var(--color-surface);
+    padding-top: 1.5rem;
+    flex-shrink: 0;
+    border-right: 1px solid rgba(0,0,0,0.06);
+}
+
+.sidebarHeader {
+    padding: 1rem 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.sidebarNav {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebarLink {
+    display: block;
+    color: var(--color-text);
+    padding: 0.75rem 1.5rem;
+    text-decoration: none;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebarLink:hover {
+    background-color: rgba(0,0,0,0.04);
+    color: var(--color-text);
+}
+
+.active {
+    background-color: var(--brand);
+    color: #fff;
+    font-weight: 600;
+}
+
+.profilePic {
+    width: 40px;      /* 사진 넓이 */
+    height: 40px;     /* 사진 높이 */
+    border-radius: 60%; /* 원형 */
+    object-fit: cover;  /* 이미지 비율 유지*/
+    margin-right: 10px; /* 이름과의 간격 */
+    border: 1px solid rgba(255, 255, 255, 0.3); /* 테두리 */
+}
+
+.sidebarLinkIn {
+    display: flex;
+    align-items: center;
+    padding: 0.8rem 1.5rem;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+}

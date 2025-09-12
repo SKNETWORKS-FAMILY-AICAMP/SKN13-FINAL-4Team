@@ -1,6 +1,46 @@
+# Environments
 .env
-*.env
-.env
-*.env
-*/.env
-**/*.env
+.env.local
+.env.*.local
+env/
+venv/
+.venv/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+build/
+dist/
+*.egg-info/
+*.egg
+/backend/db.sqlite3
+/backend/media/
+/backend/staticfiles/
+
+# Node.js
+node_modules/
+/frontend/build/
+npm-debug.log*
+yarn-error.log
+yarn-debug.log
+
+# AI Models (should not be in git)
+/inference/omar_exaone_4.0_1.2b/
+
+# Tool-specific
+.claude/
+
+# Log files
+*.log

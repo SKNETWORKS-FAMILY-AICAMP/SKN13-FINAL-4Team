@@ -1,0 +1,173 @@
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import api from '../../api';
+import styles from './HomeTemporary.module.css';
+
+function HomeTemporary() {
+    const [rooms, setRooms] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [user, setUser] = useState(null);
+    const [influencers, setInfluencers] = useState([]);
+
+    const apiBaseUrl = process.env.REACT_APP_API_BASE_URL || '';
+
+    useEffect(() => {
+        const abortController = new AbortController();
+        const signal = abortController.signal;
+
+        const fetchData = async () => {
+            try {
+                // 여러 API 호출을 동시에 시작합니다.
+                const roomsPromise = api.get(`/api/chat/rooms/`, { signal });
+                const userPromise = api.get('/api/users/me/', { signal });
+                const influencersPromise = api.get('/api/influencers/', { signal });
+                
+                // 모든 API 응답을 기다립니다.
+                const [roomsResponse, userResponse, influencersResponse] = await Promise.all([roomsPromise, userPromise, influencersPromise]);
+                
+                // 각 응답 데이터를 처리합니다.
+                const roomsResults = roomsResponse.data?.results || roomsResponse.data || [];
+                setRooms(Array.isArray(roomsResults) ? roomsResults : []);
+
+                setUser(userResponse.data);
+
+                const influencersResults = influencersResponse.data?.results || influencersResponse.data || [];
+                setInfluencers(Array.isArray(influencersResults) ? influencersResults : []);
+
+            } catch (err) {
+                if (err.name !== 'CanceledError') {
+                    setError('데이터를 불러오는 데 실패했습니다.');
+                    console.error("데이터 로딩 실패:", err);
+                    setUser(null); // 에러 발생 시 사용자 정보 초기화
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+
+        return () => {
+            abortController.abort();
+        };
+    }, []);
+
+    const liveRooms = rooms.filter(room => room.status === 'live');
+    const mainLive = liveRooms.slice(0, 4);
+    
+    // 카드 렌더링 함수
+    // 썸네일 URL 생성 함수 (한글 인코딩 처리)
+    const getThumbnailUrl = (thumbnail) => {
+        if (!thumbnail) {
+            return "data:image/svg+xml,%3Csvg width='400' height='225' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='400' height='225' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' font-size='16' fill='%23999' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
+        }
+        
+        if (thumbnail.startsWith('http')) {
+            return thumbnail;
+        }
+        
+        // 상대 경로인 경우 인코딩 처리
+        const encodedPath = thumbnail.split('/').map(segment => encodeURIComponent(segment)).join('/');
+        return `${apiBaseUrl}/media/${encodedPath}`;
+    };
+
+    const renderRoomCard = (room) => {
+        const isLive = room.status === 'live';
+        const thumbnailUrl = getThumbnailUrl(room.thumbnail);
+        
+        return (
+            <Link to={`/stream/${room.id}`} key={room.id} className={styles.cardLink}>
+                <div className={styles.card}>
+                    <div className={styles.thumb}>
+                        <img src={thumbnailUrl} alt={`${room.name} 썸네일`} />
+                        <div className={`${styles.statusBadge} ${styles.statusLive}`}>LIVE</div>
+                    </div>
+                    <div className={styles.info}>
+                        <p className={styles.streamTitle}>{room.name}</p>
+                        <p className={styles.streamerName}>{room.influencer?.name || '스트리머'}</p>
+                        <div className={styles.bottomInfo}>
+                            {isLive ? (
+                                <span className={styles.viewerCount}>시청자 {room.viewer_count || 0}</span>
+                            ) : (
+                                // 라이브가 아닐 때는 조회수를 표시하거나, 아무것도 표시하지 않을 수 있습니다.
+                                <span>시청자 0 명</span> 
+                            )}
+                            <span className={styles.timeInfo}>{new Date(room.created_at).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                </div>
+            </Link>
+        );
+    };
+
+    if (loading) return <div className={styles.loadingMessage}>로딩 중...</div>;
+    if (error) return <div className={styles.errorMessage}>{error}</div>;
+
+    return (
+        <div className={styles.container}>
+            {/* 1. 메인 라이브 섹션 */}
+            <header className={styles.mainLiveHeader}>
+                <div className={styles.headerText}>
+                    <h1>🔥 지금 뜨는 라이브를 한눈에</h1>
+                    <p>실시간 연애상담, 사연읽기까지 <br></br> AI 스트리머에게 고민을 털어놔보세요.</p>
+                </div>
+                <div className={styles.mainLiveGrid}>
+                    {mainLive.map(room => (
+                        <Link to={`/stream/${room.id}`} key={room.id} className={styles.mainLiveCard}>
+                            <img src={getThumbnailUrl(room.thumbnail)} alt={room.name} />
+                            <div className={styles.liveOverlay}>
+                                <div className={styles.liveIndicator}></div>
+                                <span>LIVE</span>
+                            </div>
+                        </Link>
+                    ))}
+                </div>
+            </header>
+
+            {/* 2. 지금 라이브 섹션 */}
+            <section className={styles.sectionContainer}>
+                <h2 className={styles.sectionTitle}>🔥 지금 라이브</h2>
+                <div className={styles.broadcastList}>
+                    {/* {liveRooms.length > 0 ? liveRooms.map(renderRoomCard) : <p>진행중인 라이브가 없습니다.</p>} */}
+                    {rooms.length > 0 ? rooms.map(renderRoomCard) : <p>진행중인 라이브가 없습니다.</p>}
+                </div>
+            </section>
+
+            {/* 3. 광고 이벤트 섹션 */}
+            <section className={styles.adBanner}>
+                <div className={styles.adText}>
+                    <h2>[광고] AI 스트리머 특별 연애 상담 이벤트</h2>
+                    <p>사연 보내고 방송 참여할 기회 잡으세요!</p>
+                </div>
+                <button className={styles.adButton}>참여하기</button>
+            </section>
+
+            {/* 4. 추천 스트리머 방송국 바로가기 */}
+            <section className={styles.sectionContainer}>
+                <h2 className={styles.sectionTitle}>⭐ 추천 스트리머 방송국 바로가기</h2>
+                <div className={styles.influencerGrid}>
+                    {influencers.slice(0, 6).map(inf => (
+                        <Link to={`/influencers/${inf.id}`} key={inf.id} className={styles.influencerCard}>
+                            <img 
+                                src={inf.profile_image ? `${inf.profile_image}` : "data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100' height='100' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' font-size='14' fill='%23999' text-anchor='middle' dy='.3em'%3E👤%3C/text%3E%3C/svg%3E"}
+                                alt={inf.name}
+                            />
+                            <span>{inf.name}</span>
+                        </Link>
+                    ))}
+                </div>
+            </section>
+
+            {/* 5. 팔로우하는 크리에이터의 실시간 방송 */}
+            <section className={styles.sectionContainer}>
+                <h2 className={styles.sectionTitle}>❤️ {user?.nickname || '회원'}님이 좋아하는 크리에이터의 실시간 방송</h2>
+                <div className={styles.broadcastList}>
+                    {rooms.length > 0 ? rooms.map(renderRoomCard) : <p>팔로우하는 크리에이터의 라이브가 없습니다.</p>}
+                </div>
+            </section>
+        </div>
+    );
+}
+
+export default HomeTemporary;
