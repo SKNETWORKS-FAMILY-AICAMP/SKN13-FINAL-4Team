@@ -1,0 +1,140 @@
+# === LLM 추론 서버 .gitignore ===
+
+# 🤖 AI 모델 파일 (용량이 매우 큼)
+omar_exaone_4.0_1.2b/
+*.bin
+*.safetensors
+*.onnx
+*.pkl
+*.h5
+*.tflite
+models/*/
+checkpoints/
+
+# 📁 환경 설정
+.env
+.env.local
+.env.development
+.env.production
+!.env.example
+
+# 🐍 Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# 📊 로그 파일
+logs/
+*.log
+*.log.*
+debug.log
+error.log
+inference.log
+uvicorn.log
+gunicorn.log
+celery.log
+*.out
+
+# 🔧 개발 도구 및 IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.spyderproject
+.spyproject
+.rope_project_history
+
+# 📱 OS 생성 파일
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# 🐳 Docker
+docker-compose.override.yml
+.dockerignore
+
+# ⚡ 테스트 및 커버리지
+.pytest_cache/
+.coverage
+.coverage.*
+.nyc_output
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.tox/
+htmlcov/
+test-results/
+
+# 🔒 보안 관련
+*.key
+*.pem
+*.crt
+*.csr
+secrets/
+credentials/
+private/
+
+# 📈 모니터링 및 실행 파일
+*.pid
+*.seed
+*.pid.lock
+.monitoring/
+
+# 🎯 임시 파일
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# 📦 패키지 관리
+pip-log.txt
+pip-delete-this-directory.txt
+.pip-cache/
+
+# 💾 데이터 디렉토리
+data/
+datasets/
+outputs/
+results/
+cache/
+
+# 📡 네트워크
+*.sock
+
+# 🚀 배포 관련
+deploy/
+deployment/
+k8s-secrets/
+helm-values-*.yaml
+docker-compose.*.yml
+!docker-compose.yml
