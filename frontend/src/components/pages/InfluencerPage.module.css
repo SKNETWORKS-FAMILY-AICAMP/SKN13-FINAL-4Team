@@ -1,0 +1,312 @@
+/* --- 페이지 기본 레이아웃 --- */
+.pageContainer {
+    background-color: #f0f2f5;
+    padding: 2rem;
+    min-height: 100vh;
+}
+.contentWrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: #ffffff;
+    border-radius: 16px;
+    padding: 2rem 3rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+
+/* --- 상단 헤더 --- */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+.header h1 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #1c1e21;
+}
+.likeButton {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #e4e6eb;
+    color: #606770;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.likeButton:hover { background-color: #d8dadf; }
+.likeButtonActive {
+    background-color: #ffe0e6;
+    color: #ff4757;
+}
+
+
+/* --- 프로필 및 배너 --- */
+.profileSection {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-end; /* 프로필이 배너 하단에 걸치도록 */
+    margin-bottom: 2rem;
+}
+.profileImageContainer {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 5px solid #ffffff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(25%); /* 아래로 25% 내리기 */
+    z-index: 10;
+    flex-shrink: 0;
+    background-color: #fff;
+}
+.profileImageContainer img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+.bannerPlaceholder {
+    height: 120px;
+    flex-grow: 1;
+    background-color: #f0f2f5;
+    border-radius: 12px;
+}
+
+
+/* --- 메인 콘텐츠 (좌우 2단) --- */
+.mainContent {
+    display: grid;
+    grid-template-columns: 300px 1fr; /* 좌 300px, 우 나머지 */
+    gap: 3rem;
+    padding-top: 1rem;
+}
+
+
+/* --- 왼쪽: 후원 랭킹 --- */
+.rankingBoard { border-right: 1px solid #e4e6eb; padding-right: 2rem; }
+.sectionTitle {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #050505;
+    margin-bottom: 0.25rem;
+}
+.sectionSubtitle {
+    font-size: 0.9rem;
+    color: #65676b;
+    margin-bottom: 1.5rem;
+}
+.rankingList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.rankingList li {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f0f2f5;
+}
+.rankingList li:last-child { border-bottom: none; }
+.rankNumber {
+    width: 24px;
+    height: 24px;
+    background-color: #e7f3ff;
+    color: #1877f2;
+    border-radius: 50%;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-right: 1rem;
+}
+.rankName {
+    flex-grow: 1;
+    font-weight: 500;
+    color: #333;
+}
+.rankAmount {
+    font-weight: 600;
+    color: #050505;
+}
+
+
+/* --- 오른쪽: 사연 게시판 --- */
+.storyHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+.writeStoryButton {
+    background-color: #ff4757;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    white-space: nowrap;
+    margin-left: 2rem;
+}
+.writeStoryButton:hover { background-color: #e03c4c; }
+.storyList { margin-top: 1.5rem; }
+.storyItem {
+    border: 1px solid #e4e6eb;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+.storyItem h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+}
+.storyItem p {
+    font-size: 0.95rem;
+    color: #333;
+    line-height: 1.5;
+    margin: 0 0 1rem 0;
+}
+.storyMeta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: #65676b;
+}
+
+
+/* --- 반응형 --- */
+@media (max-width: 992px) {
+    .mainContent {
+        grid-template-columns: 1fr;
+    }
+    .rankingBoard {
+        border-right: none;
+        border-bottom: 1px solid #e4e6eb;
+        padding-right: 0;
+        padding-bottom: 2rem;
+        margin-bottom: 2rem;
+    }
+}
+@media (max-width: 768px) {
+    .contentWrapper { padding: 1rem 1.5rem; }
+    .header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+    .profileSection { flex-direction: column; align-items: center; text-align: center; }
+    .profileImageContainer { transform: translateY(0); margin-bottom: -60px; z-index: 10;}
+    .bannerPlaceholder { margin-top: -60px; z-index: 1; height: 150px; }
+    .storyHeader { flex-direction: column; gap: 1rem; }
+}
+
+.bannerArea {
+    height: 120px;
+    flex-grow: 1;
+    background-color: #f0f2f5;
+    border-radius: 12px;
+    overflow: hidden; 
+}
+
+.bannerImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* 이미지가 영역에 꽉 차도록 */
+}
+
+/* --- 신규 모달 스타일 --- */
+.storyModal .modal-content {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+.modalBody {
+    padding: 2rem 2.5rem;
+    background-color: #f9fafb;
+}
+.formSection {
+    margin-bottom: 2.5rem;
+}
+.formSectionTitle {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: #111827;
+}
+.formRow {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+.inputContainer {
+    position: relative;
+}
+.charCount {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+.inputContainer textarea + .charCount {
+    bottom: 12px; /* textarea는 조금 더 내림 */
+}
+.iconInput {
+    display: flex;
+    align-items: center;
+}
+.inputIcon {
+    position: absolute;
+    left: 12px;
+    color: #9ca3af;
+    z-index: 2;
+}
+.iconInput .form-control, .iconInput .form-select {
+    padding-left: 36px;
+}
+.writingGuide {
+    background-color: #f3f4f6;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+    color: #4b5563;
+}
+.writingGuide ul {
+    padding-left: 1.2rem;
+    margin: 0;
+}
+.agreementSection {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e5e7eb;
+}
+.agreementSection .form-check {
+    margin-bottom: 0.5rem;
+}
+.modalFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 2.5rem;
+}
+.cancelButton, .submitButton {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    border: none;
+}
+.cancelButton {
+    background-color: #e5e7eb;
+    color: #4b5563;
+}
+.submitButton {
+    background-color: #ef4444;
+    color: white;
+}
+.submitButton:disabled {
+    background-color: #fca5a5;
+    cursor: not-allowed;
+}

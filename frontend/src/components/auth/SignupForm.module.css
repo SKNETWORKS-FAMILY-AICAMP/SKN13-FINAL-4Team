@@ -1,0 +1,56 @@
+.signupContainer {
+  max-width: 450px;
+  margin: 50px auto;
+  padding: 40px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--color-text);
+}
+
+.signupHeader { text-align: center; margin-bottom: 40px; }
+.signupHeader h1 { font-size: 28px; font-weight: 600; margin-bottom: 10px; }
+.signupHeader p { font-size: 16px; color: var(--color-text); opacity: 0.7; }
+
+.signupForm {}
+.formGroup { margin-bottom: 25px; }
+
+.formGroup label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+.formGroup input { width: 100%; padding: 12px; border: 1px solid rgba(0,0,0,0.15); border-radius: 8px; font-size: 16px; box-sizing: border-box; background: var(--color-bg); color: var(--color-text); }
+.formGroup input::placeholder { color: #aaa; }
+
+.inputWithButton { display: flex; gap: 10px; }
+.inputWithButton input { flex-grow: 1; }
+.inputWithButton button { padding: 0 15px; border: 1px solid rgba(0,0,0,0.15); background-color: var(--color-bg); color: var(--color-text); border-radius: 8px; cursor: pointer; white-space: nowrap; font-size: 14px; transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease; }
+.inputWithButton button:hover { background-color: rgba(0,0,0,0.04); }
+
+.formGroup small { display: block; margin-top: 8px; font-size: 12px; color: var(--color-text); opacity: 0.7; }
+.error { color: #e53e3e; }
+.success { color: #38a169; }
+
+.signupBtn { width: 100%; padding: 15px; background-color: var(--brand); color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 20px; transition: background-color 160ms ease; }
+.signupBtn:hover { background-color: #ff5a6f; }
+
+.formGroup input:focus,
+.inputWithButton input:focus { outline: none; border-color: #000; box-shadow: 0 0 0 1px #000; }
+
+.signupForm input.validInput { border-color: #0d6efd; box-shadow: 0 0 0 1px #0d6efd; }
+.signupForm input.invalidInput { border-color: #dc3545; box-shadow: 0 0 0 1px #dc3545; }
+
+.formGroup select { width: 100%; padding: 12px; border: 1px solid rgba(0,0,0,0.15); border-radius: 8px; font-size: 16px; box-sizing: border-box; appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%23666" class="bi bi-chevron-down" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg>'); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px; cursor: pointer; background-color: var(--color-bg); color: var(--color-text); }
+.formGroup select::-ms-expand { display: none; }
+.formGroup select:focus { outline: none; border-color: #000; box-shadow: 0 0 0 1px #000; }
+.formGroup select:invalid { color: #aaa; }
+.formGroup select option { color: #333; }
+
+.thumbnailGroup { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.thumbnailPreview { width: 150px; height: 150px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; overflow: hidden; background-color: var(--color-bg); }
+.thumbnailPreview img { width: 100%; height: 100%; object-fit: cover; }
+.thumbnailPlaceholder { font-size: 14px; color: #6c757d; }
+.thumbnailUploadBtn { padding: 8px 16px; border: 1px solid #ccc; background-color: #fff; border-radius: 8px; cursor: pointer; font-size: 14px; }
+
+.formGroup textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; font-family: inherit; resize: vertical; }
+.formGroup textarea:focus { outline: none; border-color: #000; box-shadow: 0 0 0 1px #000; }
+
+[data-theme="dark"] .formGroup select { color: #F5F5F5; }
+[data-theme="dark"] .formGroup select option { color: #F5F5F5; background-color: #262323; }
+
+

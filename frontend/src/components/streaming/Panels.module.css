@@ -1,0 +1,28 @@
+.overlay {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 9999;
+  pointer-events: auto;
+}
+
+.floating {
+  background-color: rgba(13, 27, 42, 0.95);
+  border: 1px solid #495057;
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--color-text);
+  font-size: 0.8rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+  min-width: 320px;
+  max-width: 400px;
+  backdrop-filter: blur(15px);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+[data-theme="dark"] .floating {
+  background-color: rgba(38, 35, 35, 0.95);
+}
+
+
