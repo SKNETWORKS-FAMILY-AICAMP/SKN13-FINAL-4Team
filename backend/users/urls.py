@@ -1,0 +1,47 @@
+# users/urls.py
+
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+# ↓↓↓ 추가할 뷰와 라이브러리 임포트 ↓↓↓
+from rest_framework_simplejwt.views import TokenRefreshView
+from .views import (
+    UserRegistrationAPIView,
+    MyProfileAPIView,
+    UserAdminViewSet,
+    CustomTokenObtainPairView,
+    NicknameCheckAPIView, 
+    UsernameCheckAPIView,
+    PasswordChangeAPIView,
+    MyTokenObtainPairView,
+    UserWalletAPIView,
+    DevAddCreditsAPIView,
+    DevAddCreditsAPIView,
+    FindUsernameAPIView,
+    PasswordResetRequestAPIView,
+    PasswordResetConfirmAPIView,
+)
+
+
+router = DefaultRouter()
+router.register('management', UserAdminViewSet, basename='user-admin')
+
+urlpatterns = [
+    path('wallet/', UserWalletAPIView.as_view(), name='user-wallet-api'),  # Keep wallet API from HEAD
+    path('signup/', UserRegistrationAPIView.as_view(), name='user-signup-api'),
+    path('me/', MyProfileAPIView.as_view(), name='user-profile-api'),
+    path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('check-nickname/', NicknameCheckAPIView.as_view(), name='check-nickname-api'),
+    path('check-username/', UsernameCheckAPIView.as_view(), name='check-username-api'),
+    path('change-password/', PasswordChangeAPIView.as_view(), name='change-password-api'),
+    path('upload-image/', MyProfileAPIView.as_view(), name='upload-image-api'),
+    path('api/token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('find-username/', FindUsernameAPIView.as_view(), name='find-username-api'),
+    path('password-reset/request/', PasswordResetRequestAPIView.as_view(), name='password-reset-request-api'),
+    path('password-reset/confirm/', PasswordResetConfirmAPIView.as_view(), name='password-reset-confirm-api'),
+    
+    # 개발용 API
+    path('dev/add-credits/', DevAddCreditsAPIView.as_view(), name='dev-add-credits'),
+
+    path('', include(router.urls)),
+]

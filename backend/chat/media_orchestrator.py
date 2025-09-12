@@ -1,0 +1,792 @@
+"""
+AI 인플루언서 미디어 처리 허브
+텍스트, TTS, 비디오를 통합 처리하여 동기화된 브로드캐스팅 패킷을 생성
+DDD 아키텍처 기반 StreamSession 사용
+"""
+import time
+import uuid
+import asyncio
+import logging
+import base64
+import json
+from typing import Dict, Any, Optional, Tuple, List
+from datetime import datetime
+from django.conf import settings
+from django.core.cache import cache
+import openai
+import requests
+from .video_manager import VideoSelector
+from .streaming.domain.stream_session import StreamSession, MediaTrack, MediaPacket
+
+logger = logging.getLogger(__name__)
+
+class MediaProcessingHub:
+    """미디어 처리 허브 - TTS, 비디오, 자막을 통합 처리 (DDD 기반 StreamSession 사용)"""
+    
+    def __init__(self):
+        self.video_selector = VideoSelector()
+        self.processing_cache = {}  # 중복 처리 방지용 캐시
+        self.sessions: Dict[str, StreamSession] = {}  # 룸별 세션 관리
+        
+    async def process_ai_response(self, text: str, streamer_config: Dict, room_name: str, emotion: str = 'neutral') -> Dict[str, Any]:
+        """
+        AI 응답을 통합 처리하여 동기화된 미디어 패킷 생성 (단순화된 버전)
+        
+        Args:
+            text: AI 응답 텍스트
+            streamer_config: 스트리머 설정 (음성 등)
+            room_name: 방송 룸 이름
+            emotion: LLM에서 제공한 감정 (기본값: neutral)
+            
+        Returns:
+            동기화된 미디어 패킷
+        """
+        try:
+            process_start = time.time()
+            sync_id = uuid.uuid4().hex
+            
+            logger.info(f"🎬 미디어 처리 시작: {sync_id[:8]} - {text[:50]}... (감정: {emotion})")
+            
+            # 1. 캐시 확인 (디버깅을 위해 임시 비활성화)
+            cache_key = f"media_process_{hash(text)}_{emotion}"
+            # cached_result = cache.get(cache_key)
+            # if cached_result:
+            #     logger.info(f"📦 캐시된 결과 사용: {sync_id[:8]}")
+            #     cached_result['sync_id'] = sync_id
+            #     return cached_result
+            
+            # 2. TTS 생성
+            tts_result = await self._generate_tts_async(text, streamer_config)
+            
+            # 3. 비디오 클립 선택 (talk 비디오) - DB 연동: 캐릭터 ID 기반
+            character_id = streamer_config.get('character_id', 'hongseohyun')  # DB 연동: 기본값 변경
+            talk_video = self.video_selector.get_talk_video(emotion, character_id)
+            idle_video = self.video_selector.get_idle_video(emotion, character_id)
+            
+            # 4. 자막 타이밍 생성
+            subtitle_timing = self._generate_subtitle_timing(text, tts_result['duration'])
+            
+            # 5. 동기화 패킷 생성
+            sync_packet = {
+                'sync_id': sync_id,
+                'timestamp': time.time(),
+                'room_name': room_name,
+                'content': {
+                    'text': text,
+                    'audio_url': tts_result['audio_url'],
+                    'audio_duration': tts_result['duration'],
+                    'talk_video': talk_video,
+                    'idle_video': idle_video,
+                    'emotion': emotion,
+                    'subtitle_timing': subtitle_timing,
+                    'tts_info': tts_result.get('tts_info', {}),
+                    'video_sequence': {
+                        'start_state': 'talk',  # TTS 시작 시 talk 비디오
+                        'end_state': 'idle',    # TTS 완료 후 idle 비디오
+                        'talk_duration': tts_result['duration']
+                    }
+                },
+                'sync_timing': {
+                    'broadcast_delay': 0.5,  # 500ms 버퍼링
+                    'processing_time': time.time() - process_start,
+                    'scheduled_start': time.time() + 0.5,
+                    'idle_return_delay': tts_result['duration'] + 1.0  # TTS 완료 1초 후 idle 복귀
+                },
+                'metadata': {
+                    'streamer_id': streamer_config.get('streamer_id'),
+                    'voice_settings': streamer_config.get('voice_settings', {}),
+                    'created_at': datetime.now().isoformat(),
+                    'system_version': 'simple_idle_talk'
+                }
+            }
+            
+            # 6. 결과 캐싱 (10분간)
+            cache.set(cache_key, sync_packet, 600)
+            
+            logger.info(f"✅ 미디어 처리 완료: {sync_id[:8]} ({sync_packet['sync_timing']['processing_time']:.2f}s)")
+            logger.info(f"   Talk 비디오: {talk_video}, Idle 복귀: {idle_video}")
+            
+            return sync_packet
+            
+        except Exception as e:
+            logger.error(f"❌ 미디어 처리 실패: {str(e)}")
+            return self._create_error_packet(text, str(e), room_name)
+    
+    async def generate_tracks_no_cancellation(self, request_data: Dict) -> Optional[List]:
+        """
+        취소 없는 MediaTrack 생성 (완전 순차 처리용)
+        
+        Args:
+            request_data: 요청 데이터 (message, streamer_config, room_name 등)
+            
+        Returns:
+            List[MediaTrack] or None: 생성된 트랙들
+        """
+        try:
+            text = request_data.get('message', '')
+            streamer_config = request_data.get('streamer_config', {})
+            room_name = request_data.get('room_name')
+            emotion = self._extract_emotion_from_text(text)
+            
+            logger.info(f"🎬 [NO-CANCEL] MediaTrack 생성 시작: {text[:30]}... (감정: {emotion})")
+            
+            # AI 응답이 이미 생성되어 전달되었으므로 재생성하지 않음
+            ai_response = text  # 전달받은 AI 응답 텍스트를 그대로 사용
+            logger.info(f"✅ AI 응답 재사용 (중복 OpenAI 호출 제거): {ai_response[:50]}...")
+                
+            # 감정 재추출 (AI 응답 기반)
+            emotion = self._extract_emotion_from_response(ai_response)
+            clean_response = self._clean_emotion_tags(ai_response)
+            
+            # 🆕 병렬 MediaTrack 생성 (취소 없음 - 순차 처리 보장)
+            tasks = [
+                asyncio.create_task(self._create_audio_track_no_cancel(clean_response, streamer_config, room_name)),
+                asyncio.create_task(self._create_video_track_no_cancel(emotion, streamer_config)),
+                asyncio.create_task(self._create_subtitle_track_no_cancel(clean_response))
+            ]
+            
+            logger.info(f"🚀 [NO-CANCEL] 3개 트랙 병렬 생성 시작: audio, video, subtitle")
+            
+            # 🆕 모든 MediaTrack 작업 완료까지 대기 (취소 없음)
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
+            
+            logger.info(f"📊 [NO-CANCEL] 트랙 생성 완료: {len(done)}개 완료, {len(pending)}개 대기")
+                
+            # 완료된 트랙들 수집
+            tracks = []
+            for i, task in enumerate(tasks):
+                task_name = ['audio', 'video', 'subtitle'][i]  # 순서대로 이름 매핑
+                
+                if task.done() and not task.cancelled():
+                    try:
+                        track = await task
+                        if track:
+                            tracks.append(track)
+                            logger.info(f"✅ [NO-CANCEL] {task_name} 트랙 생성 성공: {track.kind}, {track.payload_ref[:50]}...")
+                        else:
+                            logger.warning(f"⚠️ {task_name} 트랙 생성 결과 None")
+                    except Exception as e:
+                        logger.warning(f"⚠️ {task_name} 트랙 생성 실패: {e}")
+                else:
+                    if task.cancelled():
+                        logger.info(f"🚫 {task_name} 트랙 작업 취소됨")
+                    else:
+                        logger.warning(f"⚠️ {task_name} 트랙 작업 미완료")
+                        
+            if tracks:
+                track_kinds = [t.kind for t in tracks]
+                logger.info(f"✅ [NO-CANCEL] MediaTrack 생성 완료: {len(tracks)}개 트랙 ({', '.join(track_kinds)})")
+                return tracks
+            else:
+                logger.warning("⚠️ [NO-CANCEL] 생성된 MediaTrack가 없습니다")
+                return None
+                
+        except asyncio.CancelledError:
+            logger.info("🚫 [NO-CANCEL] MediaTrack 생성 작업이 취소됨 (예상치 못한 취소)")
+            return None
+        except Exception as e:
+            logger.error(f"❌ [NO-CANCEL] MediaTrack 생성 실패: {str(e)}")
+            return None
+    
+    async def generate_tracks_with_cancellation(self, request_data: Dict, cancel_event: 'asyncio.Event') -> Optional[List]:
+        """
+        취소 가능한 MediaTrack 생성 (레거시 메서드 - 호환성 유지용)
+        
+        Args:
+            request_data: 요청 데이터 (message, streamer_config 등)
+            cancel_event: 취소 이벤트 (set되면 작업 중단)
+            
+        Returns:
+            List[MediaTrack] or None: 생성된 트랙들 또는 취소 시 None
+        """
+        logger.warning("⚠️ generate_tracks_with_cancellation() 호출됨 - generate_tracks_no_cancellation() 사용 권장")
+        # 취소 없는 버전으로 리다이렉트
+        return await self.generate_tracks_no_cancellation(request_data)
+
+    async def _create_audio_track_no_cancel(self, text: str, streamer_config: Dict, room_name: str = None):
+        """취소 없는 오디오 트랙 생성 (순차 처리용)"""
+        try:
+            logger.info(f"🎵 [NO-CANCEL] 오디오 트랙 생성 시작: {text[:30]}...")
+            
+            # TTS 생성 (취소 없음)
+            tts_result = await self._generate_tts_async(text, streamer_config, None, room_name)
+            
+            if not tts_result:
+                logger.warning(f"⚠️ TTS 결과가 None임: {text[:30]}...")
+                return None
+                
+            logger.info(f"🔊 TTS 결과: {tts_result.get('audio_url', 'NO_URL')[:50]}..., 길이: {tts_result.get('duration', 0)}초")
+                
+            # StreamSession.MediaTrack 임포트
+            from .streaming.domain.stream_session import MediaTrack
+            
+            duration_ms = int(tts_result['duration'] * 1000)
+            
+            audio_track = MediaTrack(
+                kind="audio",
+                pts_ms=0,  # 즉시 시작
+                dur_ms=duration_ms,
+                payload_ref=tts_result['audio_url'],
+                codec="audio/mpeg",
+                meta={
+                    'engine': tts_result['tts_info']['engine'],
+                    'voice': tts_result['tts_info'].get('voice'),
+                    'file_size': tts_result['tts_info'].get('file_size', 0),
+                    'emotion': streamer_config.get('emotion', 'neutral')
+                }
+            )
+            
+            logger.info(f"✅ 오디오 MediaTrack 생성 성공 (순차): {audio_track.payload_ref[:50]}...")
+            return audio_track
+            
+        except Exception as e:
+            logger.error(f"❌ 오디오 트랙 생성 실패: {e}")
+            return None
+    
+    async def _create_video_track_no_cancel(self, emotion: str, streamer_config: Dict):
+        """취소 없는 비디오 트랙 생성 (순차 처리용)"""
+        try:
+            character_id = streamer_config.get('character_id', streamer_config.get('streamer_id', 'hongseohyun'))  # DB 연동: character_id 우선 사용
+            relative_video_path = self.video_selector.get_talk_video(emotion, character_id)
+            
+            # BACKEND_BASE_URL을 사용하여 절대 URL 생성
+            base_url = settings.BACKEND_BASE_URL.rstrip('/')
+            absolute_video_url = f"{base_url}{relative_video_path}"
+            
+            from .streaming.domain.stream_session import MediaTrack
+            
+            return MediaTrack(
+                kind="video",
+                pts_ms=0,  # 즉시 시작
+                dur_ms=5000,  # 기본 5초 (TTS 길이에 맞춤)
+                payload_ref=absolute_video_url,
+                codec="video/mp4",
+                meta={
+                    'emotion': emotion,
+                    'character_id': character_id,
+                    'clip_type': 'talk'
+                }
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ 비디오 트랙 생성 실패: {e}")
+            return None
+    
+    async def _create_subtitle_track_no_cancel(self, text: str):
+        """취소 없는 자막 트랙 생성 (순차 처리용)"""
+        try:
+            # 자막 타이밍 생성 (빠른 작업)
+            subtitle_data = self._generate_subtitle_timing(text, 3.0)  # 기본 3초
+                
+            from .streaming.domain.stream_session import MediaTrack
+            
+            return MediaTrack(
+                kind="subtitle",
+                pts_ms=0,  # 즉시 시작
+                dur_ms=int(subtitle_data['total_duration'] * 1000),
+                payload_ref=json.dumps(subtitle_data),  # JSON 문자열로 저장
+                codec="text/json",
+                meta=subtitle_data
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ 자막 트랙 생성 실패: {e}")
+            return None
+    
+    async def _create_audio_track_cancellable(self, text: str, streamer_config: Dict, cancel_event: 'asyncio.Event', room_name: str = None):
+        """취소 가능한 오디오 트랙 생성"""
+        try:
+            if cancel_event.is_set():
+                logger.info("🚫 오디오 트랙 생성 시작 전 취소됨")
+                return None
+                
+            logger.info(f"🎵 오디오 트랙 생성 시작: {text[:30]}...")
+            
+            # TTS 생성 (취소 가능한 버전)
+            tts_result = await self._generate_tts_async(text, streamer_config, cancel_event, room_name)
+            
+            if cancel_event.is_set():
+                logger.info("🚫 오디오 트랙 TTS 생성 후 취소됨")
+                return None
+                
+            if not tts_result:
+                logger.warning(f"⚠️ TTS 결과가 None임 (취소된 것으로 추정): {text[:30]}...")
+                return None
+                
+            logger.info(f"🔊 TTS 결과: {tts_result.get('audio_url', 'NO_URL')[:50]}..., 길이: {tts_result.get('duration', 0)}초")
+                
+            # StreamSession.MediaTrack 임포트
+            from .streaming.domain.stream_session import MediaTrack
+            
+            duration_ms = int(tts_result['duration'] * 1000)
+            
+            audio_track = MediaTrack(
+                kind="audio",
+                pts_ms=0,  # 즉시 시작
+                dur_ms=duration_ms,
+                payload_ref=tts_result['audio_url'],
+                codec="audio/mpeg",
+                meta={
+                    'engine': tts_result['tts_info']['engine'],
+                    'voice': tts_result['tts_info'].get('voice'),
+                    'file_size': tts_result['tts_info'].get('file_size', 0),
+                    'emotion': streamer_config.get('emotion', 'neutral')
+                }
+            )
+            
+            logger.info(f"✅ 오디오 MediaTrack 생성 성공: {audio_track.payload_ref[:50]}...")
+            return audio_track
+            
+        except Exception as e:
+            if not cancel_event.is_set():
+                logger.error(f"❌ 오디오 트랙 생성 실패: {e}")
+            return None
+    
+    async def _create_video_track_cancellable(self, emotion: str, streamer_config: Dict, cancel_event: 'asyncio.Event'):
+        """취소 가능한 비디오 트랙 생성"""
+        try:
+            if cancel_event.is_set():
+                return None
+                
+            character_id = streamer_config.get('character_id', streamer_config.get('streamer_id', 'hongseohyun'))  # DB 연동: character_id 우선 사용
+            talk_video = self.video_selector.get_talk_video(emotion, character_id)
+            
+            if cancel_event.is_set():
+                return None
+                
+            from .streaming.domain.stream_session import MediaTrack
+            
+            return MediaTrack(
+                kind="video",
+                pts_ms=0,  # 즉시 시작
+                dur_ms=5000,  # 기본 5초 (TTS 길이에 맞춤)
+                payload_ref=talk_video,
+                codec="video/mp4",
+                meta={
+                    'emotion': emotion,
+                    'character_id': character_id,
+                    'clip_type': 'talk'
+                }
+            )
+            
+        except Exception as e:
+            if not cancel_event.is_set():
+                logger.error(f"❌ 비디오 트랙 생성 실패: {e}")
+            return None
+    
+    async def _create_subtitle_track_cancellable(self, text: str, cancel_event: 'asyncio.Event'):
+        """취소 가능한 자막 트랙 생성"""
+        try:
+            if cancel_event.is_set():
+                return None
+                
+            # 자막 타이밍 생성 (빠른 작업)
+            subtitle_data = self._generate_subtitle_timing(text, 3.0)  # 기본 3초
+            
+            if cancel_event.is_set():
+                return None
+                
+            from .streaming.domain.stream_session import MediaTrack
+            
+            return MediaTrack(
+                kind="subtitle",
+                pts_ms=0,  # 즉시 시작
+                dur_ms=int(subtitle_data['total_duration'] * 1000),
+                payload_ref=json.dumps(subtitle_data),  # JSON 문자열로 저장
+                codec="text/json",
+                meta=subtitle_data
+            )
+            
+        except Exception as e:
+            if not cancel_event.is_set():
+                logger.error(f"❌ 자막 트랙 생성 실패: {e}")
+            return None
+    
+    def _extract_emotion_from_text(self, text: str) -> str:
+        """텍스트에서 간단한 감정 추출"""
+        text_lower = text.lower()
+        if any(word in text_lower for word in ['행복', 'happy', '좋아', '기뻐', '웃음', '😊', '😄']):
+            return 'happy'
+        elif any(word in text_lower for word in ['슬퍼', 'sad', '우울', '😢', '😭']):
+            return 'sad'
+        elif any(word in text_lower for word in ['화나', 'angry', '짜증', '😠', '😡']):
+            return 'angry'
+        elif any(word in text_lower for word in ['놀라', 'surprised', '깜짝', '😱', '😲']):
+            return 'surprised'
+        else:
+            return 'neutral'
+    
+    
+    async def _generate_tts_async(self, text: str, streamer_config: Dict, cancel_event: Optional['asyncio.Event'] = None, room_name: str = None) -> Dict[str, Any]:
+        """TTS 생성 (비동기, 취소 가능, fallback 지원)"""
+        logger.info(f"🔊 TTS 생성 시작: {text[:30]}...")
+        
+        # 취소 확인
+        if cancel_event and cancel_event.is_set():
+            logger.info(f"🚫 TTS 생성 취소됨: {text[:30]}...")
+            return None
+            
+        voice_settings = streamer_config.get('voice_settings', {})
+        engine = voice_settings.get('engine', 'elevenlabs')
+        logger.info(f"🔊 TTS 엔진: {engine}, 설정: {voice_settings}")
+        
+        # 우선 설정된 엔진 시도
+        try:
+            if engine == 'elevenlabs':
+                return await self._generate_elevenlabs_tts_async(text, voice_settings, cancel_event, room_name)
+            elif engine == 'openai':
+                return await self._generate_openai_tts_async(text, voice_settings, cancel_event)
+            else:
+                # 기본값: ElevenLabs 시도
+                return await self._generate_elevenlabs_tts_async(text, voice_settings, cancel_event, room_name)
+                
+        except Exception as primary_error:
+            logger.warning(f"⚠️ 기본 TTS 엔진 ({engine}) 실패: {primary_error}")
+            
+            # 취소 확인
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 TTS fallback 중 취소 확인됨: {text[:30]}...")
+                return None
+            
+            # Fallback 로직
+            if engine != 'openai':
+                try:
+                    logger.info(f"🔄 OpenAI TTS fallback 시도: {text[:30]}...")
+                    return await self._generate_openai_tts_async(text, voice_settings, cancel_event)
+                except Exception as fallback_error:
+                    logger.error(f"❌ OpenAI TTS fallback도 실패: {fallback_error}")
+                    
+            elif engine != 'elevenlabs':
+                try:
+                    logger.info(f"🔄 ElevenLabs TTS fallback 시도: {text[:30]}...")
+                    return await self._generate_elevenlabs_tts_async(text, voice_settings, cancel_event, room_name)
+                except Exception as fallback_error:
+                    logger.error(f"❌ ElevenLabs TTS fallback도 실패: {fallback_error}")
+            
+            # 모든 fallback 실패
+            logger.error(f"❌ 모든 TTS 엔진 실패, 기본 응답 반환")
+            return {
+                'audio_url': None,
+                'duration': 3.0,  # 기본 3초
+                'tts_info': {
+                    'engine': 'fallback_error',
+                    'error': str(primary_error),
+                    'status': 'failed'
+                }
+            }
+    
+    async def _get_room_tts_settings(self, room_name: str) -> Dict[str, Any]:
+        """인플루언서의 TTS 설정을 가져옵니다. (DB 기반, async 지원)"""
+        logger.info(f"🔍 TTS 설정 조회 시작: influencer_name='{room_name}'")
+        
+        try:
+            from influencers.models import Influencer
+            from asgiref.sync import sync_to_async
+            
+            # 인플루언서 이름으로 직접 조회 (async 지원)
+            influencer = await sync_to_async(
+                lambda: Influencer.objects.get(name=room_name)
+            )()
+            logger.info(f"✅ 인플루언서 발견: {influencer.name} (ID: {influencer.id})")
+            
+            # TTS 설정 조회 (async 지원)
+            from influencers.models import InfluencerTTSSettings
+            tts_settings, created = await sync_to_async(
+                InfluencerTTSSettings.get_or_create_for_influencer
+            )(influencer)
+            
+            if tts_settings:
+                settings_dict = await sync_to_async(tts_settings.to_dict)()
+                logger.info(f"🎤 DB에서 TTS 설정 로드 성공: {room_name} -> {settings_dict.get('influencerName', 'Unknown')} (음성: {settings_dict.get('elevenLabsVoice', 'unknown')})")
+                return settings_dict
+            else:
+                logger.warning(f"⚠️ TTS 설정이 None: influencer={room_name}")
+                
+        except Influencer.DoesNotExist:
+            logger.warning(f"⚠️ 인플루언서를 찾을 수 없음: '{room_name}' - DB에 해당 이름의 인플루언서가 존재하지 않음")
+        except Exception as e:
+            logger.error(f"❌ TTS 설정 로드 실패: {room_name}, 오류: {e}")
+            import traceback
+            logger.error(f"스택 트레이스: {traceback.format_exc()}")
+        
+        # 폴백: 기본 설정 반환
+        logger.info(f"🔄 기본 TTS 설정 사용: {room_name}")
+        return {
+            'ttsEngine': 'elevenlabs',
+            'elevenLabsVoice': 'jinseonkyu',  # 진선규로 변경 (강시현 설정)
+            'elevenLabsVoiceName': '진선규',
+            'elevenLabsModel': 'eleven_multilingual_v2',
+            'elevenLabsStability': 0.5,
+            'elevenLabsSimilarity': 0.8,
+            'elevenLabsStyle': 0.0,
+            'elevenLabsSpeakerBoost': True,
+        }
+
+    async def _generate_elevenlabs_tts_async(self, text: str, voice_settings: Dict, cancel_event: Optional['asyncio.Event'] = None, room_name: str = None) -> Dict[str, Any]:
+        """ElevenLabs TTS 생성 (비동기, 취소 가능) - DB 기반 설정 지원"""
+        try:
+            logger.info(f"🎤 ElevenLabs TTS 호출 시작: {text[:30]}...")
+            
+            # 취소 확인
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 ElevenLabs TTS 취소됨: {text[:30]}...")
+                return None
+            
+            api_key = settings.ELEVENLABS_API_KEY
+            if not api_key:
+                logger.error("❌ ElevenLabs API key not configured")
+                raise ValueError("ElevenLabs API key not configured")
+            
+            # DB에서 TTS 설정 가져오기 (room_name이 있는 경우)
+            db_settings = {}
+            if room_name:
+                db_settings = await self._get_room_tts_settings(room_name)
+                logger.info(f"🎯 DB TTS 설정 적용: {db_settings.get('elevenLabsVoice', 'aneunjin')}")
+            
+            # 프론트엔드 설정과 DB 설정을 병합 (프론트엔드 우선, DB가 폴백)
+            voice_id = voice_settings.get('voice_id') or voice_settings.get('elevenLabsVoice') or db_settings.get('elevenLabsVoice', 'aneunjin')
+            logger.info(f"🎵 최종 선택된 음성: {voice_id}")
+            
+            # 음성 설정 매핑 (tts_elevenlabs_service.py와 동일하게 통일)
+            voice_map = {
+                'kimtaeri': 'PYIEHCvteC0ap3heCDbb',    # 김태리 (한국 여성 배우)
+                'kimminjeong': 'bVX97o47RYQtk03GL6wm', # 김민정 (한국 여성 배우)  
+                'jinseonkyu': '1dvyGqeOCue02PTfuv8y', # 진선규 (한국 남성 배우)
+                'parkchangwook': 'lTnybkYVn5xKJh4m1CFW', # 박창욱 (한국 남성 배우)
+                'aneunjin': 'RKTNVKtxs81mm8C5aFU6', # 안은진 (한국 여성 배우)
+                'jiyoung': 'AW5wrnG1jVizOYY7R1Oo'     # JiYoung (활기찬 젊은 여성 음성) - 올바른 여성 Voice ID
+            }
+            
+            actual_voice_id = voice_map.get(voice_id, voice_map['aneunjin'])
+            
+            url = f"https://api.elevenlabs.io/v1/text-to-speech/{actual_voice_id}"
+            
+            headers = {
+                "Accept": "audio/mpeg",
+                "Content-Type": "application/json",
+                "xi-api-key": api_key
+            }
+            
+            # 프론트엔드 설정, DB 설정 순으로 우선순위 적용
+            model_id = (voice_settings.get('model_id') or 
+                       voice_settings.get('elevenLabsModel') or 
+                       db_settings.get('elevenLabsModel', 'eleven_multilingual_v2'))
+            
+            stability = (voice_settings.get('stability') or 
+                        voice_settings.get('elevenLabsStability') or 
+                        db_settings.get('elevenLabsStability', 0.5))
+            
+            similarity = (voice_settings.get('similarity_boost') or 
+                         voice_settings.get('elevenLabsSimilarity') or 
+                         db_settings.get('elevenLabsSimilarity', 0.8))
+            
+            style = (voice_settings.get('style') or 
+                    voice_settings.get('elevenLabsStyle') or 
+                    db_settings.get('elevenLabsStyle', 0.0))
+            
+            speaker_boost = voice_settings.get('use_speaker_boost') 
+            if speaker_boost is None:
+                speaker_boost = voice_settings.get('elevenLabsSpeakerBoost')
+                if speaker_boost is None:
+                    speaker_boost = db_settings.get('elevenLabsSpeakerBoost', True)
+            
+            logger.info(f"🎛️ TTS 파라미터: model={model_id}, stability={stability}, similarity={similarity}, style={style}, boost={speaker_boost}")
+            
+            data = {
+                "text": text,
+                "model_id": model_id,
+                "voice_settings": {
+                    "stability": stability,
+                    "similarity_boost": similarity,
+                    "style": style,
+                    "use_speaker_boost": speaker_boost
+                }
+            }
+            
+            # 취소 확인 후 HTTP 요청
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 HTTP 요청 전 취소 확인됨: {text[:30]}...")
+                return None
+            
+            # 동기 HTTP 요청 with timeout
+            response = requests.post(url, json=data, headers=headers, timeout=10.0)
+            
+            # 취소 확인
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 HTTP 응답 중 취소 확인됨: {text[:30]}...")
+                return None
+            
+            if response.status_code != 200:
+                logger.error(f"❌ ElevenLabs API 응답 오류: {response.status_code} - {response.text}")
+                raise Exception(f"ElevenLabs API error: {response.status_code}")
+            
+            content = response.content
+            logger.info(f"✅ ElevenLabs API 성공: {len(content)} bytes")
+            
+            # 취소 확인
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 응답 처리 중 취소 확인됨: {text[:30]}...")
+                return None
+            
+            # 오디오 데이터를 base64로 인코딩해서 직접 전달
+            audio_base64 = base64.b64encode(content).decode('utf-8')
+            audio_data_url = f"data:audio/mpeg;base64,{audio_base64}"
+            logger.info(f"🎵 오디오 데이터 생성 완료: {len(content)} bytes -> base64")
+            
+            # 오디오 길이 추정 (실제로는 오디오 파일 분석 필요)
+            estimated_duration = len(text) * 0.1  # 대략적 추정
+            logger.info(f"⏱️ 추정 오디오 길이: {estimated_duration}초")
+            
+            return {
+                'audio_url': audio_data_url,
+                'duration': estimated_duration,
+                'tts_info': {
+                    'engine': 'elevenlabs',
+                    'voice': voice_id,
+                    'model': data['model_id'],
+                    'file_size': len(content),
+                    'format': 'base64_data_url'
+                }
+            }
+            
+        except Exception as e:
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 ElevenLabs TTS 작업 취소됨: {str(e)}")
+                return None
+            logger.error(f"❌ ElevenLabs TTS 실패: {str(e)}")
+            raise
+    
+    async def _generate_openai_tts_async(self, text: str, voice_settings: Dict, cancel_event: Optional['asyncio.Event'] = None) -> Dict[str, Any]:
+        """OpenAI TTS 생성 (비동기, 취소 가능)"""
+        try:
+            logger.info(f"🎤 OpenAI TTS 호출 시작: {text[:30]}...")
+            
+            # 취소 확인
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 OpenAI TTS 취소됨: {text[:30]}...")
+                return None
+                
+            if not settings.OPENAI_API_KEY:
+                logger.error("❌ OpenAI API key not configured")
+                raise ValueError("OpenAI API key not configured")
+            
+            client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+            
+            # 취소 확인
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 OpenAI API 호출 전 취소 확인됨: {text[:30]}...")
+                return None
+            
+            response = await client.audio.speech.create(
+                model="tts-1-hd",
+                voice=voice_settings.get('openai_voice', 'alloy'),
+                input=text,
+                speed=voice_settings.get('speed', 1.0)
+            )
+            
+            # 취소 확인
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 OpenAI 응답 처리 중 취소 확인됨: {text[:30]}...")
+                return None
+            
+            # 오디오 데이터를 base64로 인코딩해서 직접 전달
+            audio_base64 = base64.b64encode(response.content).decode('utf-8')
+            audio_data_url = f"data:audio/mpeg;base64,{audio_base64}"
+            logger.info(f"🎵 OpenAI 오디오 데이터 생성 완료: {len(response.content)} bytes -> base64")
+            
+            estimated_duration = len(text) * 0.08
+            
+            return {
+                'audio_url': audio_data_url,
+                'duration': estimated_duration,
+                'tts_info': {
+                    'engine': 'openai',
+                    'voice': voice_settings.get('openai_voice', 'alloy'),
+                    'model': 'tts-1-hd',
+                    'file_size': len(response.content),
+                    'format': 'base64_data_url'
+                }
+            }
+            
+        except Exception as e:
+            if cancel_event and cancel_event.is_set():
+                logger.info(f"🚫 OpenAI TTS 작업 취소됨: {str(e)}")
+                return None
+            logger.error(f"❌ OpenAI TTS 실패: {str(e)}")
+            raise
+    
+    
+    def _generate_subtitle_timing(self, text: str, duration: float) -> Dict[str, Any]:
+        """자막 타이밍 생성"""
+        words = text.split()
+        time_per_word = duration / len(words) if words else 0
+        
+        subtitle_segments = []
+        current_time = 0
+        
+        for i, word in enumerate(words):
+            segment_duration = time_per_word
+            subtitle_segments.append({
+                'word': word,
+                'start': current_time,
+                'end': current_time + segment_duration,
+                'index': i
+            })
+            current_time += segment_duration
+        
+        return {
+            'segments': subtitle_segments,
+            'total_duration': duration,
+            'words_count': len(words)
+        }
+    
+    
+    def _create_error_packet(self, text: str, error: str, room_name: str) -> Dict[str, Any]:
+        """에러 패킷 생성"""
+        return {
+            'sync_id': uuid.uuid4().hex,
+            'timestamp': time.time(),
+            'room_name': room_name,
+            'content': {
+                'text': text,
+                'error': error,
+                'fallback_mode': True
+            },
+            'sync_timing': {
+                'broadcast_delay': 0,
+                'processing_time': 0,
+                'scheduled_start': time.time()
+            },
+            'metadata': {
+                'error': True,
+                'created_at': datetime.now().isoformat()
+            }
+        }
+    
+    def _create_tts_error_result(self, text: str, error: str) -> Dict[str, Any]:
+        """TTS 에러 결과 생성"""
+        return {
+            'audio_url': '',
+            'duration': 0,
+            'tts_info': {
+                'engine': 'none',
+                'error': error,
+                'fallback_failed': True
+            }
+        }
+    
+    def _extract_emotion_from_response(self, response: str) -> str:
+        """AI 응답에서 감정 태그 추출"""
+        import re
+        emotion_match = re.search(r'\[emotion:(\w+)\]', response)
+        if emotion_match:
+            return emotion_match.group(1).lower()
+        return 'neutral'  # 기본값
+    
+    def _clean_emotion_tags(self, text: str) -> str:
+        """텍스트에서 감정 태그 제거"""
+        import re
+        # [emotion:감정] 형태의 태그 제거
+        cleaned = re.sub(r'\[emotion:\w+\]', '', text)
+        # 앞뒤 공백 제거
+        return cleaned.strip()

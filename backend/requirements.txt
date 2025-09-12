@@ -1,0 +1,40 @@
+# requirements.txt
+
+# Django & DRF
+Django>=4.2
+djangorestframework
+djangorestframework-simplejwt
+drf-nested-routers
+
+# Channels
+channels>=4.0.0
+channels_redis>=4.2.0
+daphne>=4.0.0
+django-redis>=5.4.0
+
+# PostgreSQL
+psycopg2-binary
+
+# cors
+django-cors-headers
+Pillow
+
+# AI Integration
+openai
+python-dotenv
+httpx  # ElevenLabs API 호출용
+requests  # HTTP 요청용
+langchain
+langchain-core
+langgraph
+langchain-openai
+
+# Audio Processing
+soundfile  # 오디오 파일 처리
+numpy  # 오디오 데이터 처리
+
+# HuggingFace Transformers (감정 분류)
+transformers
+torch
+protobuf
+sentencepiece  # KoBERT 토크나이저용

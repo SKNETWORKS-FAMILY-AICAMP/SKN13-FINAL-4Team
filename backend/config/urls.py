@@ -1,0 +1,46 @@
+"""
+URL configuration for config project.
+
+The `urlpatterns` list routes URLs to views. For more information please see:
+    https://docs.djangoproject.com/en/5.2/topics/http/urls/
+Examples:
+Function views
+    1. Add an import:  from my_app import views
+    2. Add a URL to urlpatterns:  path('', views.home, name='home')
+Class-based views
+    1. Add an import:  from other_app.views import Home
+    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
+Including another URLconf
+    1. Import the include() function: from django.urls import include, path
+    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+"""
+from django.contrib import admin
+from django.urls import path, include # include를 import 해야 합니다.
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
+from django.conf import settings
+from django.conf.urls.static import static
+
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    
+    # API 관련 URL들을 /api/ 아래로 그룹화
+    path('api/users/', include('users.urls')),
+    path('api/chat/', include('chat.urls')), # /api/chat/ 으로 경로를 명확히 함
+    path('api/payments/', include('payments.urls')),  # Keep payments URL from HEAD
+    path('api/influencers/', include('influencers.urls')), # influencers urls
+    path('api/debug/', include('debugging.urls')), # debugging urls
+
+    # 토큰 관련 API
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+]
+
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # Video files serving from frontend/public/videos
+    urlpatterns += static(settings.VIDEO_URL, document_root=settings.VIDEO_ROOT)
