@@ -253,9 +253,9 @@ A.X = 정확도 유사 수준 + **속도 우위** → 스트리밍 상담에 최
 ---
 
 ## 9) 서버 부하 테스트
-추가 예정.  
-시나리오:
-지표: 
+https://github.com/user-attachments/assets/cc7299e7-3aa9-4168-9105-67a490c72e03
+https://github.com/user-attachments/assets/3a97fd2d-3c6e-43e7-8e2f-fdc399cacca3
+https://github.com/user-attachments/assets/dce0dd61-ae9f-49c6-bc5a-427d9ae1818a
 
 ---
 
